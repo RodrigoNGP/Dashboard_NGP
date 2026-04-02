@@ -339,11 +339,17 @@ export default function DashboardPage() {
   async function loadRelatorios() {
     if (!viewing) return
     try {
-      const res = await fetch(
-        `${SURL}/rest/v1/relatorios?or=(cliente_id.eq.${viewing.id},cliente_username.eq.${viewing.username})&select=id,titulo,periodo,updated_at,dados&order=updated_at.desc`,
-        { headers: { apikey: ANON, Authorization: `Bearer ${ANON}` } }
-      )
-      if (res.ok) setRelatorios(await res.json())
+      const res = await fetch(`${SURL}/functions/v1/get-relatorios`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: ANON },
+        body: JSON.stringify({
+          session_token: sess?.session,
+          cliente_id: viewing.id,
+          cliente_username: viewing.username,
+        }),
+      })
+      const data = await res.json()
+      if (data.relatorios) setRelatorios(data.relatorios)
     } catch {}
   }
 
