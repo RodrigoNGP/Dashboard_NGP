@@ -503,7 +503,7 @@ const defaultSecTitles=()=>({
 let D={
   cliente:'',gestor:'',periodo:'',
   linkReportei:'',resumo:'',
-  showMeta:true,
+  showMeta:true,semAntLabel:'Semana Anterior',
   metricas:defaultMetricas(),extraCols:[],
   criativos:[defaultCriativo(),defaultCriativo()],
   acoes:[{acao:'',motivo:''},{acao:'',motivo:''},{acao:'',motivo:''}],
@@ -574,6 +574,7 @@ function loadData(){
     const r=localStorage.getItem(SK);if(!r)return;
     D=JSON.parse(r);
     if(D.showMeta===undefined)D.showMeta=true;
+    if(D.semAntLabel===undefined)D.semAntLabel='Semana Anterior';
     if(D.anexos&&typeof D.anexos[0]==='string')D.anexos=D.anexos.map(a=>({img:a,comment:''}));
     if(D.campanhas)D.campanhas.forEach(c=>{
       if(!c.platform)c.platform='none';
@@ -661,6 +662,7 @@ async function loadFromCloud(id){
     cloudId=data[0].id;
     D=data[0].dados;
     if(D.showMeta===undefined)D.showMeta=true;
+    if(D.semAntLabel===undefined)D.semAntLabel='Semana Anterior';
     if(D.anexos&&typeof D.anexos[0]==='string')D.anexos=D.anexos.map(a=>({img:a,comment:''}));
     if(D.campanhas)D.campanhas.forEach(c=>{
       if(!c.platform)c.platform='none';
@@ -702,7 +704,7 @@ function renderMetricsTable(metricas,extraCols,prefix){
       <th style="min-width:140px">Métrica</th>
       ${D.showMeta?'<th>Meta</th>':''}
       <th>Resultado</th>
-      <th style="min-width:130px">Semana Anterior</th>
+      <th style="min-width:130px"><input value="${esc(D.semAntLabel||'Semana Anterior')}" style="background:transparent;border:none;border-bottom:1px dashed #999;color:inherit;font:inherit;font-weight:700;width:120px;text-align:center;cursor:text;outline:none" oninput="D.semAntLabel=this.value;saveData();renderPreview()" title="Clique para editar o nome da coluna"/></th>
       <th style="min-width:80px">Variação</th>
       ${eCols.map(c=>`<th>${esc(c.label)}<button class="btn-remove" style="margin-left:4px;font-size:11px" onclick="${prefix}removeCol('${c.id}')">×</button></th>`).join('')}
       <th style="width:74px;text-align:center">Cor</th>
@@ -1188,7 +1190,7 @@ function pTable(metricas,extraCols){
   return`<table class="p-table">
     <thead><tr>
       <th>Métrica</th>${D.showMeta?'<th>Meta</th>':''}
-      <th>Resultado</th><th>Semana Anterior</th><th>Variação</th>
+      <th>Resultado</th><th>${esc(D.semAntLabel||'Semana Anterior')}</th><th>Variação</th>
       ${eCols.map(c=>`<th>${esc(c.label)}</th>`).join('')}
     </tr></thead>
     <tbody>
@@ -1994,7 +1996,7 @@ function fillCompIntoReport(){
         <div class="comp-col-head" style="color:#5856D6">
           <span style="font-size:15px">🔁</span>
           <span class="comp-col-head-label">Comparação</span>
-          <span class="comp-col-head-sub">(Semana Anterior)</span>
+          <span class="comp-col-head-sub">(${esc(D.semAntLabel||'Semana Anterior')})</span>
         </div>
         <div id="comp-periods-B" class="comp-quick-row"></div>
         <div id="comp-custom-B" class="meta-custom-row">
