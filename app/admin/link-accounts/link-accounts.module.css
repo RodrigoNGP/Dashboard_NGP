@@ -1,0 +1,123 @@
+.container {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  background: #f5f5f5;
+  min-height: 100vh;
+}
+
+.container h1 {
+  color: #333;
+  margin-bottom: 2rem;
+  font-size: 1.8rem;
+}
+
+.error {
+  background: #fee;
+  color: #c33;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 2rem;
+  border-left: 4px solid #c33;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 1.5rem;
+}
+
+.clienteCard {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.clienteInfo {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.clienteInfo img {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #eee;
+  flex-shrink: 0;
+}
+
+.clienteInfo div {
+  flex: 1;
+}
+
+.clienteInfo h3 {
+  margin: 0;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.clienteInfo p {
+  margin: 0.25rem 0 0 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.linked {
+  color: #28a745 !important;
+  font-weight: 500;
+  margin-top: 0.5rem !important;
+}
+
+.accountSelect p {
+  margin: 0 0 0.75rem 0;
+  color: #666;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.accountList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.accountBtn {
+  padding: 0.75rem;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+  text-align: left;
+}
+
+.accountBtn:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.accountBtn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 1rem;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .container h1 {
+    font-size: 1.4rem;
+  }
+}

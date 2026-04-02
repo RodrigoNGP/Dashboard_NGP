@@ -1,0 +1,59 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #F5F5F7;
+  --bg2: #FFFFFF;
+  --bg3: #F0F0F2;
+  --bg4: #E5E5EA;
+  --border: #E5E5EA;
+  --border2: #D1D1D6;
+  --text: #111111;
+  --text2: #6E6E73;
+  --text3: #AEAEB2;
+  --accent: #CC1414;
+  --accent2: #A80F0F;
+  --accent-light: #FFF3F3;
+  --accent-dim: rgba(204,20,20,0.08);
+  --green: #16A34A;
+  --green-dim: rgba(22,163,74,0.08);
+  --red: #CC1414;
+  --red-dim: rgba(204,20,20,0.08);
+  --amber: #D97706;
+  --amber-dim: rgba(217,119,6,0.1);
+  --purple: #7C3AED;
+  --teal: #0891B2;
+  --dark: #0D0D0D;
+  --dark2: #1C1C1E;
+  --sidebar: 220px;
+  --header: 56px;
+  --radius: 10px;
+  --radius-sm: 7px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.07), 0 4px 12px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.10), 0 1px 3px rgba(0,0,0,0.06);
+  --font: 'Sora', sans-serif;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+input, textarea, button, select { font-family: var(--font); }
+input:focus, textarea:focus { outline: none; border-color: var(--red) !important; }
+
+.spinner {
+  width: 28px; height: 28px;
+  border: 2.5px solid rgba(0,0,0,0.1);
+  border-top-color: var(--red);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin: 0 auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+@media print {
+  .no-print { display: none !important; }
+}

@@ -1,0 +1,41 @@
+{
+  "project_id": "uqukfjtwsuffeunikiwz",
+  "functions": [
+    {
+      "slug": "meta-proxy",
+      "importmap_path": "functions/_shared/importmap.json"
+    },
+    {
+      "slug": "login1",
+      "importmap_path": "functions/_shared/importmap.json"
+    },
+    {
+      "slug": "logout",
+      "importmap_path": "functions/_shared/importmap.json"
+    },
+    {
+      "slug": "add-cliente",
+      "importmap_path": "functions/_shared/importmap.json"
+    },
+    {
+      "slug": "update-cliente",
+      "importmap_path": "functions/_shared/importmap.json"
+    },
+    {
+      "slug": "delete-relatorio",
+      "importmap_path": "functions/_shared/importmap.json"
+    },
+    {
+      "slug": "update-profile",
+      "importmap_path": "functions/_shared/importmap.json"
+    },
+    {
+      "slug": "save-relatorio",
+      "importmap_path": "functions/_shared/importmap.json"
+    },
+    {
+      "slug": "get-ngp-data",
+      "importmap_path": "functions/_shared/importmap.json"
+    }
+  ]
+}

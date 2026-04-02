@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meu Perfil — NGP Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:     #0a0b0d;
+      --bg2:    #111318;
+      --bg3:    #181c23;
+      --border: rgba(255,255,255,0.07);
+      --text:   #f0f2f5;
+      --text2:  #8b92a5;
+      --text3:  #4a5168;
+      --accent: #CC1414;
+      --green:  #16a34a;
+      --radius: 14px;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;min-height:100vh;}
+
+    /* ── TOP BAR ── */
+    .top-bar{
+      display:flex;align-items:center;gap:14px;
+      padding:14px 24px;
+      border-bottom:1px solid var(--border);
+      background:var(--bg2);
+      position:sticky;top:0;z-index:10;
+    }
+    .btn-back{
+      background:var(--bg3);border:1px solid var(--border);
+      color:var(--text2);padding:7px 14px;border-radius:8px;
+      cursor:pointer;font-family:'Sora',sans-serif;font-size:13px;
+      display:flex;align-items:center;gap:6px;transition:all .15s;
+    }
+    .btn-back:hover{color:var(--text);border-color:rgba(255,255,255,0.15);}
+    .top-title{font-size:15px;font-weight:600;}
+
+    /* ── PAGE ── */
+    .page{max-width:540px;margin:36px auto;padding:0 20px;display:flex;flex-direction:column;gap:18px;}
+
+    /* ── CARD ── */
+    .card{
+      background:var(--bg2);border:1px solid var(--border);
+      border-radius:var(--radius);padding:24px;
+    }
+    .card-title{
+      font-size:11px;font-weight:600;color:var(--text3);
+      text-transform:uppercase;letter-spacing:.07em;margin-bottom:20px;
+    }
+
+    /* ── AVATAR ── */
+    .avatar-row{display:flex;align-items:center;gap:20px;}
+    .avatar-wrap{position:relative;flex-shrink:0;}
+    .avatar-circle{
+      width:80px;height:80px;border-radius:50%;
+      background:var(--accent);color:#fff;
+      font-size:26px;font-weight:700;
+      display:flex;align-items:center;justify-content:center;
+      cursor:pointer;overflow:hidden;
+      border:2px solid rgba(255,255,255,0.08);
+      transition:opacity .15s;
+    }
+    .avatar-circle:hover{opacity:.85;}
+    .avatar-circle img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;}
+    .avatar-overlay{
+      position:absolute;inset:0;border-radius:50%;
+      background:rgba(0,0,0,0.52);
+      display:flex;align-items:center;justify-content:center;
+      opacity:0;transition:opacity .15s;font-size:20px;
+    }
+    .avatar-circle:hover .avatar-overlay{opacity:1;}
+    #file-input{display:none;}
+
+    .avatar-info .uname{font-size:18px;font-weight:600;margin-bottom:3px;}
+    .avatar-info .uslug{font-size:13px;color:var(--text2);margin-bottom:10px;}
+    .role-badge{
+      display:inline-flex;align-items:center;gap:5px;
+      padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;
+    }
+    .role-ngp   {background:rgba(204,20,20,.15);color:var(--accent);}
+    .role-cliente{background:rgba(22,163,74,.12);color:var(--green);}
+
+    .btn-upload{
+      margin-top:12px;background:var(--bg3);border:1px solid var(--border);
+      color:var(--text2);padding:7px 13px;border-radius:8px;
+      cursor:pointer;font-family:'Sora',sans-serif;font-size:12px;font-weight:500;
+      transition:all .15s;display:inline-block;
+    }
+    .btn-upload:hover{color:var(--text);border-color:rgba(255,255,255,0.15);}
+
+    /* ── FORM ── */
+    .form-group{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+    .form-group:last-of-type{margin-bottom:0;}
+    label{font-size:12px;font-weight:500;color:var(--text2);}
+    input[type=text],input[type=password]{
+      background:var(--bg3);border:1px solid var(--border);
+      border-radius:9px;padding:10px 14px;
+      color:var(--text);font-family:'Sora',sans-serif;font-size:14px;
+      outline:none;transition:border-color .15s;width:100%;
+    }
+    input:focus{border-color:var(--accent);}
+
+    .btn-save{
+      width:100%;padding:11px;margin-top:6px;
+      background:var(--accent);color:#fff;border:none;
+      border-radius:9px;font-family:'Sora',sans-serif;
+      font-size:14px;font-weight:600;cursor:pointer;
+      transition:opacity .15s;
+    }
+    .btn-save:hover{opacity:.88;}
+    .btn-save:disabled{opacity:.45;cursor:not-allowed;}
+
+    /* ── MSG ── */
+    .msg{
+      font-size:12px;padding:9px 13px;border-radius:9px;
+      margin-top:12px;display:none;
+    }
+    .msg.ok {background:rgba(22,163,74,.12);color:var(--green);display:block;}
+    .msg.err{background:rgba(204,20,20,.12);color:var(--accent);display:block;}
+
+    /* ── UPLOAD PROGRESS ── */
+    .progress-bar{
+      height:3px;background:var(--bg3);border-radius:2px;
+      margin-top:10px;overflow:hidden;display:none;
+    }
+    .progress-bar.show{display:block;}
+    .progress-fill{height:100%;background:var(--accent);width:0%;transition:width .3s;}
+
+    @media(max-width:480px){
+      .page{margin:20px auto;}
+      .avatar-row{flex-direction:column;text-align:center;}
+      .avatar-info{display:flex;flex-direction:column;align-items:center;}
+    }
+  </style>
+</head>
+<body>
+
+<div class="top-bar">
+  <button class="btn-back" onclick="goBack()">← Voltar</button>
+  <span class="top-title">Meu Perfil</span>
+</div>
+
+<div class="page">
+
+  <!-- ── FOTO & INFO ── -->
+  <div class="card">
+    <div class="card-title">Informações da conta</div>
+    <div class="avatar-row">
+      <div class="avatar-wrap">
+        <div class="avatar-circle" id="avatar-circle" onclick="document.getElementById('file-input').click()">
+          <span id="avatar-initials">?</span>
+          <div class="avatar-overlay">📷</div>
+        </div>
+        <input type="file" id="file-input" accept="image/png,image/jpeg,image/webp" onchange="handleFileSelect(event)">
+      </div>
+      <div class="avatar-info">
+        <div class="uname" id="display-name">—</div>
+        <div class="uslug" id="display-username">@—</div>
+        <span class="role-badge" id="role-badge">—</span>
+        <br>
+        <button class="btn-upload" onclick="document.getElementById('file-input').click()">📷 Alterar foto</button>
+      </div>
+    </div>
+    <div class="progress-bar" id="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+    <div class="msg" id="msg-foto"></div>
+  </div>
+
+  <!-- ── ALTERAR NOME ── -->
+  <div class="card">
+    <div class="card-title">Alterar nome</div>
+    <div class="form-group">
+      <label for="input-nome">Nome de exibição</label>
+      <input type="text" id="input-nome" placeholder="Seu nome completo" maxlength="60" autocomplete="off">
+    </div>
+    <button class="btn-save" id="btn-nome" onclick="saveNome()">Salvar nome</button>
+    <div class="msg" id="msg-nome"></div>
+  </div>
+
+  <!-- ── ALTERAR SENHA ── -->
+  <div class="card">
+    <div class="card-title">Alterar senha</div>
+    <div class="form-group">
+      <label for="input-senha-atual">Senha atual</label>
+      <input type="password" id="input-senha-atual" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <div class="form-group">
+      <label for="input-senha-nova">Nova senha</label>
+      <input type="password" id="input-senha-nova" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+    </div>
+    <div class="form-group">
+      <label for="input-senha-conf">Confirmar nova senha</label>
+      <input type="password" id="input-senha-conf" placeholder="Repita a nova senha" autocomplete="new-password">
+    </div>
+    <button class="btn-save" id="btn-senha" onclick="saveSenha()">Alterar senha</button>
+    <div class="msg" id="msg-senha"></div>
+  </div>
+
+</div>
+
+<script>
+const SURL = 'https://uqukfjtwsuffeunikiwz.supabase.co';
+const ANON = 'sb_publishable_8Be9xpxGtJDsM8AGtcDwmQ_Z_WPhYQ_';
+
+// Guard — restaura sessão persistida se sessionStorage estiver vazio
+(function(){
+  if(sessionStorage.getItem('adsboard_auth')==='1') return;
+  try{
+    var p=JSON.parse(localStorage.getItem('_ngp_persist')||'{}');
+    if(p.auth==='1'&&p.exp&&Date.now()<p.exp){
+      sessionStorage.setItem('adsboard_auth',    p.auth);
+      sessionStorage.setItem('adsboard_session', p.sess);
+      sessionStorage.setItem('adsboard_user',    p.user);
+      sessionStorage.setItem('adsboard_role',    p.role);
+      sessionStorage.setItem('adsboard_username',p.username);
+      if(p.expires)      sessionStorage.setItem('adsboard_expires',     p.expires);
+      if(p.meta_account) sessionStorage.setItem('adsboard_meta_account',p.meta_account);
+    }
+  }catch(e){}
+})();
+const sess     = sessionStorage.getItem('adsboard_session');
+const auth     = sessionStorage.getItem('adsboard_auth');
+const role     = sessionStorage.getItem('adsboard_role');
+const nome     = sessionStorage.getItem('adsboard_user')     || '';
+const username = sessionStorage.getItem('adsboard_username') || '';
+const fotoUrl  = sessionStorage.getItem('adsboard_foto')     || '';
+
+// Guard
+if (auth !== '1' || !sess) { window.location.href = 'login.html'; }
+
+// ── Init UI ──
+document.getElementById('display-name').textContent     = nome || '—';
+document.getElementById('display-username').textContent = '@' + (username || '—');
+document.getElementById('input-nome').value             = nome;
+document.getElementById('avatar-initials').textContent  = nome ? nome.slice(0,2).toUpperCase() : '?';
+
+if (fotoUrl) setAvatarImg(fotoUrl);
+
+const badge = document.getElementById('role-badge');
+if (role === 'ngp') {
+  badge.textContent = '⚙ NGP Admin';
+  badge.className   = 'role-badge role-ngp';
+} else {
+  badge.textContent = '👤 Cliente';
+  badge.className   = 'role-badge role-cliente';
+}
+
+// ── Helpers ──
+function goBack() {
+  window.location.href = role === 'ngp' ? 'adsboard-dashboard.html' : 'cliente-dashboard.html';
+}
+
+function setAvatarImg(url) {
+  const circle = document.getElementById('avatar-circle');
+  let img = circle.querySelector('img');
+  if (!img) {
+    img = document.createElement('img');
+    circle.insertBefore(img, circle.firstChild);
+  }
+  img.src = url;
+  img.onerror = () => img.remove();
+}
+
+function showMsg(id, text, type) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'msg ' + type;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.className = 'msg'; }, 5000);
+}
+
+function setProgress(pct) {
+  const bar  = document.getElementById('progress-bar');
+  const fill = document.getElementById('progress-fill');
+  if (pct === null) { bar.classList.remove('show'); fill.style.width = '0%'; return; }
+  bar.classList.add('show');
+  fill.style.width = pct + '%';
+}
+
+// ── FOTO ────────────────────────────────────────────────────────────────────
+async function handleFileSelect(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    showMsg('msg-foto', 'Selecione uma imagem válida (PNG, JPG ou WebP).', 'err'); return;
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    showMsg('msg-foto', 'A imagem deve ter no máximo 2MB.', 'err'); return;
+  }
+
+  // Preview imediato
+  const reader = new FileReader();
+  reader.onload = ev => setAvatarImg(ev.target.result);
+  reader.readAsDataURL(file);
+
+  setProgress(30);
+  try {
+    const ext  = file.name.split('.').pop().toLowerCase() || 'jpg';
+    const path = username + '.' + ext;
+
+    // Upload no Supabase Storage (bucket: avatars)
+    const upRes = await fetch(SURL + '/storage/v1/object/avatars/' + path, {
+      method: 'POST',
+      headers: {
+        'apikey': ANON,
+        'Authorization': 'Bearer ' + sess,
+        'Content-Type': file.type,
+        'x-upsert': 'true'
+      },
+      body: file
+    });
+    setProgress(70);
+    if (!upRes.ok) throw new Error('upload');
+
+    const publicUrl = SURL + '/storage/v1/object/public/avatars/' + path;
+
+    // Salva URL no perfil via Edge Function
+    const saveRes = await fetch(SURL + '/functions/v1/update-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': ANON, 'Authorization': 'Bearer ' + sess },
+      body: JSON.stringify({ foto_url: publicUrl })
+    });
+    setProgress(100);
+    const saveData = await saveRes.json();
+    if (!saveRes.ok) throw new Error(saveData.error || 'save');
+
+    sessionStorage.setItem('adsboard_foto', publicUrl);
+    showMsg('msg-foto', '✓ Foto atualizada com sucesso!', 'ok');
+  } catch {
+    showMsg('msg-foto', 'Erro ao salvar foto. Tente novamente.', 'err');
+  } finally {
+    setTimeout(() => setProgress(null), 800);
+  }
+}
+
+// ── NOME ────────────────────────────────────────────────────────────────────
+async function saveNome() {
+  const novoNome = document.getElementById('input-nome').value.trim();
+  if (!novoNome || novoNome.length < 2) {
+    showMsg('msg-nome', 'Digite um nome com ao menos 2 caracteres.', 'err'); return;
+  }
+
+  const btn = document.getElementById('btn-nome');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  try {
+    const res = await fetch(SURL + '/functions/v1/update-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': ANON, 'Authorization': 'Bearer ' + sess },
+      body: JSON.stringify({ nome: novoNome })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro');
+
+    sessionStorage.setItem('adsboard_user', novoNome);
+    document.getElementById('display-name').textContent    = novoNome;
+    document.getElementById('avatar-initials').textContent = novoNome.slice(0,2).toUpperCase();
+    showMsg('msg-nome', '✓ Nome atualizado com sucesso!', 'ok');
+  } catch {
+    showMsg('msg-nome', 'Erro ao salvar. Tente novamente.', 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Salvar nome';
+  }
+}
+
+// ── SENHA ────────────────────────────────────────────────────────────────────
+async function saveSenha() {
+  const atual = document.getElementById('input-senha-atual').value;
+  const nova  = document.getElementById('input-senha-nova').value;
+  const conf  = document.getElementById('input-senha-conf').value;
+
+  if (!atual)         { showMsg('msg-senha', 'Digite sua senha atual.', 'err'); return; }
+  if (nova.length < 6){ showMsg('msg-senha', 'A nova senha deve ter ao menos 6 caracteres.', 'err'); return; }
+  if (nova !== conf)  { showMsg('msg-senha', 'As senhas não coincidem.', 'err'); return; }
+
+  const btn = document.getElementById('btn-senha');
+  btn.disabled = true; btn.textContent = 'Alterando...';
+  try {
+    const res = await fetch(SURL + '/functions/v1/update-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': ANON, 'Authorization': 'Bearer ' + sess },
+      body: JSON.stringify({ senha_atual: atual, senha_nova: nova })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro');
+
+    document.getElementById('input-senha-atual').value = '';
+    document.getElementById('input-senha-nova').value  = '';
+    document.getElementById('input-senha-conf').value  = '';
+    showMsg('msg-senha', '✓ Senha alterada com sucesso!', 'ok');
+  } catch(e) {
+    const msg = e.message === 'Senha atual incorreta'
+      ? 'Senha atual incorreta.' : 'Erro ao alterar senha. Tente novamente.';
+    showMsg('msg-senha', msg, 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Alterar senha';
+  }
+}
+</script>
+</body>
+</html>

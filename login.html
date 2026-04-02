@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NGP Dashboard — Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0a0b0d;--bg2:#111318;--bg3:#181c23;
+  --border:rgba(255,255,255,0.07);
+  --text:#f0f2f5;--text2:#8b92a5;--text3:#4a5168;
+  --accent:#CC1414;--red:#CC1414;
+}
+body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.wrap{width:100%;max-width:420px;}
+.logo-area{text-align:center;margin-bottom:32px;}
+.logo-mark{width:52px;height:52px;background:var(--accent);border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;}
+.logo-mark svg{width:26px;height:26px;fill:#fff;}
+.logo-text{font-size:22px;font-weight:700;letter-spacing:-0.03em;}
+.logo-text span{color:var(--accent);}
+.logo-sub{font-size:12px;color:var(--text3);margin-top:4px;}
+.tabs{display:flex;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:24px;}
+.tab-btn{flex:1;padding:9px;border-radius:7px;border:none;background:transparent;color:var(--text2);font-family:'Sora',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.2s;}
+.tab-btn.active{background:var(--bg3);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,0.3);}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:28px;}
+.field{margin-bottom:16px;}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:7px;}
+.field input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:var(--text);font-family:'Sora',sans-serif;font-size:13px;outline:none;transition:border-color 0.2s;}
+.field input:focus{border-color:var(--accent);}
+.field input::placeholder{color:var(--text3);}
+.btn-login{width:100%;padding:12px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-family:'Sora',sans-serif;font-size:14px;font-weight:600;cursor:pointer;margin-top:4px;}
+.btn-login:hover{opacity:0.9;}
+.err{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--red);margin-bottom:16px;display:none;}
+.hint{text-align:center;font-size:11px;color:var(--text3);margin-top:14px;}
+.badge{display:inline-flex;align-items:center;gap:6px;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;margin-bottom:16px;}
+.badge-c{background:rgba(204,20,20,0.1);border:1px solid rgba(204,20,20,0.2);color:var(--accent);}
+.badge-n{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:var(--red);}
+.db-badge{text-align:center;font-size:10px;color:var(--text3);margin-top:16px;display:flex;align-items:center;justify-content:center;gap:5px;}
+.db-dot{width:6px;height:6px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite;}
+.loading{display:none;position:fixed;inset:0;background:var(--bg);z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
+.loading.show{display:flex;}
+.spinner{width:32px;height:32px;border:2.5px solid rgba(255,255,255,0.1);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;}
+.loading-text{font-size:13px;color:var(--text2);}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo-area">
+    <div class="logo-mark">
+      <svg viewBox="0 0 24 24"><path d="M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm14 3a4 4 0 110-8 4 4 0 010 8z"/></svg>
+    </div>
+    <div class="logo-text">NGP <span>Dashboard</span></div>
+    <div class="logo-sub">Plataforma de gestão de campanhas</div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-cliente" onclick="setTab('cliente')">👤 Cliente</button>
+    <button class="tab-btn"        id="tab-ngp"     onclick="setTab('ngp')">🚀 NGP</button>
+  </div>
+
+  <div class="card">
+    <div id="panel-cliente">
+      <div class="badge badge-c">👤 Área do Cliente</div>
+      <div class="err" id="err-cliente"></div>
+      <div class="field"><label>Usuário</label><input type="text" id="u-cliente" placeholder="Seu usuário"/></div>
+      <div class="field"><label>Senha</label><input type="password" id="p-cliente" placeholder="Sua senha"/></div>
+      <button class="btn-login" id="btn-cliente" onclick="doLogin('cliente')">Entrar</button>
+      <div class="hint">Acesso restrito a clientes autorizados</div>
+    </div>
+    <div id="panel-ngp" style="display:none;">
+      <div class="badge badge-n">🚀 Área NGP</div>
+      <div class="err" id="err-ngp"></div>
+      <div class="field"><label>Usuário</label><input type="text" id="u-ngp" placeholder="ngp"/></div>
+      <div class="field"><label>Senha</label><input type="password" id="p-ngp" placeholder="Senha NGP"/></div>
+      <button class="btn-login" id="btn-ngp" onclick="doLogin('ngp')" style="background:var(--red);">Entrar</button>
+      <div class="hint">Acesso exclusivo equipe NGP</div>
+    </div>
+  </div>
+
+  <div class="db-badge"><span class="db-dot"></span>Conectado ao Supabase</div>
+</div>
+
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">Verificando...</div>
+</div>
+
+<script>
+// ✅ SEGURO — apenas anon key exposta, service key escondida na Edge Function
+var SURL = 'https://uqukfjtwsuffeunikiwz.supabase.co';
+var ANON = 'sb_publishable_8Be9xpxGtJDsM8AGtcDwmQ_Z_WPhYQ_';
+var tab  = 'cliente';
+
+function setTab(t) {
+  tab = t;
+  document.getElementById('tab-cliente').className = 'tab-btn' + (t==='cliente'?' active':'');
+  document.getElementById('tab-ngp').className     = 'tab-btn' + (t==='ngp'    ?' active':'');
+  document.getElementById('panel-cliente').style.display = t==='cliente'?'block':'none';
+  document.getElementById('panel-ngp').style.display     = t==='ngp'    ?'block':'none';
+  document.getElementById('err-cliente').style.display = 'none';
+  document.getElementById('err-ngp').style.display     = 'none';
+}
+
+function showErr(t, msg) {
+  var el = document.getElementById('err-'+t);
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+async function doLogin(t) {
+  var u   = document.getElementById('u-'+t).value.trim().toLowerCase();
+  var p   = document.getElementById('p-'+t).value;
+  var btn = document.getElementById('btn-'+t);
+
+  if (!u || !p) { showErr(t, 'Preencha todos os campos.'); return; }
+
+  btn.disabled    = true;
+  btn.textContent = 'Aguarde...';
+  document.getElementById('err-'+t).style.display = 'none';
+
+  try {
+    // Chama Edge Function — service key NUNCA sai do servidor
+    const res = await fetch(SURL + '/functions/v1/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': ANON,
+        'Authorization': 'Bearer ' + ANON
+      },
+      body: JSON.stringify({ username: u, password: p, role: t })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      showErr(t, data.error || 'Erro ao fazer login.');
+      btn.disabled = false; btn.textContent = 'Entrar'; return;
+    }
+
+    // Salva token de sessão — sem chaves do banco
+    sessionStorage.setItem('adsboard_auth',       '1');
+    sessionStorage.setItem('adsboard_session',    data.session_token);
+    sessionStorage.setItem('adsboard_user',       data.user.nome);
+    sessionStorage.setItem('adsboard_role',       data.user.role);
+    sessionStorage.setItem('adsboard_username',   data.user.username);
+    sessionStorage.setItem('adsboard_expires',    data.expires_at);
+    if (data.user.meta_account_id) sessionStorage.setItem('adsboard_meta_account', data.user.meta_account_id);
+
+    // Persiste login por 1 dia (ou até expires_at do servidor)
+    try {
+      var expTs = data.expires_at ? new Date(data.expires_at).getTime() : (Date.now() + 86400000);
+      localStorage.setItem('_ngp_persist', JSON.stringify({
+        auth: '1', sess: data.session_token, user: data.user.nome,
+        role: data.user.role, username: data.user.username,
+        expires: data.expires_at, meta_account: data.user.meta_account_id || '',
+        exp: expTs
+      }));
+    } catch(e) {}
+
+    document.getElementById('loading-text').textContent = 'Bem-vindo, ' + data.user.nome + '!';
+    document.getElementById('loading').classList.add('show');
+    // Se veio de um link de relatório, volta pra lá após login
+    var returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
+    var dest = safeRedirect(returnUrl) || (data.user.role === 'ngp' ? 'adsboard-dashboard.html' : 'cliente-dashboard.html');
+    setTimeout(function() { window.location.href = dest; }, 900);
+
+  } catch(e) {
+    showErr(t, 'Erro de conexão. Verifique sua internet e tente novamente.');
+    btn.disabled = false; btn.textContent = 'Entrar';
+  }
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') doLogin(tab);
+});
+
+// Valida que returnUrl é uma URL relativa do mesmo domínio (evita Open Redirect)
+function safeRedirect(url) {
+  if (!url) return null;
+  var decoded = decodeURIComponent(url);
+  // Rejeita qualquer URL absoluta (http://, https://, //, etc.)
+  if (/^(https?:)?\/\//i.test(decoded)) return null;
+  // Rejeita protocolos perigosos (javascript:, data:, etc.)
+  if (/^[a-z][a-z0-9+\-.]*:/i.test(decoded)) return null;
+  return decoded;
+}
+
+if (sessionStorage.getItem('adsboard_auth') === '1') {
+  // Verifica se sessão ainda é válida
+  var token = sessionStorage.getItem('adsboard_session');
+  var expires = sessionStorage.getItem('adsboard_expires');
+  if (token && expires && new Date(expires) > new Date()) {
+    // Se já logado e tem returnUrl, vai pra lá direto
+    var returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
+    var dest = safeRedirect(returnUrl);
+    if (dest) {
+      window.location.href = dest;
+    } else {
+      var savedRole = sessionStorage.getItem('adsboard_role');
+      window.location.href = savedRole === 'ngp' ? 'adsboard-dashboard.html' : 'cliente-dashboard.html';
+    }
+  } else {
+    sessionStorage.clear();
+  }
+}
+</script>
+</body>
+</html>

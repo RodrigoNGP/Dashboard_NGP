@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UTM Builder — NGP Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F5F5F7;--bg2:#FFFFFF;--bg3:#F0F0F2;--bg4:#E5E5EA;
+  --border:#E5E5EA;--border2:#D1D1D6;
+  --text:#111111;--text2:#6E6E73;--text3:#AEAEB2;
+  --accent:#CC1414;--accent2:#A80F0F;--accent-light:#FFF3F3;--accent-dim:rgba(204,20,20,0.08);
+  --green:#16A34A;--green-dim:rgba(22,163,74,0.08);
+  --amber:#D97706;
+  --dark:#0D0D0D;--dark2:#1C1C1E;
+  --sidebar:220px;--header:56px;
+  --radius:10px;--radius-sm:7px;
+  --shadow:0 1px 3px rgba(0,0,0,0.07),0 4px 12px rgba(0,0,0,0.04);
+  --shadow-md:0 4px 16px rgba(0,0,0,0.10),0 1px 3px rgba(0,0,0,0.06);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;}
+
+/* ── SIDEBAR ── */
+aside{
+  width:var(--sidebar);min-height:100vh;background:var(--dark);
+  display:flex;flex-direction:column;flex-shrink:0;position:sticky;top:0;
+}
+.sidebar-logo{padding:18px 14px 14px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:10px;}
+.logo-mark{width:30px;height:30px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.logo-mark svg{width:16px;height:16px;fill:#fff;}
+.logo-text{font-size:14px;font-weight:700;color:#fff;letter-spacing:-.3px;}
+.logo-text span{color:var(--accent);}
+.role-label{font-size:10px;color:rgba(255,255,255,0.35);margin-top:1px;}
+.sidebar-nav{flex:1;padding:10px 8px;display:flex;flex-direction:column;gap:2px;}
+.nav-label{font-size:9px;font-weight:700;color:rgba(255,255,255,0.25);letter-spacing:.1em;text-transform:uppercase;padding:8px 8px 4px;}
+.nav-item{
+  display:flex;align-items:center;gap:9px;
+  padding:8px 10px;border-radius:var(--radius-sm);border:none;
+  background:transparent;color:rgba(255,255,255,0.55);
+  font-family:'Sora',sans-serif;font-size:13px;font-weight:500;
+  cursor:pointer;text-align:left;transition:all .15s;width:100%;
+}
+.nav-item svg{width:15px;height:15px;flex-shrink:0;}
+.nav-item:hover{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.9);}
+.nav-item.active{background:var(--accent);color:#fff;}
+.nav-badge{margin-left:auto;background:rgba(204,20,20,.8);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px;}
+.sidebar-footer{padding:12px 10px;border-top:1px solid rgba(255,255,255,0.08);}
+.user-block{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:var(--radius-sm);}
+.user-info{display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;min-width:0;}
+.user-info:hover .user-name-s{color:var(--accent);}
+.user-avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#7C3AED);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;overflow:hidden;flex-shrink:0;}
+.user-name-s{font-size:12px;font-weight:500;color:#fff;}
+.btn-logout{background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer;padding:4px;border-radius:5px;font-size:16px;transition:color .15s;}
+.btn-logout:hover{color:var(--accent);}
+
+/* ── MAIN ── */
+.main{flex:1;min-width:0;display:flex;flex-direction:column;}
+.header{
+  height:var(--header);background:var(--bg2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 24px;gap:16px;
+  position:sticky;top:0;z-index:5;
+}
+.header-title{font-size:15px;font-weight:700;letter-spacing:-.3px;}
+.page{padding:28px 24px;max-width:800px;width:100%;}
+
+/* ── CARDS ── */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:22px;margin-bottom:16px;box-shadow:var(--shadow);}
+.card-head{display:flex;align-items:center;gap:10px;margin-bottom:18px;}
+.card-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.card-icon.red{background:var(--accent-dim);}
+.card-icon.green{background:var(--green-dim);}
+.card-icon.blue{background:rgba(79,168,255,.1);}
+.card-title-t{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text2);}
+
+/* ── FIELDS ── */
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.field-grid.full{grid-template-columns:1fr;}
+.field{display:flex;flex-direction:column;gap:6px;}
+label{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text2);display:flex;align-items:center;gap:6px;}
+label .req{color:var(--accent);font-size:13px;}
+label .tip{margin-left:auto;font-size:10px;font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0;}
+
+input[type=text],input[type=url],select,textarea{
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:10px 13px;
+  color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;
+  width:100%;transition:border-color .15s,box-shadow .15s;outline:none;
+}
+input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim);}
+input::placeholder{color:var(--text3);}
+select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236E6E73' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;cursor:pointer;}
+select option{background:var(--bg2);}
+
+.divider{height:1px;background:var(--border);margin:18px 0;}
+
+/* presets */
+.presets{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+.preset-btn{
+  padding:4px 10px;border-radius:100px;border:1px solid var(--border);
+  background:transparent;color:var(--text2);font-family:'JetBrains Mono',monospace;
+  font-size:11px;cursor:pointer;transition:all .15s;
+}
+.preset-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
+
+/* hint */
+.hint{font-size:11px;padding:4px 9px;border-radius:6px;margin-top:3px;display:none;font-family:'JetBrains Mono',monospace;}
+.hint-error{background:rgba(204,20,20,.08);color:var(--accent);display:block;}
+
+/* ── OUTPUT ── */
+.url-display{
+  background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:16px;position:relative;overflow:hidden;transition:border-color .3s;
+}
+.url-display::before{
+  content:'';position:absolute;inset:0 0 auto 0;height:2px;
+  background:linear-gradient(90deg,var(--accent),#7C3AED);
+  transform:scaleX(0);transform-origin:left;transition:transform .4s ease;
+}
+.url-display.has-url::before{transform:scaleX(1);}
+.url-text{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);word-break:break-all;line-height:1.8;min-height:36px;}
+.url-text .pk{color:#2563eb;}
+.url-text .pv{color:var(--accent);}
+.url-text .bu{color:var(--text2);}
+.url-empty{color:var(--text3);font-style:italic;font-family:'JetBrains Mono',monospace;font-size:12px;}
+
+.char-row{display:flex;justify-content:space-between;align-items:center;margin-top:8px;}
+.char-count{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3);}
+.char-count span{color:var(--accent);}
+.score-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:100px;font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;}
+.score-good{background:var(--green-dim);color:var(--green);border:1px solid rgba(22,163,74,.2);}
+.score-medium{background:rgba(217,119,6,.08);color:var(--amber);border:1px solid rgba(217,119,6,.2);}
+
+/* actions */
+.actions{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;margin-top:14px;}
+.btn{padding:11px 20px;border-radius:var(--radius-sm);border:none;font-family:'Sora',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:7px;}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{background:var(--accent2);transform:translateY(-1px);}
+.btn-secondary{background:rgba(79,168,255,.1);border:1px solid rgba(79,168,255,.25);color:#2563eb;}
+.btn-secondary:hover{background:rgba(79,168,255,.18);transform:translateY(-1px);}
+.btn-ghost{background:var(--bg3);border:1px solid var(--border);color:var(--text2);}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent);}
+.btn:active{transform:translateY(0)!important;}
+
+/* stats */
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px;}
+.stat{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;text-align:center;}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:500;color:var(--accent);line-height:1;margin-bottom:3px;}
+.stat-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;}
+
+/* history */
+.history-list{display:flex;flex-direction:column;gap:8px;}
+.history-item{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:10px;}
+.history-item:hover{border-color:var(--accent);background:var(--accent-dim);}
+.hm{flex:1;min-width:0;}
+.hs{font-size:12px;font-weight:700;color:var(--accent);margin-bottom:2px;}
+.hu{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hbtn{background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:4px 7px;border-radius:5px;transition:all .15s;flex-shrink:0;}
+.hbtn:hover.copy{color:var(--accent);}
+.hbtn:hover.del{color:var(--accent);}
+.empty-h{text-align:center;padding:28px;color:var(--text3);font-size:13px;}
+
+/* toast */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--accent);color:#fff;padding:10px 22px;border-radius:100px;font-weight:700;font-size:13px;z-index:1000;transition:transform .3s cubic-bezier(.34,1.56,.64,1);display:flex;align-items:center;gap:7px;pointer-events:none;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+
+@media(max-width:640px){
+  aside{display:none;}
+  .field-grid{grid-template-columns:1fr;}
+  .actions{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside>
+  <div class="sidebar-logo">
+    <div class="logo-mark"><svg viewBox="0 0 24 24"><path d="M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm14 3a4 4 0 110-8 4 4 0 010 8z"/></svg></div>
+    <div>
+      <div class="logo-text">NGP <span>Dashboard</span></div>
+      <div class="role-label" id="role-label">🚀 NGP Admin</div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-label">VISÃO GERAL</div>
+    <button class="nav-item" onclick="window.location.href='adsboard-dashboard.html'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Resumo
+    </button>
+    <button class="nav-item" onclick="window.location.href='adsboard-dashboard.html'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>Campanhas
+    </button>
+    <button class="nav-item" onclick="window.location.href='adsboard-dashboard.html'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Gráficos
+    </button>
+    <button class="nav-item" onclick="window.open('relatorio.html?novo=1','_blank','noopener,noreferrer')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Relatório ↗
+    </button>
+
+    <div class="nav-label" style="margin-top:12px;">PLATAFORMAS</div>
+    <button class="nav-item" onclick="window.location.href='adsboard-dashboard.html'">
+      <svg viewBox="0 0 24 24" fill="#1877f2" stroke="none" stroke-width="0" width="15" height="15"><circle cx="12" cy="12" r="10"/><path d="M16 8h-2a2 2 0 00-2 2v2h4l-.5 4H12v8h-4v-8H6v-4h2v-2a6 6 0 016-6h2v4z" fill="#fff"/></svg>Meta Ads
+    </button>
+    <button class="nav-item" style="cursor:default;opacity:0.6">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>Google Ads<span class="nav-badge">breve</span>
+    </button>
+
+    <div class="nav-label" style="margin-top:12px;">SISTEMA</div>
+    <button class="nav-item" onclick="window.location.href='/dashboard'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Trocar conta
+    </button>
+    <button class="nav-item active" onclick="window.location.href='utm-builder.html'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>UTM Builder
+    </button>
+    <button class="nav-item" onclick="window.location.href='ia-analise.html'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 4a1.5 1.5 0 1 1-1.5 1.5A1.5 1.5 0 0 1 12 6zm3 11H9v-2h2v-4H9v-2h4v6h2z"/></svg>Análise IA
+    </button>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="user-block">
+      <div class="user-info" onclick="window.location.href='perfil.html'" title="Meu perfil">
+        <div class="user-avatar" id="user-avatar">N</div>
+        <div style="min-width:0;">
+          <div class="user-name-s" id="user-name">NGP</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.35);">Acesso total</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="doLogout()" title="Sair">⏻</button>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="header">
+    <span class="header-title">🔗 UTM Builder</span>
+  </div>
+
+  <div class="page">
+
+    <!-- URL base -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-icon green">🌐</div>
+        <span class="card-title-t">URL de destino</span>
+      </div>
+      <div class="field">
+        <label>URL <span class="req">*</span></label>
+        <input type="url" id="url" placeholder="https://seusite.com.br/pagina" oninput="validate(); buildUTM()">
+        <div class="hint" id="hint-url"></div>
+      </div>
+    </div>
+
+    <!-- Parâmetros UTM -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-icon red">📊</div>
+        <span class="card-title-t">Parâmetros UTM</span>
+      </div>
+      <div class="field-grid">
+        <div class="field">
+          <label>utm_source <span class="req">*</span><span class="tip">de onde vem o tráfego</span></label>
+          <select id="utm_source" onchange="syncCustom('source'); buildUTM()">
+            <option value="">Selecionar...</option>
+            <option value="google">google</option>
+            <option value="facebook">facebook</option>
+            <option value="instagram">instagram</option>
+            <option value="tiktok">tiktok</option>
+            <option value="youtube">youtube</option>
+            <option value="linkedin">linkedin</option>
+            <option value="twitter">twitter</option>
+            <option value="email">email</option>
+            <option value="whatsapp">whatsapp</option>
+            <option value="newsletter">newsletter</option>
+            <option value="sms">sms</option>
+            <option value="custom">✏️ Personalizado...</option>
+          </select>
+          <input type="text" id="utm_source_custom" placeholder="fonte personalizada" style="display:none;margin-top:6px" oninput="buildUTM()">
+        </div>
+        <div class="field">
+          <label>utm_medium <span class="req">*</span><span class="tip">tipo de mídia</span></label>
+          <select id="utm_medium" onchange="syncCustom('medium'); buildUTM()">
+            <option value="">Selecionar...</option>
+            <option value="cpc">cpc (pago por clique)</option>
+            <option value="cpm">cpm (pago por impressão)</option>
+            <option value="organic">organic</option>
+            <option value="social">social</option>
+            <option value="social-paid">social-paid</option>
+            <option value="email">email</option>
+            <option value="display">display</option>
+            <option value="video">video</option>
+            <option value="affiliate">affiliate</option>
+            <option value="referral">referral</option>
+            <option value="push">push</option>
+            <option value="sms">sms</option>
+            <option value="custom">✏️ Personalizado...</option>
+          </select>
+          <input type="text" id="utm_medium_custom" placeholder="mídia personalizada" style="display:none;margin-top:6px" oninput="buildUTM()">
+        </div>
+        <div class="field">
+          <label>utm_campaign <span class="req">*</span><span class="tip">nome da campanha</span></label>
+          <input type="text" id="utm_campaign" placeholder="black-friday-2025" oninput="sanitize(this); buildUTM()">
+          <div class="presets">
+            <button class="preset-btn" onclick="setPreset('utm_campaign','black-friday-2025')">black-friday</button>
+            <button class="preset-btn" onclick="setPreset('utm_campaign','lancamento-produto')">lançamento</button>
+            <button class="preset-btn" onclick="setPreset('utm_campaign','remarketing')">remarketing</button>
+            <button class="preset-btn" onclick="setPreset('utm_campaign','brand-awareness')">awareness</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>utm_content<span class="tip">versão/criativo</span></label>
+          <input type="text" id="utm_content" placeholder="banner-topo-v1" oninput="sanitize(this); buildUTM()">
+          <div class="presets">
+            <button class="preset-btn" onclick="setPreset('utm_content','banner-topo')">banner-topo</button>
+            <button class="preset-btn" onclick="setPreset('utm_content','texto-link')">texto-link</button>
+            <button class="preset-btn" onclick="setPreset('utm_content','video-30s')">video-30s</button>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="field">
+        <label>utm_term<span class="tip">palavra-chave (para buscas pagas)</span></label>
+        <input type="text" id="utm_term" placeholder="tenis+corrida+masculino" oninput="sanitize(this); buildUTM()">
+      </div>
+    </div>
+
+    <!-- Output -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-icon blue">⚡</div>
+        <span class="card-title-t">URL Final Gerada</span>
+      </div>
+      <div class="url-display" id="url-display">
+        <div id="url-output" class="url-empty">Preencha os campos acima para gerar sua URL...</div>
+      </div>
+      <div class="char-row">
+        <div class="char-count">Comprimento: <span id="char-count">0</span> caracteres</div>
+        <div id="score-badge"></div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" onclick="copyURL()">📋 Copiar URL</button>
+        <button class="btn btn-secondary" onclick="openURL()">↗ Abrir URL</button>
+        <button class="btn btn-ghost" onclick="resetAll()" title="Limpar tudo">🗑</button>
+      </div>
+      <div class="stats-row">
+        <div class="stat"><div class="stat-val" id="stat-params">0</div><div class="stat-label">Parâmetros</div></div>
+        <div class="stat"><div class="stat-val" id="stat-chars">0</div><div class="stat-label">Caracteres</div></div>
+        <div class="stat"><div class="stat-val" id="stat-count">0</div><div class="stat-label">Geradas</div></div>
+      </div>
+    </div>
+
+    <!-- Histórico -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-icon green">🕐</div>
+        <span class="card-title-t">Histórico da sessão</span>
+      </div>
+      <div class="history-list" id="history-list">
+        <div class="empty-h">Nenhuma URL gerada ainda</div>
+      </div>
+    </div>
+
+  </div><!-- /page -->
+</div><!-- /main -->
+
+<div class="toast" id="toast">✅ Copiado!</div>
+
+<script>
+const SURL = 'https://uqukfjtwsuffeunikiwz.supabase.co';
+const ANON = 'sb_publishable_8Be9xpxGtJDsM8AGtcDwmQ_Z_WPhYQ_';
+(function(){if(sessionStorage.getItem('adsboard_auth')==='1')return;try{var p=JSON.parse(localStorage.getItem('_ngp_persist')||'{}');if(p.auth==='1'&&p.exp&&Date.now()<p.exp){sessionStorage.setItem('adsboard_auth',p.auth);sessionStorage.setItem('adsboard_session',p.sess);sessionStorage.setItem('adsboard_user',p.user);sessionStorage.setItem('adsboard_role',p.role);sessionStorage.setItem('adsboard_username',p.username);if(p.expires)sessionStorage.setItem('adsboard_expires',p.expires);if(p.meta_account)sessionStorage.setItem('adsboard_meta_account',p.meta_account);}}catch(e){}})();
+const sess  = sessionStorage.getItem('adsboard_session');
+const auth  = sessionStorage.getItem('adsboard_auth');
+const role  = sessionStorage.getItem('adsboard_role');
+
+// Guard
+if (auth !== '1' || !sess) {
+  window.location.replace('login.html?returnUrl=' + encodeURIComponent('utm-builder.html'));
+}
+
+// Init sidebar user info
+const uName = sessionStorage.getItem('adsboard_user') || 'NGP';
+const uFoto = sessionStorage.getItem('adsboard_foto') || '';
+const uAv   = document.getElementById('user-avatar');
+if (uFoto) {
+  const img = document.createElement('img');
+  img.src = uFoto; img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+  img.onerror = () => { img.remove(); uAv.textContent = uName.slice(0,2).toUpperCase(); };
+  uAv.textContent = ''; uAv.appendChild(img);
+} else {
+  uAv.textContent = uName.slice(0,2).toUpperCase();
+}
+document.getElementById('user-name').textContent = uName;
+document.getElementById('role-label').textContent = role === 'ngp' ? '🚀 NGP Admin' : '👤 ' + uName;
+
+function doLogout() {
+  if (!confirm('Deseja sair?')) return;
+  fetch(SURL+'/functions/v1/logout',{method:'POST',headers:{'Content-Type':'application/json','apikey':ANON,'Authorization':'Bearer '+ANON},body:JSON.stringify({token:sess})}).catch(()=>{});
+  sessionStorage.clear(); window.location.href='login.html';
+}
+
+// ── UTM BUILDER LOGIC ────────────────────────────────────────────────────────
+let _history = [], generatedCount = 0, currentURL = '', historyKeys = new Set();
+
+function getVal(id) { return document.getElementById(id)?.value.trim() || ''; }
+
+function sanitize(input) {
+  input.value = input.value.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9\-_+.]/g,'');
+}
+
+function syncCustom(param) {
+  const sel    = document.getElementById('utm_'+param);
+  const custom = document.getElementById('utm_'+param+'_custom');
+  if (sel.value === 'custom') { custom.style.display='block'; custom.focus(); }
+  else custom.style.display = 'none';
+}
+
+function setPreset(field, value) { document.getElementById(field).value = value; buildUTM(); }
+
+function getSource() { const s=getVal('utm_source'); return s==='custom'?getVal('utm_source_custom'):s; }
+function getMedium() { const m=document.getElementById('utm_medium').value.trim(); return m==='custom'?getVal('utm_medium_custom'):m; }
+
+function buildUTM() {
+  const url      = getVal('url');
+  const source   = getSource();
+  const medium   = getMedium();
+  const campaign = getVal('utm_campaign');
+  const content  = getVal('utm_content');
+  const term     = getVal('utm_term');
+  const display  = document.getElementById('url-display');
+  const output   = document.getElementById('url-output');
+
+  if (!url) {
+    output.className = 'url-empty';
+    output.innerHTML = 'Preencha os campos acima para gerar sua URL...';
+    display.classList.remove('has-url'); updateStats(0,0); return;
+  }
+
+  let baseURL;
+  try { baseURL = new URL(url); } catch {
+    output.className = 'url-empty';
+    output.innerHTML = '⚠️ URL inválida — inclua https://';
+    display.classList.remove('has-url'); updateStats(0,0); return;
+  }
+
+  const params = new URLSearchParams(baseURL.searchParams);
+  let pc = 0;
+  if (source)   { params.set('utm_source',   source);   pc++; }
+  if (medium)   { params.set('utm_medium',   medium);   pc++; }
+  if (campaign) { params.set('utm_campaign', campaign); pc++; }
+  if (content)  { params.set('utm_content',  content);  pc++; }
+  if (term)     { params.set('utm_term',     term);     pc++; }
+
+  baseURL.search = params.toString();
+  const finalURL = baseURL.toString();
+  currentURL = finalURL;
+
+  const [base, qs] = finalURL.split('?');
+  let html = `<span class="bu">${esc(base)}</span>`;
+  if (qs) {
+    html += '<span style="color:var(--text3)">?</span>';
+    html += qs.split('&').map(p => {
+      const [k,v] = p.split('=');
+      return `<span class="pk">${esc(k)}</span><span style="color:var(--text3)">=</span><span class="pv">${esc(v||'')}</span>`;
+    }).join('<span style="color:var(--text3)">&amp;</span>');
+  }
+  output.className = 'url-text';
+  output.innerHTML = html;
+  display.classList.add('has-url');
+  updateStats(pc, finalURL.length);
+  updateScore(source, medium, campaign, finalURL.length);
+  if (source && medium && campaign) addToHistory(finalURL, source, medium, campaign);
+}
+
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function updateStats(p,c) {
+  document.getElementById('stat-params').textContent = p;
+  document.getElementById('stat-chars').textContent  = c;
+  document.getElementById('char-count').textContent  = c;
+}
+
+function updateScore(source, medium, campaign, len) {
+  const badge = document.getElementById('score-badge');
+  if (!source || !medium || !campaign) { badge.innerHTML=''; return; }
+  let label='Ótima', cls='score-good';
+  if (len > 500 || campaign.includes(' ')) { label='Atenção'; cls='score-medium'; }
+  badge.innerHTML = `<span class="score-badge ${cls}">● ${label}</span>`;
+}
+
+function validate() {
+  const url=getVal('url'), hint=document.getElementById('hint-url');
+  if (!url) { hint.className='hint'; return; }
+  try { new URL(url); hint.className='hint'; }
+  catch { hint.className='hint hint-error'; hint.textContent='⚠ URL inválida. Exemplo: https://seusite.com.br'; }
+}
+
+function addToHistory(url, source, medium, campaign) {
+  if (historyKeys.has(url)) return;
+  historyKeys.add(url);
+  generatedCount++;
+  document.getElementById('stat-count').textContent = generatedCount;
+  _history.unshift({url, source, medium, campaign});
+  if (_history.length > 20) _history.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  if (!_history.length) { list.innerHTML='<div class="empty-h">Nenhuma URL gerada ainda</div>'; return; }
+  list.innerHTML = _history.map((item,i) => `
+    <div class="history-item">
+      <div class="hm">
+        <div class="hs">${esc(item.source)} / ${esc(item.medium)} — ${esc(item.campaign)}</div>
+        <div class="hu">${esc(item.url)}</div>
+      </div>
+      <button class="hbtn copy" onclick="copyText('${esc(item.url).replace(/'/g,"\\'")}',event)" title="Copiar">📋</button>
+      <button class="hbtn del"  onclick="deleteHistory(${i})" title="Remover">✕</button>
+    </div>
+  `).join('');
+}
+
+function deleteHistory(i) { historyKeys.delete(_history[i].url); _history.splice(i,1); renderHistory(); }
+
+function copyURL() { if (currentURL) copyText(currentURL); }
+
+function copyText(text, e) {
+  if (e) e.stopPropagation();
+  navigator.clipboard.writeText(text).then(()=>showToast('✅ Copiado!')).catch(()=>{
+    const ta=document.createElement('textarea'); ta.value=text;
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    showToast('✅ Copiado!');
+  });
+}
+
+function openURL() { if (currentURL) window.open(currentURL,'_blank'); }
+
+function resetAll() {
+  ['url','utm_campaign','utm_content','utm_term'].forEach(id=>document.getElementById(id).value='');
+  ['utm_source','utm_medium'].forEach(id=>document.getElementById(id).selectedIndex=0);
+  ['utm_source_custom','utm_medium_custom'].forEach(id=>{const el=document.getElementById(id);el.value='';el.style.display='none';});
+  currentURL=''; buildUTM(); showToast('🗑 Limpo!');
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+buildUTM();
+</script>
+</body>
+</html>

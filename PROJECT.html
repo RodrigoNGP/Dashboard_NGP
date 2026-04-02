@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>NGP Dashboard — Documentação</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0D0D0F;
+  --bg2:#131417;
+  --bg3:#1A1B20;
+  --bg4:#222328;
+  --border:rgba(255,255,255,0.07);
+  --text:#F0F0F2;
+  --text2:#9A9AAF;
+  --text3:#5A5A6E;
+  --red:#CC1414;
+  --red-dim:rgba(204,20,20,0.12);
+  --green:#22C55E;
+  --green-dim:rgba(34,197,94,0.1);
+  --blue:#3B82F6;
+  --blue-dim:rgba(59,130,246,0.1);
+  --purple:#A855F7;
+  --purple-dim:rgba(168,85,247,0.1);
+  --amber:#F59E0B;
+  --amber-dim:rgba(245,158,11,0.1);
+}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh;}
+
+/* HEADER */
+.hero{background:linear-gradient(135deg,#0D0D0F 0%,#1a0505 50%,#0D0D0F 100%);border-bottom:1px solid var(--border);padding:64px 40px 48px;text-align:center;position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 50% at 50% 0%,rgba(204,20,20,0.15),transparent);pointer-events:none;}
+.logo-wrap{display:inline-flex;align-items:center;gap:14px;margin-bottom:24px;}
+.logo-box{width:48px;height:48px;background:var(--red);border-radius:12px;display:flex;align-items:center;justify-content:center;}
+.logo-box svg{width:26px;height:26px;fill:#fff;}
+.hero-title{font-size:42px;font-weight:800;letter-spacing:-0.04em;margin-bottom:10px;}
+.hero-title span{color:var(--red);}
+.hero-sub{font-size:16px;color:var(--text2);max-width:520px;margin:0 auto 28px;}
+.badges{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+.badge{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid;}
+.badge-red{background:var(--red-dim);color:#f87171;border-color:rgba(204,20,20,0.3);}
+.badge-blue{background:var(--blue-dim);color:#60a5fa;border-color:rgba(59,130,246,0.3);}
+.badge-green{background:var(--green-dim);color:#4ade80;border-color:rgba(34,197,94,0.3);}
+.badge-purple{background:var(--purple-dim);color:#c084fc;border-color:rgba(168,85,247,0.3);}
+.badge-amber{background:var(--amber-dim);color:#fbbf24;border-color:rgba(245,158,11,0.3);}
+
+/* LAYOUT */
+.container{max-width:1000px;margin:0 auto;padding:48px 24px;}
+section{margin-bottom:48px;}
+h2{font-size:20px;font-weight:700;letter-spacing:-0.02em;margin-bottom:20px;display:flex;align-items:center;gap:10px;}
+h2::before{content:'';display:block;width:4px;height:20px;background:var(--red);border-radius:2px;}
+h3{font-size:14px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;}
+
+/* CARDS GRID */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+@media(max-width:700px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}}
+@media(max-width:900px){.grid-3,.grid-4{grid-template-columns:1fr 1fr;}}
+
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px 20px;}
+.card-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:17px;}
+.card-title{font-size:14px;font-weight:600;margin-bottom:4px;}
+.card-desc{font-size:12px;color:var(--text2);line-height:1.5;}
+
+/* TABLE */
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead tr{border-bottom:1px solid var(--border);}
+th{text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;}
+td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--text2);}
+td:first-child{color:var(--text);font-weight:500;font-family:'Courier New',monospace;font-size:12px;}
+tr:last-child td{border-bottom:none;}
+.table-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+
+/* CODE */
+code{background:var(--bg4);color:#93c5fd;padding:2px 7px;border-radius:5px;font-size:12px;font-family:'Courier New',monospace;}
+.code-block{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px 24px;font-family:'Courier New',monospace;font-size:13px;line-height:1.7;overflow-x:auto;}
+.code-block .c{color:var(--text3);}
+.code-block .k{color:#c084fc;}
+.code-block .s{color:#86efac;}
+.code-block .v{color:#93c5fd;}
+
+/* FLOW */
+.flow{display:flex;align-items:center;gap:0;flex-wrap:wrap;}
+.flow-step{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:13px;font-weight:500;white-space:nowrap;}
+.flow-arrow{color:var(--text3);padding:0 10px;font-size:16px;}
+
+/* ROLE CARDS */
+.role-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.role-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:24px;}
+.role-card.ngp{border-top:3px solid var(--red);}
+.role-card.cliente{border-top:3px solid var(--blue);}
+.role-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;}
+.role-label.ngp{color:var(--red);}
+.role-label.cliente{color:var(--blue);}
+.role-name{font-size:18px;font-weight:700;margin-bottom:12px;}
+.role-list{list-style:none;display:flex;flex-direction:column;gap:6px;}
+.role-list li{font-size:13px;color:var(--text2);display:flex;align-items:flex-start;gap:8px;}
+.role-list li::before{content:'→';color:var(--text3);flex-shrink:0;margin-top:1px;}
+
+/* FUNC LIST */
+.func-list{display:flex;flex-direction:column;gap:8px;}
+.func-item{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 18px;display:flex;align-items:flex-start;gap:14px;}
+.func-name{font-family:'Courier New',monospace;font-size:13px;font-weight:600;color:#c084fc;min-width:160px;flex-shrink:0;}
+.func-desc{font-size:13px;color:var(--text2);}
+
+/* DB */
+.db-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:10px;}
+.db-table-name{font-family:'Courier New',monospace;font-size:14px;font-weight:700;color:#fbbf24;margin-bottom:10px;}
+.db-cols{display:flex;flex-wrap:wrap;gap:6px;}
+.db-col{background:var(--bg4);border-radius:6px;padding:3px 10px;font-size:11px;font-family:'Courier New',monospace;color:var(--text2);}
+.db-col.pk{color:#fbbf24;}
+.db-col.fk{color:#60a5fa;}
+.db-col.nn{color:#f87171;}
+
+/* FOOTER */
+footer{border-top:1px solid var(--border);padding:32px 40px;text-align:center;color:var(--text3);font-size:12px;}
+footer span{color:var(--red);}
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="logo-wrap">
+    <div class="logo-box">
+      <svg viewBox="0 0 24 24"><path d="M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm14 3a4 4 0 110-8 4 4 0 010 8z"/></svg>
+    </div>
+    <div style="text-align:left;">
+      <div style="font-size:22px;font-weight:800;letter-spacing:-0.03em;">NGP <span style="color:var(--red);">Dashboard</span></div>
+      <div style="font-size:11px;color:var(--text3);font-weight:500;margin-top:2px;">Documentação do projeto</div>
+    </div>
+  </div>
+  <div class="hero-sub">Plataforma de gestão de campanhas Meta Ads para a agência NGP e seus clientes. Dados em tempo real, relatórios automatizados e controle centralizado.</div>
+  <div class="badges">
+    <span class="badge badge-blue">Next.js 16</span>
+    <span class="badge badge-green">Supabase</span>
+    <span class="badge badge-purple">TypeScript</span>
+    <span class="badge badge-red">Meta Ads API</span>
+    <span class="badge badge-amber">Chart.js</span>
+    <span class="badge badge-blue">Deno Edge Functions</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- VISÃO GERAL -->
+  <section>
+    <h2>Visão Geral</h2>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-icon" style="background:var(--red-dim);">📊</div>
+        <div class="card-title">Dashboard NGP (Admin)</div>
+        <div class="card-desc">Visão completa de todas as contas de clientes. Seleção de conta, KPIs, gráficos, campanhas, relatórios salvos e plataformas integradas.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon" style="background:var(--blue-dim);">👤</div>
+        <div class="card-title">Dashboard Cliente</div>
+        <div class="card-desc">Acesso restrito ao próprio account_id. Exibe métricas de campanha, investimento, leads, conversas, ROAS e CTR em tempo real.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon" style="background:var(--green-dim);">📄</div>
+        <div class="card-title">Gerador de Relatórios</div>
+        <div class="card-desc">Relatório semanal com auto-importação da Meta API. Salva na nuvem (Supabase), compartilhável via link, exportável em PDF.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon" style="background:var(--purple-dim);">🔗</div>
+        <div class="card-title">UTM Builder & IA</div>
+        <div class="card-desc">Gerador de parâmetros UTM para rastreamento de campanhas e painel de análise por inteligência artificial.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ARQUITETURA -->
+  <section>
+    <h2>Arquitetura</h2>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:20px;">O projeto usa uma arquitetura híbrida com duas camadas de frontend coexistindo.</p>
+
+    <h3>Fluxo de autenticação</h3>
+    <div class="flow" style="margin-bottom:24px;">
+      <div class="flow-step">Login (HTML ou Next.js)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">Token salvo no Supabase</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">SessionStorage</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">Role check</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step" style="color:#4ade80;">Dashboard correto</div>
+    </div>
+
+    <h3>Camadas do sistema</h3>
+    <div class="grid-3">
+      <div class="card">
+        <div style="font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Camada 1</div>
+        <div class="card-title">Next.js (app/)</div>
+        <div class="card-desc">Autenticação, roteamento, dashboard cliente React, gerador de relatórios.</div>
+      </div>
+      <div class="card">
+        <div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Camada 2</div>
+        <div class="card-title">HTML Estático (public/)</div>
+        <div class="card-desc">Dashboard NGP completo, relatório Pro, UTM Builder, IA — toda lógica no browser com Chart.js.</div>
+      </div>
+      <div class="card">
+        <div style="font-size:11px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Camada 3</div>
+        <div class="card-title">Supabase Backend</div>
+        <div class="card-desc">PostgreSQL, Edge Functions (Deno), Storage para avatares, autenticação customizada.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ROLES -->
+  <section>
+    <h2>Roles de Usuário</h2>
+    <div class="role-grid">
+      <div class="role-card ngp">
+        <div class="role-label ngp">Administrador</div>
+        <div class="role-name">NGP Admin</div>
+        <ul class="role-list">
+          <li>Visualiza e gerencia todos os clientes</li>
+          <li>Cria, edita e configura contas de clientes</li>
+          <li>Acessa métricas de qualquer Meta account</li>
+          <li>Cria e exclui relatórios de qualquer cliente</li>
+          <li>Upload de fotos de perfil dos clientes</li>
+          <li>Acesso ao dashboard completo (adsboard)</li>
+        </ul>
+      </div>
+      <div class="role-card cliente">
+        <div class="role-label cliente">Cliente</div>
+        <div class="role-name">Cliente NGP</div>
+        <ul class="role-list">
+          <li>Vê apenas o próprio account Meta Ads</li>
+          <li>Acessa métricas de campanhas em tempo real</li>
+          <li>Visualiza relatórios criados para si</li>
+          <li>Pode excluir apenas os próprios relatórios</li>
+          <li>Edita próprio perfil e avatar</li>
+          <li>Sem acesso ao painel de gestão NGP</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- PÁGINAS -->
+  <section>
+    <h2>Páginas & Rotas</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Rota</th>
+            <th>Arquivo</th>
+            <th>Propósito</th>
+            <th>Role</th>
+            <th>Tipo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>/</td><td>app/page.tsx</td><td>Gateway de auth → redirect</td><td>Todos</td><td><span class="badge badge-purple" style="font-size:10px;padding:2px 8px;">Next.js</span></td></tr>
+          <tr><td>/login</td><td>app/login/page.tsx</td><td>Login NGP e Cliente</td><td>Todos</td><td><span class="badge badge-purple" style="font-size:10px;padding:2px 8px;">Next.js</span></td></tr>
+          <tr><td>/dashboard</td><td>app/dashboard/page.tsx</td><td>Gateway → redireciona ao HTML</td><td>NGP</td><td><span class="badge badge-purple" style="font-size:10px;padding:2px 8px;">Next.js</span></td></tr>
+          <tr><td>/cliente</td><td>app/cliente/page.tsx</td><td>Dashboard de campanhas</td><td>Cliente</td><td><span class="badge badge-purple" style="font-size:10px;padding:2px 8px;">Next.js</span></td></tr>
+          <tr><td>/relatorio</td><td>app/relatorio/page.tsx</td><td>Gerador de relatório semanal</td><td>NGP</td><td><span class="badge badge-purple" style="font-size:10px;padding:2px 8px;">Next.js</span></td></tr>
+          <tr><td>/adsboard-dashboard.html</td><td>public/</td><td>Dashboard completo NGP</td><td>NGP</td><td><span class="badge badge-amber" style="font-size:10px;padding:2px 8px;">HTML</span></td></tr>
+          <tr><td>/cliente-dashboard.html</td><td>public/</td><td>Visão de campanhas cliente</td><td>Cliente</td><td><span class="badge badge-amber" style="font-size:10px;padding:2px 8px;">HTML</span></td></tr>
+          <tr><td>/relatorio-v2.html</td><td>public/</td><td>Relatório Pro (versão avançada)</td><td>NGP</td><td><span class="badge badge-amber" style="font-size:10px;padding:2px 8px;">HTML</span></td></tr>
+          <tr><td>/utm-builder.html</td><td>public/</td><td>Gerador de UTMs</td><td>NGP</td><td><span class="badge badge-amber" style="font-size:10px;padding:2px 8px;">HTML</span></td></tr>
+          <tr><td>/ia-analise.html</td><td>public/</td><td>Análise por IA</td><td>NGP</td><td><span class="badge badge-amber" style="font-size:10px;padding:2px 8px;">HTML</span></td></tr>
+          <tr><td>/perfil.html</td><td>public/</td><td>Perfil e avatar do usuário</td><td>Cliente</td><td><span class="badge badge-amber" style="font-size:10px;padding:2px 8px;">HTML</span></td></tr>
+          <tr><td>/login.html</td><td>public/</td><td>Login alternativo (standalone)</td><td>Todos</td><td><span class="badge badge-amber" style="font-size:10px;padding:2px 8px;">HTML</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- EDGE FUNCTIONS -->
+  <section>
+    <h2>Edge Functions (Supabase / Deno)</h2>
+    <div class="func-list">
+      <div class="func-item">
+        <div class="func-name">login</div>
+        <div class="func-desc">Autentica usuário, cria token de sessão na tabela <code>sessions</code> com expiração.</div>
+      </div>
+      <div class="func-item">
+        <div class="func-name">logout</div>
+        <div class="func-desc">Invalida o token de sessão. Chamado ao clicar em "Sair".</div>
+      </div>
+      <div class="func-item">
+        <div class="func-name">meta-proxy</div>
+        <div class="func-desc">Proxy para a Meta Ads API. O token Meta nunca é exposto ao browser — fica somente no backend.</div>
+      </div>
+      <div class="func-item">
+        <div class="func-name">get-ngp-data</div>
+        <div class="func-desc">Retorna lista de clientes (id, nome, username, meta_account_id, foto_url) para o seletor de contas. Exclusivo NGP.</div>
+      </div>
+      <div class="func-item">
+        <div class="func-name">add-cliente</div>
+        <div class="func-desc">Cria novo cliente no banco (nome, username, password_hash, meta_account_id, ativo). Valida duplicidade de username.</div>
+      </div>
+      <div class="func-item">
+        <div class="func-name">update-cliente</div>
+        <div class="func-desc">Atualiza dados do cliente (nome, meta_account_id) e faz upload de avatar no bucket <code>avatars</code> com cache-busting.</div>
+      </div>
+      <div class="func-item">
+        <div class="func-name">save-relatorio</div>
+        <div class="func-desc">Cria ou atualiza relatório (INSERT/UPDATE). Salva cliente_id e cliente_username. Validação de ownership para clientes.</div>
+      </div>
+      <div class="func-item">
+        <div class="func-name">delete-relatorio</div>
+        <div class="func-desc">Exclui relatório por UUID. NGP pode excluir qualquer um; cliente só exclui os próprios.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BANCO -->
+  <section>
+    <h2>Banco de Dados</h2>
+
+    <div class="db-card">
+      <div class="db-table-name">usuarios</div>
+      <div class="db-cols">
+        <span class="db-col pk">id (uuid PK)</span>
+        <span class="db-col nn">nome (text)</span>
+        <span class="db-col nn">username (text UNIQUE)</span>
+        <span class="db-col nn">password_hash (text)</span>
+        <span class="db-col nn">role (text)</span>
+        <span class="db-col">ativo (bool default true)</span>
+        <span class="db-col">meta_account_id (text)</span>
+        <span class="db-col">meta_token (text)</span>
+        <span class="db-col">foto_url (text)</span>
+        <span class="db-col">created_at (timestamptz)</span>
+      </div>
+    </div>
+
+    <div class="db-card">
+      <div class="db-table-name">sessions</div>
+      <div class="db-cols">
+        <span class="db-col pk">id (uuid PK)</span>
+        <span class="db-col nn">token (text UNIQUE)</span>
+        <span class="db-col fk">usuario_id (uuid FK)</span>
+        <span class="db-col nn">expires_at (timestamptz)</span>
+        <span class="db-col">created_at (timestamptz)</span>
+      </div>
+    </div>
+
+    <div class="db-card">
+      <div class="db-table-name">relatorios</div>
+      <div class="db-cols">
+        <span class="db-col pk">id (uuid PK)</span>
+        <span class="db-col fk">cliente_id (uuid FK)</span>
+        <span class="db-col">cliente_username (text)</span>
+        <span class="db-col">titulo (text)</span>
+        <span class="db-col">periodo (text)</span>
+        <span class="db-col">dados (jsonb)</span>
+        <span class="db-col">publicado (bool)</span>
+        <span class="db-col">created_by (uuid)</span>
+        <span class="db-col">created_at (timestamptz)</span>
+        <span class="db-col">updated_at (timestamptz)</span>
+      </div>
+    </div>
+
+    <div class="db-card">
+      <div class="db-table-name">avatars (Storage bucket)</div>
+      <div class="db-cols">
+        <span class="db-col">Bucket público</span>
+        <span class="db-col">Path: {username}/avatar.{ext}</span>
+        <span class="db-col">Tipos: jpg, png, webp</span>
+        <span class="db-col">Limite: 2MB</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- STACK -->
+  <section>
+    <h2>Tech Stack</h2>
+    <div class="grid-4">
+      <div class="card">
+        <div class="card-icon" style="background:var(--purple-dim);">⚛️</div>
+        <div class="card-title">Next.js 16</div>
+        <div class="card-desc">App Router, TypeScript, React 18, CSS Modules.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon" style="background:var(--green-dim);">🗄️</div>
+        <div class="card-title">Supabase</div>
+        <div class="card-desc">PostgreSQL, Edge Functions (Deno), Storage, REST API.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon" style="background:var(--amber-dim);">📈</div>
+        <div class="card-title">Chart.js 4</div>
+        <div class="card-desc">Gráficos de linha, barra, doughnut e radar nos dashboards.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon" style="background:var(--red-dim);">📘</div>
+        <div class="card-title">Meta Ads API</div>
+        <div class="card-desc">Insights de campanhas via proxy server-side. Token protegido.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- VARIÁVEIS DE AMBIENTE -->
+  <section>
+    <h2>Variáveis de Ambiente</h2>
+    <div class="code-block">
+      <span class="c"># .env.local</span><br><br>
+      <span class="k">NEXT_PUBLIC_SUPABASE_URL</span>=<span class="s">https://seu-projeto.supabase.co</span><br>
+      <span class="k">NEXT_PUBLIC_SUPABASE_ANON_KEY</span>=<span class="s">sua_anon_key</span><br>
+      <span class="k">SUPABASE_SERVICE_ROLE_KEY</span>=<span class="s">sua_service_role_key</span><br>
+      <br>
+      <span class="c"># Edge Functions (configuradas no painel Supabase)</span><br>
+      <span class="k">SUPABASE_URL</span>=<span class="s">auto-injetado</span><br>
+      <span class="k">SUPABASE_SERVICE_ROLE_KEY</span>=<span class="s">auto-injetado</span><br>
+      <span class="k">ALLOWED_ORIGIN</span>=<span class="s">https://seudominio.com</span>
+    </div>
+  </section>
+
+  <!-- INSTALAÇÃO -->
+  <section>
+    <h2>Instalação & Execução</h2>
+    <div class="code-block">
+      <span class="c"># Instalar dependências</span><br>
+      <span class="v">npm install</span><br><br>
+      <span class="c"># Rodar em desenvolvimento</span><br>
+      <span class="v">npm run dev</span><br><br>
+      <span class="c"># Build para produção</span><br>
+      <span class="v">npm run build</span><br><br>
+      <span class="c"># Deploy das Edge Functions (Supabase CLI)</span><br>
+      <span class="v">supabase functions deploy add-cliente --no-verify-jwt</span><br>
+      <span class="v">supabase functions deploy update-cliente --no-verify-jwt</span><br>
+      <span class="v">supabase functions deploy delete-relatorio --no-verify-jwt</span><br>
+      <span class="v">supabase functions deploy get-ngp-data --no-verify-jwt</span><br>
+      <span class="v">supabase functions deploy save-relatorio --no-verify-jwt</span>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <div>Desenvolvido para <span>NGP Agency</span> · Dashboard de Gestão de Campanhas</div>
+  <div style="margin-top:6px;">Next.js · Supabase · Meta Ads API · Chart.js</div>
+</footer>
+
+</body>
+</html>

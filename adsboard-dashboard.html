@@ -1,0 +1,2552 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>NGP Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  /* Cores do relatório NGP — branco, vermelho, preto */
+  --bg:#F5F5F7;
+  --bg2:#FFFFFF;
+  --bg3:#F0F0F2;
+  --bg4:#E5E5EA;
+  --border:#E5E5EA;
+  --border2:#D1D1D6;
+  --text:#111111;
+  --text2:#6E6E73;
+  --text3:#AEAEB2;
+  --accent:#CC1414;
+  --accent2:#A80F0F;
+  --accent-light:#FFF3F3;
+  --accent-dim:rgba(204,20,20,0.08);
+  --green:#16A34A;
+  --green-dim:rgba(22,163,74,0.08);
+  --red:#CC1414;
+  --red-dim:rgba(204,20,20,0.08);
+  --amber:#D97706;
+  --amber-dim:rgba(217,119,6,0.1);
+  --purple:#7C3AED;
+  --teal:#0891B2;
+  --dark:#0D0D0D;
+  --dark2:#1C1C1E;
+  --sidebar:220px;--header:56px;--radius:10px;--radius-sm:7px;
+  --shadow:0 1px 3px rgba(0,0,0,0.07),0 4px 12px rgba(0,0,0,0.04);
+  --shadow-md:0 4px 16px rgba(0,0,0,0.10),0 1px 3px rgba(0,0,0,0.06);
+}
+body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;overflow:hidden;}
+
+/* SIDEBAR */
+.sidebar{width:var(--sidebar);height:100vh;background:var(--dark2);border-right:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;flex-shrink:0;}
+.sidebar-logo{padding:18px 20px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:10px;}
+.logo-mark{width:32px;height:32px;background:var(--red);border-radius:8px;display:flex;align-items:center;justify-content:center;}
+.logo-mark svg{width:18px;height:18px;fill:#fff;}
+.logo-text{font-size:15px;font-weight:700;letter-spacing:-0.02em;color:#fff;}
+.logo-text span{color:var(--red);}
+.role-label{font-size:10px;color:rgba(204,20,20,0.8);margin-top:2px;font-weight:600;}
+.sidebar-nav{flex:1;padding:12px 10px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;}
+.nav-label{font-size:10px;font-weight:600;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:0.08em;padding:8px 10px 4px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;color:rgba(255,255,255,0.55);font-size:13px;font-weight:400;transition:all 0.15s;border:none;background:none;font-family:'Sora',sans-serif;width:100%;text-align:left;}
+.nav-item:hover{background:rgba(255,255,255,0.08);color:#fff;}
+.nav-item.active{background:rgba(204,20,20,0.2);color:#fff;font-weight:600;border-left:3px solid var(--red);}
+.nav-item svg{width:15px;height:15px;flex-shrink:0;}
+.nav-badge{margin-left:auto;background:rgba(204,20,20,0.8);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px;}
+.sidebar-footer{padding:12px 10px;border-top:1px solid rgba(255,255,255,0.08);}
+.user-block{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:var(--radius-sm);}
+.user-info{display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;min-width:0;}
+.user-info:hover .user-name{color:var(--red);}
+.user-avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--red),var(--purple));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;overflow:hidden;flex-shrink:0;}
+.user-name{font-size:12px;font-weight:500;color:#fff;}
+.btn-logout{background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer;padding:4px;border-radius:5px;font-size:16px;transition:color 0.15s;}
+.btn-logout:hover{color:var(--red);}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+.header{height:var(--header);background:#fff;border-bottom:2px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:16px;flex-shrink:0;box-shadow:var(--shadow);}
+.header-title{font-size:15px;font-weight:700;flex:1;color:var(--dark);}
+.header-filters{display:flex;align-items:center;gap:8px;}
+.filter-select{background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;color:var(--text2);font-family:'Sora',sans-serif;font-size:12px;cursor:pointer;outline:none;transition:border-color 0.15s;}
+.header-btn{padding:6px 14px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-family:'Sora',sans-serif;font-size:12px;font-weight:500;transition:all 0.15s;}
+.btn-primary{background:var(--red);color:#fff;}
+.btn-secondary{background:#fff;color:var(--text2);border:1.5px solid var(--border);}
+.content{flex:1;overflow-y:auto;padding:24px;}
+
+/* ACCOUNT SELECTOR */
+#screen-select{max-width:960px;margin:0 auto;}
+.sel-header{margin-bottom:28px;}
+.sel-title{font-size:24px;font-weight:800;letter-spacing:-0.03em;margin-bottom:6px;color:var(--dark);}
+.sel-sub{font-size:13px;color:var(--text2);}
+.search-wrap{position:relative;margin-bottom:24px;}
+.search-wrap svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--text3);}
+.search-wrap input{width:100%;background:#fff;border:1.5px solid var(--border);border-radius:var(--radius);padding:12px 14px 12px 42px;color:var(--dark);font-family:'Sora',sans-serif;font-size:14px;outline:none;transition:border-color 0.2s;box-shadow:var(--shadow);}
+.search-wrap input:focus{border-color:var(--red);}
+.search-wrap input::placeholder{color:var(--text3);}
+.acc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}
+.acc-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;cursor:pointer;transition:all 0.2s;}
+.acc-card:hover{border-color:var(--red);transform:translateY(-2px);box-shadow:0 8px 24px rgba(204,20,20,0.15);}
+.acc-avatar{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;margin-bottom:12px;}
+.acc-name{font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px;line-height:1.3;}
+.acc-id{font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-bottom:8px;}
+.acc-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;}
+.acc-badge.ok{background:var(--green-dim);color:var(--green);}
+.acc-badge.err{background:var(--red-dim);color:var(--red);}
+.acc-card-add{background:var(--bg2);border:2px dashed var(--border2);border-radius:var(--radius);padding:20px;cursor:pointer;transition:all 0.2s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:140px;}
+.acc-card-add:hover{border-color:var(--red);background:var(--accent-light);}
+.acc-card-add-icon{width:40px;height:40px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;color:var(--text3);}
+.acc-card-add-text{font-size:12px;color:var(--text3);font-weight:500;}
+.acc-card-add:hover .acc-card-add-icon{background:var(--accent-dim);color:var(--red);}
+.acc-card-add:hover .acc-card-add-text{color:var(--red);}
+.acc-edit-btn{position:absolute;top:8px;right:8px;background:rgba(255,255,255,0.8);border:1px solid var(--border);border-radius:6px;padding:4px 7px;font-size:12px;cursor:pointer;opacity:0;transition:opacity 0.15s;}
+.acc-card{position:relative;}.acc-card:hover .acc-edit-btn{opacity:1;}
+
+/* MODALS */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;align-items:center;justify-content:center;padding:16px;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:#fff;border-radius:16px;padding:28px;width:100%;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,0.25);}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+.modal-title{font-size:16px;font-weight:700;color:var(--dark);}
+.modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3);padding:4px;}
+.modal-close:hover{color:var(--red);}
+.modal-field{margin-bottom:14px;}
+.modal-label{display:block;font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px;}
+.modal-input{width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 13px;color:var(--text);font-family:'Sora',sans-serif;font-size:13px;outline:none;transition:border-color 0.15s;}
+.modal-input:focus{border-color:var(--red);}
+.modal-error{background:var(--red-dim);border:1px solid rgba(204,20,20,0.25);border-radius:var(--radius-sm);padding:10px 13px;font-size:12px;color:var(--red);margin-bottom:14px;display:none;}
+.modal-actions{display:flex;gap:10px;margin-top:20px;}
+.modal-btn-cancel{flex:1;padding:10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:#fff;color:var(--text2);font-family:'Sora',sans-serif;font-size:13px;font-weight:600;cursor:pointer;}
+.modal-btn-submit{flex:2;padding:10px;border:none;border-radius:var(--radius-sm);background:var(--red);color:#fff;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+.modal-btn-submit:hover{background:var(--accent2);}
+.modal-avatar-row{display:flex;align-items:center;gap:14px;margin-bottom:14px;}
+.modal-avatar-preview{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--red),var(--purple));display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;overflow:hidden;cursor:pointer;border:2px dashed var(--border2);flex-shrink:0;transition:border-color 0.15s;}
+.modal-avatar-preview:hover{border-color:var(--red);}
+.modal-avatar-preview img{width:100%;height:100%;object-fit:cover;}
+
+/* VIEWING BAR */
+.viewing-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#FFF3F3;border:1.5px solid rgba(204,20,20,0.25);border-radius:var(--radius);padding:10px 16px;margin-bottom:20px;}
+.viewing-info{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.viewing-av{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;}
+.viewing-name{font-size:13px;font-weight:600;}
+.viewing-id{font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;}
+.vb-filters{display:flex;align-items:center;gap:8px;flex:1;flex-wrap:wrap;}
+.btn-back{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 12px;color:var(--text2);font-size:12px;font-weight:500;cursor:pointer;font-family:'Sora',sans-serif;transition:all 0.15s;flex-shrink:0;}
+.btn-back:hover{border-color:var(--border2);color:var(--text);}
+
+/* KPIs */
+.section-label{font-size:12px;font-weight:700;color:var(--dark);margin-bottom:12px;display:flex;align-items:center;gap:8px;text-transform:uppercase;letter-spacing:0.05em;}
+.section-label span{font-size:11px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:20px;font-weight:400;}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+.kpi{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);transition:box-shadow 0.15s;}
+.kpi-label{font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;display:flex;justify-content:space-between;}
+.kpi-value{font-size:22px;font-weight:600;letter-spacing:-0.03em;}
+.kpi-value.good{color:var(--green);}
+.kpi-value.warn{color:var(--amber);}
+.kpi-sub{font-size:11px;color:var(--text3);margin-top:5px;}
+
+/* CHARTS */
+.charts-row{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:20px;}
+.chart-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);}
+.chart-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);}
+.chart-title{font-size:13px;font-weight:600;}
+.chart-body{padding:16px;}
+.chart-tabs{display:flex;gap:4px;}
+.chart-tab{padding:4px 10px;border-radius:20px;font-size:11px;cursor:pointer;color:var(--text3);border:1px solid transparent;font-family:'Sora',sans-serif;background:none;transition:all 0.15s;}
+.chart-tab.active{background:rgba(204,20,20,0.12);color:var(--accent);border-color:rgba(204,20,20,0.25);}
+
+/* TABLE */
+.table-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px;box-shadow:var(--shadow);}
+.table-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);}
+.table-search{background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px 12px;color:var(--dark);font-family:'Sora',sans-serif;font-size:12px;outline:none;width:200px;transition:border-color 0.15s;}
+table{width:100%;border-collapse:collapse;}
+th{padding:10px 16px;text-align:left;font-size:10px;font-weight:700;color:var(--dark);text-transform:uppercase;letter-spacing:0.06em;border-bottom:2px solid var(--border);white-space:nowrap;background:#F5F5F7;}
+td{padding:11px 16px;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border);}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:#FFF3F3;color:var(--dark);}
+.td-name{font-weight:500;color:var(--text);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.status-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;}
+.td-good{color:var(--green)!important;font-weight:500;}
+.td-warn{color:var(--amber)!important;font-weight:500;}
+.td-bad{color:var(--red)!important;font-weight:500;}
+.td-mono{font-family:'JetBrains Mono',monospace;font-size:11px;}
+
+/* EMPTY/LOADING */
+.empty{text-align:center;padding:48px;color:var(--text3);}
+.spinner{width:28px;height:28px;border:2px solid var(--border);border-top-color:var(--red);border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto 12px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-overlay{display:none;position:fixed;inset:0;background:rgba(10,11,13,0.7);z-index:100;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.loading-overlay.show{display:flex;}
+.loading-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px 32px;text-align:center;}
+.loading-text{font-size:13px;color:var(--text2);}
+
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px;}
+
+/* CAMPAIGN FILTERS */
+.camp-filter-bar{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.breakdown-tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+.bd-tab{padding:7px 14px;border-radius:20px;border:1.5px solid var(--border);background:#fff;color:var(--text2);font-size:12px;font-weight:500;cursor:pointer;font-family:"Sora",sans-serif;transition:all 0.15s;white-space:nowrap;}
+.bd-tab:hover{border-color:var(--border2);color:var(--text2);}
+.bd-tab.active{background:var(--red-dim);border-color:rgba(204,20,20,0.35);color:var(--red);}
+.bd-metric-btn{padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);font-size:11px;cursor:pointer;font-family:"Sora",sans-serif;transition:all 0.15s;}
+.bd-metric-btn.active{background:rgba(204,20,20,0.12);border-color:rgba(204,20,20,0.35);color:var(--accent);}
+.bd-table-wrap{background:#fff;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+.bd-table-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.bd-table-title{font-size:13px;font-weight:600;}
+.bd-bar-row{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border);transition:background 0.1s;}
+.bd-bar-row:last-child{border-bottom:none;}
+.bd-bar-row:hover{background:#FFF3F3;}
+.bd-bar-label{font-size:12px;font-weight:500;min-width:140px;}
+.bd-bar-track{flex:1;height:8px;background:var(--bg3);border-radius:20px;overflow:hidden;}
+.bd-bar-fill{height:100%;border-radius:20px;transition:width 0.4s ease;}
+.bd-bar-val{font-size:12px;font-weight:600;color:var(--text);min-width:90px;text-align:right;}
+.bd-bar-sub{font-size:10px;color:var(--text3);min-width:80px;text-align:right;}
+.creative-grid-bd{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}
+.creative-bd-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;position:relative;box-shadow:var(--shadow);}
+.creative-bd-thumb{width:100%;height:140px;object-fit:cover;background:var(--bg3);display:block;}
+.creative-bd-thumb-ph{width:100%;height:140px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:32px;}
+.creative-bd-info{padding:12px;}
+.creative-bd-name{font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.creative-bd-stats{display:grid;grid-template-columns:1fr 1fr;gap:4px;}
+.creative-bd-stat{font-size:10px;color:var(--text3);}
+.creative-bd-stat span{font-weight:600;color:var(--text);display:block;}
+.creative-bd-rank{position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.7);color:#fff;font-size:12px;border-radius:6px;padding:2px 6px;font-weight:700;}
+/* ACCORDION */
+.acc-card{background:#fff;border:1.5px solid var(--border);border-radius:var(--radius);margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow);}
+.acc-header{display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;transition:background 0.15s;}
+.acc-header:hover{background:#FFF3F3;}
+.acc-chevron{width:18px;height:18px;color:var(--text3);transition:transform 0.2s;flex-shrink:0;}
+.acc-card.open .acc-chevron{transform:rotate(90deg);}
+.acc-camp-name{font-size:14px;font-weight:600;flex:1;}
+.acc-camp-obj{font-size:11px;color:var(--text3);margin-top:2px;}
+.acc-status{font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;flex-shrink:0;}
+.acc-stats{display:none;padding:0 18px 14px;flex-wrap:wrap;gap:8px;}
+.acc-card.open .acc-stats{display:flex;}
+.acc-stat{background:#F5F5F7;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;min-width:90px;}
+.acc-stat-label{font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;margin-bottom:3px;}
+.acc-stat-val{font-size:13px;font-weight:700;}
+.acc-adsets{display:none;border-top:1px solid var(--border);}
+.acc-card.open .acc-adsets{display:block;}
+.acc-adset{padding:10px 18px 10px 42px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.1s;}
+.acc-adset:last-child{border-bottom:none;}
+.acc-adset-header{display:flex;align-items:center;gap:8px;}
+.acc-adset-name{font-size:13px;font-weight:500;flex:1;}
+.acc-adset-stats{display:none;gap:12px;flex-wrap:wrap;margin-top:6px;padding-left:24px;}
+.acc-adset.open .acc-adset-stats{display:flex;}
+.acc-adset-stat{font-size:11px;color:var(--text3);}
+.acc-adset-stat span{font-weight:600;color:var(--text);margin-left:3px;}
+.acc-ads{display:none;padding:6px 18px 10px 66px;}
+.acc-adset.open .acc-ads{display:block;}
+.acc-ad{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);}
+.acc-ad:last-child{border-bottom:none;}
+.acc-ad-thumb{width:36px;height:36px;border-radius:6px;object-fit:cover;background:var(--bg3);flex-shrink:0;}
+.acc-ad-name{font-size:12px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.acc-ad-metrics{display:flex;gap:12px;flex-shrink:0;}
+.acc-ad-metric{font-size:10px;color:var(--text3);text-align:right;}
+.acc-ad-metric span{display:block;font-weight:600;color:var(--text);font-size:11px;}
+.acc-loading-msg{padding:12px 18px;font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px;}
+/* CHART SELECTOR */
+.chart-sel-bar{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px;box-shadow:var(--shadow);}
+.chart-sel-group{display:flex;flex-direction:column;gap:5px;}
+.chart-sel-label{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;}
+.chart-level-tabs{display:flex;gap:4px;}
+.chart-lvl-btn{padding:6px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:12px;font-weight:500;cursor:pointer;font-family:"Sora",sans-serif;transition:all 0.15s;white-space:nowrap;}
+.chart-lvl-btn.active{background:rgba(204,20,20,0.12);border-color:rgba(204,20,20,0.35);color:var(--accent);}
+.chart-metric-pills{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+.metric-pill{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;border:1.5px solid var(--border);background:#fff;color:var(--text2);font-size:11px;cursor:pointer;font-family:"Sora",sans-serif;transition:all 0.15s;}
+.metric-pill.active{border-color:rgba(204,20,20,0.4);background:var(--red-dim);color:var(--red);}
+.metric-pill-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.chart-widget{background:#fff;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+.chart-widget-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);}
+.chart-widget-title{font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;}
+.chart-widget-body{padding:12px;}
+
+/* PLATAFORMAS */
+.plat-tabs{display:flex;gap:6px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:0;}
+.plat-tab{display:flex;align-items:center;gap:8px;padding:10px 18px;border:none;background:transparent;color:var(--text3);font-family:'Sora',sans-serif;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s;}
+.plat-tab:hover{color:var(--text);}
+.plat-tab.active{color:var(--text);border-bottom-color:var(--accent);}
+.plat-tab .plat-icon{width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;}
+.plat-icon-meta{background:#1877f2;color:#fff;}
+.plat-icon-google{background:linear-gradient(135deg,#4285F4,#EA4335,#FBBC05,#34A853);color:#fff;}
+.plat-section{display:none;}
+.plat-section.active{display:block;}
+.plat-header{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+.plat-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;}
+.plat-badge-meta{background:rgba(24,119,242,0.12);color:#1877f2;}
+.plat-badge-google{background:rgba(66,133,244,0.12);color:#4285F4;}
+.plat-kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:20px;}
+.plat-connect{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center;background:var(--bg2);border:1.5px dashed var(--border);border-radius:var(--radius);gap:12px;}
+.plat-connect-icon{font-size:40px;}
+.plat-connect-title{font-size:15px;font-weight:700;color:var(--text);}
+.plat-connect-sub{font-size:12px;color:var(--text3);max-width:280px;line-height:1.6;}
+.plat-connect-btn{padding:10px 24px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-family:'Sora',sans-serif;font-size:13px;font-weight:600;cursor:pointer;}
+.plat-camp-table{width:100%;border-collapse:collapse;font-size:12px;}
+.plat-camp-table th{text-align:left;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;border-bottom:1px solid var(--border);}
+.plat-camp-table td{padding:10px 10px;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--text2);}
+.plat-camp-table tr:hover td{background:var(--bg2);}
+.plat-camp-table td:first-child{color:var(--text);font-weight:500;}
+
+/* FILTER BAR */
+.filter-bar{background:#fff;border-bottom:1px solid var(--border);padding:8px 24px;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,0.04);}
+.filter-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.filter-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.filter-lbl{font-size:11px;font-weight:600;color:var(--text3);white-space:nowrap;}
+.filter-sep{width:1px;height:20px;background:var(--border);margin:0 4px;flex-shrink:0;}
+
+/* DATE INPUTS & COMPARE */
+.date-input{background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:5px 8px;color:var(--text);font-family:'Sora',sans-serif;font-size:12px;outline:none;cursor:pointer;}
+.date-input:focus{border-color:var(--accent);}
+/* filter-bar layout via .filter-bar class */
+
+/* KPI DELTA */
+.kpi-value-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px;}
+.kpi-delta{display:inline-flex;align-items:center;font-size:11px;font-weight:700;padding:2px 6px;border-radius:20px;white-space:nowrap;}
+.delta-pos{background:#dcfce7;color:#16a34a;}
+.delta-neg{background:#fee2e2;color:#ef4444;}
+.kpi-cmp{font-size:11px;color:var(--text3);margin-top:4px;}
+.cmp-btn-on{background:rgba(204,20,20,0.12)!important;border-color:rgba(204,20,20,0.35)!important;color:var(--accent)!important;}
+
+/* METRIC BUILDER MODAL */
+.mbuilder-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:200;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.mbuilder-overlay.open{display:flex;}
+.mbuilder-modal{background:#fff;border-radius:16px;box-shadow:0 24px 80px rgba(0,0,0,0.25);width:min(900px,95vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden;}
+.mbuilder-header{display:flex;align-items:flex-start;justify-content:space-between;padding:18px 24px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.mbuilder-title{font-size:16px;font-weight:800;color:var(--dark);margin-bottom:2px;}
+.mbuilder-close{background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1;padding:4px;flex-shrink:0;}
+.mbuilder-body{display:flex;flex:1;overflow:hidden;min-height:0;}
+.mbuilder-left{width:280px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;background:#fff;}
+.mbuilder-right{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);}
+.mbuilder-panel-header{padding:12px 16px;border-bottom:1px solid var(--border);background:#fff;flex-shrink:0;}
+.mbuilder-panel-title{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;}
+.mbuilder-search{width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:'Sora',sans-serif;font-size:12px;outline:none;color:var(--text);background:#fff;}
+.mbuilder-search:focus{border-color:var(--accent);}
+.mbuilder-avail-list{flex:1;overflow-y:auto;padding:8px 8px 16px;}
+.mbuilder-cat-label{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.07em;padding:10px 8px 4px;}
+.mbuilder-metric-item{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:8px;cursor:pointer;transition:all 0.1s;margin-bottom:2px;border:1.5px solid transparent;}
+.mbuilder-metric-item:hover{background:var(--bg3);}
+.mbuilder-metric-item.msel{background:var(--red-dim);border-color:rgba(204,20,20,0.25);}
+.mbuilder-metric-name{font-size:12px;font-weight:500;color:var(--text);flex:1;}
+.mbuilder-metric-item.msel .mbuilder-metric-name{color:var(--accent);font-weight:600;}
+.mbuilder-metric-add{font-size:14px;color:var(--text3);line-height:1;}
+.mbuilder-metric-check{font-size:13px;color:var(--accent);display:none;font-weight:700;}
+.mbuilder-metric-item.msel .mbuilder-metric-check{display:block;}
+.mbuilder-metric-item.msel .mbuilder-metric-add{display:none;}
+.mbuilder-sel-list{flex:1;overflow-y:auto;padding:12px;}
+.mbuilder-sel-empty{text-align:center;padding:48px 20px;color:var(--text3);font-size:12px;line-height:1.7;}
+.mbuilder-sel-item{display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:grab;box-shadow:var(--shadow);transition:all 0.15s;user-select:none;}
+.mbuilder-sel-item:active{cursor:grabbing;}
+.mbuilder-sel-item.drag-over{border-color:var(--accent);background:var(--accent-light);}
+.mbuilder-sel-item.dragging{opacity:0.35;border-style:dashed;}
+.mbuilder-drag-handle{color:var(--text3);font-size:16px;flex-shrink:0;cursor:grab;line-height:1;}
+.mbuilder-sel-name{font-size:13px;font-weight:600;color:var(--text);}
+.mbuilder-sel-cat{font-size:10px;color:var(--text3);margin-top:1px;}
+.mbuilder-sel-remove{background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;padding:2px 4px;border-radius:4px;transition:color 0.1s;line-height:1;flex-shrink:0;}
+.mbuilder-sel-remove:hover{color:var(--red);}
+.mbuilder-footer{padding:14px 24px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:#fff;flex-shrink:0;}
+.mbuilder-count{font-size:12px;color:var(--text3);}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark"><svg viewBox="0 0 24 24"><path d="M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm14 3a4 4 0 110-8 4 4 0 010 8z"/></svg></div>
+    <div>
+      <div class="logo-text">NGP <span>Dashboard</span></div>
+      <div class="role-label">NGP Admin</div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-label">VISÃO GERAL</div>
+    <button class="nav-item active" id="nav-resumo" onclick="navTo('resumo', 'Resumo', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Resumo
+    </button>
+    <button class="nav-item" id="nav-campanhas" onclick="navTo('campanhas', 'Campanhas', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>Campanhas
+    </button>
+    <button class="nav-item" id="nav-graficos" onclick="navTo('graficos', 'Gráficos', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Gráficos
+    </button>
+    <button class="nav-item" onclick="window.open('relatorio.html?novo=1','_blank','noopener,noreferrer')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Relatório ↗
+    </button>
+
+    <div class="nav-label" style="margin-top:12px;">PLATAFORMAS</div>
+    <button class="nav-item active-platform" id="nav-meta" onclick="openPlatform('meta')">
+      <svg viewBox="0 0 24 24" fill="#1877f2" stroke="none" stroke-width="0" width="15" height="15"><circle cx="12" cy="12" r="10"/><path d="M16 8h-2a2 2 0 00-2 2v2h4l-.5 4H12v8h-4v-8H6v-4h2v-2a6 6 0 016-6h2v4z" fill="#fff"/></svg>Meta Ads
+    </button>
+    <button class="nav-item" style="cursor:default;opacity:0.6">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>Google Ads<span class="nav-badge">breve</span>
+    </button>
+
+    <div class="nav-label" style="margin-top:12px;">SISTEMA</div>
+    <button class="nav-item" onclick="window.location.href='/dashboard'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Trocar conta
+    </button>
+    <button class="nav-item" onclick="window.location.href='utm-builder.html'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>UTM Builder
+    </button>
+    <button class="nav-item" onclick="window.location.href='ia-analise.html'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 4a1.5 1.5 0 1 1-1.5 1.5A1.5 1.5 0 0 1 12 6zm3 11H9v-2h2v-4H9v-2h4v6h2z"/></svg>Análise IA
+    </button>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="user-block">
+      <div class="user-info" onclick="window.location.href='perfil.html'" title="Meu perfil">
+        <div class="user-avatar" id="user-avatar">N</div>
+        <div style="min-width:0;">
+          <div class="user-name" id="user-name">NGP</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.35);">Acesso total</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="doLogout()" title="Sair">⏻</button>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <header class="header">
+    <div class="header-title" id="page-title">Selecionar conta</div>
+    <button onclick="openRelatorio()" style="padding:6px 16px;border-radius:var(--radius-sm);border:none;background:var(--red);color:#fff;font-family:'Sora',sans-serif;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+      Relatório
+    </button>
+    <button class="header-btn btn-secondary" onclick="loadData()" style="margin-left:auto;">↻ Atualizar</button>
+  </header>
+
+  <!-- FILTER BAR (oculto — controles de período ficam na viewing bar) -->
+  <div class="filter-bar" id="header-filters" style="display:none!important;">
+    <!-- Linha 1: período principal -->
+    <div class="filter-row">
+      <div class="filter-group">
+        <span class="filter-lbl">Período</span>
+        <select class="filter-select" id="period-filter" onchange="onPeriodChange()">
+          <option value="last30" selected>Últimos 30 dias</option>
+          <option value="today">Hoje</option>
+          <option value="yesterday">Ontem</option>
+          <option value="last7">Últimos 7 dias</option>
+          <option value="thismonth">Este mês</option>
+          <option value="lastmonth">Mês anterior</option>
+          <option value="last90">Últimos 90 dias</option>
+          <option value="custom">Personalizado</option>
+        </select>
+        <div id="custom-date-wrap" style="display:none;align-items:center;gap:6px;">
+          <input type="date" id="custom-since" class="date-input"/>
+          <span style="font-size:11px;color:var(--text3);">–</span>
+          <input type="date" id="custom-until" class="date-input"/>
+          <button class="header-btn btn-primary" onclick="applyCustomDate()">Aplicar</button>
+        </div>
+      </div>
+      <div class="filter-sep"></div>
+      <div class="filter-group">
+        <button id="cmp-btn" class="header-btn btn-secondary" onclick="toggleCompare()">⟷ Comparar</button>
+        <div id="cmp-wrap" style="display:none;align-items:center;gap:6px;">
+          <span style="font-size:11px;color:var(--text3);white-space:nowrap;">vs.</span>
+          <select class="filter-select" id="cmp-period-filter" onchange="onCmpPeriodChange()">
+            <option value="lastmonth" selected>Mês anterior</option>
+            <option value="last30">Últimos 30 dias</option>
+            <option value="today">Hoje</option>
+            <option value="yesterday">Ontem</option>
+            <option value="last7">Últimos 7 dias</option>
+            <option value="thismonth">Este mês</option>
+            <option value="last90">Últimos 90 dias</option>
+            <option value="custom">Personalizado</option>
+          </select>
+          <div id="cmp-custom-wrap" style="display:none;align-items:center;gap:6px;">
+            <input type="date" id="cmp-since" class="date-input"/>
+            <span style="font-size:11px;color:var(--text3);">–</span>
+            <input type="date" id="cmp-until" class="date-input"/>
+            <button class="header-btn btn-primary" onclick="applyCmpCustomDate()">Aplicar</button>
+          </div>
+        </div>
+      </div>
+      <div class="filter-sep"></div>
+      <div class="filter-group">
+        <button class="header-btn btn-secondary" onclick="openMetricModal()" style="white-space:nowrap;">Métricas</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- SCREEN 1: ACCOUNT SELECTOR -->
+    <div id="screen-select">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <div>
+          <div class="sel-title">Selecionar conta</div>
+          <div class="sel-sub">Escolha qual conta de anúncios deseja visualizar</div>
+        </div>
+        <button class="header-btn btn-primary" onclick="openAddModal()" style="display:flex;align-items:center;gap:6px;font-size:13px;">+ Adicionar conta</button>
+      </div>
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="acc-search" placeholder="Buscar cliente ou ID da conta..." oninput="filterAccounts(this.value)"/>
+      </div>
+      <div id="acc-loading" style="display:flex;align-items:center;gap:10px;padding:20px 0;"><div class="spinner"></div><div style="font-size:13px;color:var(--text2);">Carregando contas...</div></div>
+      <div class="acc-grid" id="acc-grid" style="display:none;"></div>
+    </div>
+
+    <!-- SCREEN 2: DASHBOARD -->
+    <div id="screen-dashboard" style="display:none;">
+
+      <!-- VIEWING BAR -->
+      <div class="viewing-bar" id="viewing-bar">
+        <div class="viewing-info">
+          <div class="viewing-av" id="v-av"></div>
+          <div>
+            <div class="viewing-name" id="v-name"></div>
+            <div class="viewing-id" id="v-id"></div>
+          </div>
+        </div>
+        <!-- period controls inline -->
+        <div class="vb-filters">
+          <select class="filter-select" id="vb-period-filter" onchange="onVbPeriodChange()">
+            <option value="last30" selected>Últimos 30 dias</option>
+            <option value="today">Hoje</option>
+            <option value="yesterday">Ontem</option>
+            <option value="last7">Últimos 7 dias</option>
+            <option value="thismonth">Este mês</option>
+            <option value="lastmonth">Mês anterior</option>
+            <option value="last90">Últimos 90 dias</option>
+            <option value="custom">Personalizado</option>
+          </select>
+          <div id="vb-custom-wrap" style="display:none;align-items:center;gap:6px;">
+            <input type="date" id="vb-custom-since" class="date-input"/>
+            <span style="font-size:11px;color:var(--text3);">–</span>
+            <input type="date" id="vb-custom-until" class="date-input"/>
+            <button class="header-btn btn-primary" onclick="applyVbCustomDate()">Aplicar</button>
+          </div>
+          <button id="vb-cmp-btn" class="header-btn btn-secondary" onclick="toggleVbCompare()">⟷ Comparar</button>
+          <div id="vb-cmp-wrap" style="display:none;align-items:center;gap:6px;">
+            <span style="font-size:11px;color:var(--text3);">vs.</span>
+            <select class="filter-select" id="vb-cmp-period" onchange="onVbCmpPeriodChange()">
+              <option value="lastmonth" selected>Mês anterior</option>
+              <option value="last30">Últimos 30 dias</option>
+              <option value="today">Hoje</option>
+              <option value="yesterday">Ontem</option>
+              <option value="last7">Últimos 7 dias</option>
+              <option value="thismonth">Este mês</option>
+              <option value="last90">Últimos 90 dias</option>
+              <option value="custom">Personalizado</option>
+            </select>
+            <div id="vb-cmp-custom-wrap" style="display:none;align-items:center;gap:6px;">
+              <input type="date" id="vb-cmp-since" class="date-input"/>
+              <span style="font-size:11px;color:var(--text3);">–</span>
+              <input type="date" id="vb-cmp-until" class="date-input"/>
+              <button class="header-btn btn-primary" onclick="applyVbCmpCustomDate()">Aplicar</button>
+            </div>
+          </div>
+        </div>
+        <button class="btn-back" onclick="backToAccounts()">← Trocar conta</button>
+      </div>
+
+      <!-- NAV TABS -->
+      <div class="breakdown-tabs" style="margin-bottom:20px;">
+        <button class="bd-tab active" onclick="switchSubPage('resumo',this)">Resumo</button>
+        <button class="bd-tab" onclick="switchSubPage('plataformas',this)">Plataformas</button>
+        <button class="bd-tab" onclick="switchSubPage('campanhas',this)">Campanhas</button>
+        <button class="bd-tab" onclick="switchSubPage('graficos',this)">Gráficos</button>
+        <button class="bd-tab" onclick="switchSubPage('relatorios',this)">Relatórios</button>
+      </div>
+
+      <!-- RESUMO -->
+      <div id="sub-resumo">
+
+        <!-- Barra de filtro de campanhas para KPIs -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <div style="font-size:12px;color:var(--text3);">Métricas calculadas com base nas campanhas selecionadas</div>
+          <button id="camp-filter-btn" onclick="openCampFilter()" style="display:flex;align-items:center;gap:6px;padding:6px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:#fff;font-family:'Sora',sans-serif;font-size:12px;font-weight:600;cursor:pointer;color:var(--text2);transition:all .15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="if(!selectedCampaignIds){this.style.borderColor='var(--border)';this.style.color='var(--text2)'}">
+            🎯 Filtrar campanhas
+            <span id="camp-filter-badge" style="display:none;background:var(--red);color:#fff;border-radius:99px;padding:1px 7px;font-size:10px;font-weight:700;"></span>
+          </button>
+        </div>
+
+        <div class="section-label">💰 Financeiro <span>Meta Ads</span></div>
+        <div class="kpi-grid" id="kpi-fin"></div>
+        <div class="section-label">🎯 Resultados</div>
+        <div class="kpi-grid" id="kpi-res"></div>
+        <div class="section-label">📣 Alcance</div>
+        <div class="kpi-grid" id="kpi-reach"></div>
+        <div class="kpi-grid" id="kpi-all" style="display:none;"></div>
+
+        <!-- Modal seleção de campanhas -->
+        <div id="camp-filter-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;" onclick="if(event.target===this)closeCampFilter()">
+          <div style="background:#fff;border-radius:16px;width:min(520px,95vw);max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden;">
+            <div style="padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+              <div>
+                <div style="font-size:15px;font-weight:700;color:var(--dark);">Selecionar campanhas</div>
+                <div style="font-size:11px;color:var(--text3);margin-top:2px;">Escolha quais campanhas entram no cálculo das métricas</div>
+              </div>
+              <button onclick="closeCampFilter()" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--text3);padding:4px;">✕</button>
+            </div>
+            <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;">
+              <button onclick="selectAllCamps(true)"  style="flex:1;padding:6px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:#fff;font-family:'Sora',sans-serif;font-size:12px;cursor:pointer;font-weight:600;color:var(--text2);">✅ Todas</button>
+              <button onclick="selectAllCamps(false)" style="flex:1;padding:6px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:#fff;font-family:'Sora',sans-serif;font-size:12px;cursor:pointer;font-weight:600;color:var(--text2);">☐ Limpar</button>
+            </div>
+            <div id="camp-filter-list" style="overflow-y:auto;flex:1;padding:8px 10px;display:flex;flex-direction:column;gap:2px;"></div>
+            <div style="padding:14px 16px;border-top:1px solid var(--border);display:flex;gap:8px;">
+              <button onclick="closeCampFilter()" style="flex:1;padding:9px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:#fff;font-family:'Sora',sans-serif;font-size:13px;font-weight:600;cursor:pointer;color:var(--text2);">Cancelar</button>
+              <button onclick="applyCampFilter()" style="flex:2;padding:9px;border:none;border-radius:var(--radius-sm);background:var(--red);color:#fff;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Aplicar</button>
+            </div>
+          </div>
+        </div>
+        <div class="charts-row">
+          <div class="chart-card">
+            <div class="chart-header">
+              <span class="chart-title">Campanhas — investimento</span>
+              <div class="chart-tabs">
+                <button class="chart-tab active" onclick="switchChart('spend',this)">Gasto</button>
+                <button class="chart-tab" onclick="switchChart('impressions',this)">Impressões</button>
+                <button class="chart-tab" onclick="switchChart('clicks',this)">Cliques</button>
+              </div>
+            </div>
+            <div class="chart-body" style="height:220px;"><canvas id="chart-bar"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header"><span class="chart-title">Distribuição de gasto</span></div>
+            <div class="chart-body" style="height:220px;"><canvas id="chart-donut"></canvas></div>
+          </div>
+        </div>
+        <div class="table-card">
+          <div class="table-header">
+            <span class="chart-title">Campanhas</span>
+            <div style="display:flex;gap:8px;">
+              <input type="text" class="table-search" placeholder="Buscar..." oninput="filterTable(this.value)"/>
+              <select class="filter-select" id="status-filter" onchange="filterTable(document.querySelector('.table-search').value)">
+                <option value="">Todos</option><option value="ACTIVE">Ativas</option><option value="PAUSED">Pausadas</option>
+              </select>
+            </div>
+          </div>
+          <div style="overflow-x:auto;"><table>
+            <thead><tr><th>Campanha</th><th>Status</th><th>Investido</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>CPC</th><th>Conv.</th><th>Leads</th><th>Compras</th><th>Receita</th><th>ROAS</th></tr></thead>
+            <tbody id="table-body"></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- CAMPANHAS -->
+      <div id="sub-campanhas" style="display:none;">
+        <div class="camp-filter-bar">
+          <input type="text" class="table-search" id="acc-search-input" placeholder="Buscar campanha..." style="flex:1;" oninput="filterAccordion(this.value)"/>
+          <select class="filter-select" id="acc-status-filter" onchange="filterAccordion(document.getElementById('acc-search-input').value)">
+            <option value="">Todos</option><option value="ACTIVE">Ativas</option><option value="PAUSED">Pausadas</option>
+          </select>
+          <select class="filter-select" id="acc-sort-filter" onchange="filterAccordion(document.getElementById('acc-search-input').value)">
+            <option value="spend">↓ Maior gasto</option>
+            <option value="roas">↓ Maior ROAS</option>
+            <option value="impressions">↓ Impressões</option>
+            <option value="clicks">↓ Cliques</option>
+            <option value="ctr">↓ CTR</option>
+            <option value="conversations">↓ Conversas</option>
+            <option value="leads">↓ Leads</option>
+            <option value="purchases">↓ Compras</option>
+          </select>
+          <div class="section-label" style="margin:0;white-space:nowrap;"><span id="acc-count">—</span></div>
+        </div>
+        <div class="breakdown-tabs">
+          <button class="bd-tab active" onclick="setBreakdown('none',this)">Campanhas</button>
+          <button class="bd-tab" onclick="setBreakdown('gender',this)">Gênero</button>
+          <button class="bd-tab" onclick="setBreakdown('age',this)">Idade</button>
+          <button class="bd-tab" onclick="setBreakdown('region',this)">Estados</button>
+          <button class="bd-tab" onclick="setBreakdown('creative',this)">Criativos</button>
+          <button class="bd-tab" onclick="setBreakdown('device',this)">Dispositivo</button>
+        </div>
+        <div id="bd-metric-row" style="display:none;margin-bottom:14px;">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:6px;">Ordenar por:</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="bd-metric-btn active" onclick="setBdMetric('spend',this)">Gasto</button>
+            <button class="bd-metric-btn" onclick="setBdMetric('impressions',this)">Impressões</button>
+            <button class="bd-metric-btn" onclick="setBdMetric('clicks',this)">Cliques</button>
+            <button class="bd-metric-btn" onclick="setBdMetric('ctr',this)">CTR</button>
+            <button class="bd-metric-btn" onclick="setBdMetric('result',this)">Resultado</button>
+          </div>
+        </div>
+        <div id="acc-list"></div>
+        <div id="bd-content" style="display:none;"></div>
+      </div>
+
+      <!-- GRÁFICOS -->
+      <div id="sub-graficos" style="display:none;">
+        <div class="chart-sel-bar">
+          <div class="chart-sel-group">
+            <label class="chart-sel-label">Nível</label>
+            <div class="chart-level-tabs">
+              <button class="chart-lvl-btn active" onclick="setChartLevel('campaign',this)">Campanhas</button>
+              <button class="chart-lvl-btn" onclick="setChartLevel('adset',this)">Conjuntos</button>
+              <button class="chart-lvl-btn" onclick="setChartLevel('ad',this)">Anúncios</button>
+            </div>
+          </div>
+          <div class="chart-sel-group" id="cg-camp-wrap">
+            <label class="chart-sel-label">Campanha</label>
+            <select class="filter-select" id="cg-camp-sel" onchange="onChartCampChange()" style="min-width:200px;">
+              <option value="">Todas</option>
+            </select>
+          </div>
+          <div class="chart-sel-group" id="cg-adset-wrap" style="display:none;">
+            <label class="chart-sel-label">Conjunto</label>
+            <select class="filter-select" id="cg-adset-sel" onchange="onChartAdsetChange()" style="min-width:180px;">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="chart-sel-group" id="cg-ad-wrap" style="display:none;">
+            <label class="chart-sel-label">Anúncio</label>
+            <select class="filter-select" id="cg-ad-sel" onchange="renderChartWidgets()" style="min-width:180px;">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <button class="header-btn btn-secondary" onclick="loadChartData()">↻ Carregar</button>
+        </div>
+        <div class="chart-metric-pills" id="chart-metric-pills"></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+          <span style="font-size:11px;color:var(--text3);font-weight:600;">Tipo:</span>
+          <button class="bd-tab active" onclick="setChartType('bar',this)">Barras</button>
+          <button class="bd-tab" onclick="setChartType('line',this)">Linha</button>
+          <button class="bd-tab" onclick="setChartType('horizontalBar',this)">↔ Horizontal</button>
+          <button class="bd-tab" onclick="setChartType('doughnut',this)">Donut</button>
+          <button class="bd-tab" onclick="setChartType('radar',this)">Radar</button>
+          <div style="margin-left:auto;display:flex;gap:4px;">
+            <button class="bd-tab" onclick="setChartLayout(1,this)">▣ 1</button>
+            <button class="bd-tab active" onclick="setChartLayout(2,this)">⊞ 2</button>
+            <button class="bd-tab" onclick="setChartLayout(3,this)">⊟ 3</button>
+          </div>
+        </div>
+        <div id="chart-loading" style="display:none;text-align:center;padding:32px;">
+          <div class="spinner"></div>
+          <div style="font-size:12px;color:var(--text3);margin-top:10px;" id="chart-loading-text">Carregando...</div>
+        </div>
+        <div id="chart-widget-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;"></div>
+      </div>
+
+      <!-- RELATÓRIOS DO CLIENTE -->
+      <div id="sub-relatorios" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <div class="section-label" style="margin-bottom:0;">Relatórios salvos</div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="loadRelatorios(true)" title="Atualizar lista" style="padding:7px 10px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:var(--radius-sm);font-size:13px;cursor:pointer;">↻</button>
+            <button onclick="openRelatorio()" style="padding:7px 14px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:var(--radius-sm);font-size:12px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;">+ Clássico</button>
+            <button onclick="openRelatorioV2()" style="padding:7px 14px;background:var(--red);color:#fff;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;">+ Novo relatório Pro ✦</button>
+          </div>
+        </div>
+        <div id="rel-list-wrap">
+          <div id="rel-list-loading" style="text-align:center;padding:40px 0;color:var(--text3);font-size:13px;">Carregando relatórios...</div>
+          <div id="rel-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+          <div id="rel-list-empty" style="display:none;text-align:center;padding:48px 0;">
+            <div style="font-size:32px;margin-bottom:10px;"></div>
+            <div style="font-weight:600;color:var(--text2);font-size:14px;">Nenhum relatório ainda</div>
+            <div style="color:var(--text3);font-size:12px;margin-top:4px;">Crie o primeiro relatório para este cliente</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PLATAFORMAS -->
+      <div id="sub-plataformas" style="display:none;">
+        <div class="plat-tabs">
+          <button class="plat-tab active" onclick="switchPlatform('meta',this)">
+            <span class="plat-icon plat-icon-meta">f</span>Meta Ads
+          </button>
+          <button class="plat-tab" onclick="switchPlatform('google',this)">
+            <span class="plat-icon plat-icon-google">G</span>Google Ads
+          </button>
+        </div>
+
+        <!-- META ADS -->
+        <div class="plat-section active" id="plat-meta">
+          <div class="plat-header">
+            <span class="plat-badge plat-badge-meta">Meta Ads</span>
+            <span style="font-size:12px;color:var(--text3);" id="plat-meta-count"></span>
+          </div>
+          <div class="plat-kpi-grid" id="plat-meta-kpis"></div>
+          <div class="table-card">
+            <div class="table-header"><span class="chart-title">Campanhas Meta Ads</span></div>
+            <div style="overflow-x:auto;">
+              <table class="plat-camp-table">
+                <thead><tr><th>Campanha</th><th>Status</th><th>Investido</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>CPC</th><th>Resultado</th><th>ROAS</th></tr></thead>
+                <tbody id="plat-meta-table"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- GOOGLE ADS -->
+        <div class="plat-section" id="plat-google">
+          <div id="plat-google-connected" style="display:none;">
+            <div class="plat-header">
+              <span class="plat-badge plat-badge-google">Google Ads</span>
+              <span style="font-size:12px;color:var(--text3);" id="plat-google-count"></span>
+            </div>
+            <div class="plat-kpi-grid" id="plat-google-kpis"></div>
+            <div class="table-card">
+              <div class="table-header"><span class="chart-title">Campanhas Google Ads</span></div>
+              <div style="overflow-x:auto;">
+                <table class="plat-camp-table">
+                  <thead><tr><th>Campanha</th><th>Status</th><th>Investido</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>CPC</th><th>Conversões</th><th>ROAS</th></tr></thead>
+                  <tbody id="plat-google-table"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div id="plat-google-empty" class="plat-connect">
+            <div class="plat-connect-icon">G</div>
+            <div class="plat-connect-title">Google Ads não conectado</div>
+            <div class="plat-connect-sub">Configure as credenciais do Google Ads para visualizar as métricas desta plataforma integradas ao painel.</div>
+            <button class="plat-connect-btn" onclick="alert('Em breve: configuração do Google Ads')">Configurar Google Ads</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <!-- /screen-dashboard -->
+
+  </div>
+</div>
+
+<!-- METRIC BUILDER MODAL -->
+<div class="mbuilder-overlay" id="mbuilder-overlay" onclick="if(event.target===this)closeMetricModal()">
+  <div class="mbuilder-modal">
+    <div class="mbuilder-header">
+      <div>
+        <div class="mbuilder-title">Construtor de Métricas</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px;">Escolha e ordene as métricas exibidas no painel de resumo</div>
+      </div>
+      <button class="mbuilder-close" onclick="closeMetricModal()">✕</button>
+    </div>
+    <div class="mbuilder-body">
+      <!-- LEFT: available metrics -->
+      <div class="mbuilder-left">
+        <div class="mbuilder-panel-header">
+          <div class="mbuilder-panel-title">Métricas disponíveis</div>
+          <input class="mbuilder-search" type="text" placeholder="Buscar métrica..." id="mbuilder-search" oninput="renderMetricAvail(this.value)"/>
+        </div>
+        <div class="mbuilder-avail-list" id="mbuilder-avail-list"></div>
+      </div>
+      <!-- RIGHT: selected metrics (drag to reorder) -->
+      <div class="mbuilder-right">
+        <div class="mbuilder-panel-header" style="background:var(--bg);">
+          <div class="mbuilder-panel-title">Métricas selecionadas</div>
+          <div style="font-size:11px;color:var(--text3);">Arraste ⠿ para reordenar · Clique × para remover</div>
+        </div>
+        <div class="mbuilder-sel-list" id="mbuilder-sel-list"></div>
+      </div>
+    </div>
+    <div class="mbuilder-footer">
+      <span class="mbuilder-count" id="mbuilder-count">0 métricas selecionadas</span>
+      <div style="display:flex;gap:8px;">
+        <button class="header-btn btn-secondary" onclick="resetMetrics()">↺ Padrão</button>
+        <button class="header-btn btn-primary" onclick="saveAndCloseMetrics()">✓ Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ADICIONAR CONTA -->
+<div class="modal-overlay" id="modal-add" onclick="if(event.target===this)closeAddModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">Adicionar conta</div>
+      <button class="modal-close" onclick="closeAddModal()">✕</button>
+    </div>
+    <div class="modal-error" id="add-error"></div>
+    <div class="modal-field">
+      <label class="modal-label">Nome do cliente *</label>
+      <input class="modal-input" type="text" id="add-nome" placeholder="Ex: Empresa XYZ"/>
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">Username (login) *</label>
+      <input class="modal-input" type="text" id="add-username" placeholder="Ex: empresa_xyz"/>
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">ID da conta Meta Ads</label>
+      <input class="modal-input" type="text" id="add-meta-id" placeholder="Ex: act_123456789"/>
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">Senha</label>
+      <input class="modal-input" type="password" id="add-senha" placeholder="Senha de acesso do cliente"/>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn-cancel" onclick="closeAddModal()">Cancelar</button>
+      <button class="modal-btn-submit" id="add-submit" onclick="submitAddCliente()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: EDITAR CONTA -->
+<div class="modal-overlay" id="modal-edit" onclick="if(event.target===this)closeEditModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">Editar conta</div>
+      <button class="modal-close" onclick="closeEditModal()">✕</button>
+    </div>
+    <div class="modal-error" id="edit-error"></div>
+    <div class="modal-avatar-row">
+      <label class="modal-avatar-preview" id="edit-avatar-preview" title="Clique para trocar foto">
+        <span id="edit-avatar-initials">?</span>
+        <input type="file" accept="image/*" style="display:none" onchange="onEditFileChange(this)"/>
+      </label>
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--text2);">Foto do cliente</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px;">Clique para trocar. Rec: 128x128px.</div>
+      </div>
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">Nome do cliente *</label>
+      <input class="modal-input" type="text" id="edit-nome" placeholder="Nome do cliente"/>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn-cancel" onclick="closeEditModal()">Cancelar</button>
+      <button class="modal-btn-submit" id="edit-submit" onclick="submitEditCliente()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loading">
+  <div class="loading-box">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loading-text">Carregando...</div>
+  </div>
+</div>
+
+<script>
+const SURL = 'https://uqukfjtwsuffeunikiwz.supabase.co';
+const ANON = 'sb_publishable_8Be9xpxGtJDsM8AGtcDwmQ_Z_WPhYQ_';
+
+// ── UTILS ──
+const fmt  = (n,d=2) => Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmtN = n => parseInt(n||0).toLocaleString('pt-BR');
+const fmtI = n => { n=parseInt(n||0); return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'k':String(n); };
+const esc  = s => s==null?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+const showLoading = t => { document.getElementById('loading-text').textContent=t||'Carregando...'; document.getElementById('loading').classList.add('show'); };
+const hideLoading = () => document.getElementById('loading').classList.remove('show');
+
+// ── AUTH CHECK — restaura sessão do localStorage se sessionStorage estiver vazio ──
+(function(){
+  if(sessionStorage.getItem('adsboard_auth')==='1') return; // já tem sessão
+  try{
+    var p=JSON.parse(localStorage.getItem('_ngp_persist')||'{}');
+    if(p.auth==='1' && p.exp && Date.now()<p.exp){
+      sessionStorage.setItem('adsboard_auth',    p.auth);
+      sessionStorage.setItem('adsboard_session', p.sess);
+      sessionStorage.setItem('adsboard_user',    p.user);
+      sessionStorage.setItem('adsboard_role',    p.role);
+      sessionStorage.setItem('adsboard_username',p.username);
+      if(p.expires)      sessionStorage.setItem('adsboard_expires',     p.expires);
+      if(p.meta_account) sessionStorage.setItem('adsboard_meta_account',p.meta_account);
+    }
+  }catch(e){}
+})();
+const sess = sessionStorage.getItem('adsboard_session');
+const auth = sessionStorage.getItem('adsboard_auth');
+const role = sessionStorage.getItem('adsboard_role');
+if(auth !== '1' || !sess) { window.location.href = 'login.html'; }
+if(role === 'cliente') { window.location.href = 'cliente-dashboard.html'; }
+
+// Update UI
+const uName   = sessionStorage.getItem('adsboard_user') || 'NGP';
+const uFoto   = sessionStorage.getItem('adsboard_foto') || '';
+const uAvatar = document.getElementById('user-avatar');
+if (uFoto) {
+  const img = document.createElement('img');
+  img.src = uFoto; img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+  img.onerror = () => { img.remove(); uAvatar.textContent = uName.slice(0,2).toUpperCase(); };
+  uAvatar.textContent = ''; uAvatar.appendChild(img);
+} else {
+  uAvatar.textContent = uName.slice(0,2).toUpperCase();
+}
+document.getElementById('user-name').textContent = uName;
+
+// Abre relatório em nova aba — account_id vai na URL (não é segredo); token Meta NUNCA sai para o cliente
+function _buildRelParams(extra='') {
+  const accountId  = sessionStorage.getItem('ngp_viewing_account') || '';
+  const clientName = sessionStorage.getItem('ngp_viewing_name')    || '';
+  const username   = sessionStorage.getItem('ngp_viewing_username')|| '';
+  const periodMap  = {today:'today',yesterday:'yesterday',last7:'last_7d',last30:'last_30d',thismonth:'this_month',lastmonth:'last_month',last90:'last_90d'};
+  const metaPreset = periodMap[currentPeriod] || 'last_30d';
+  // Passa sessão via localStorage temporário (apaga em 60s) — contorna isolamento do sessionStorage em nova aba
+  try{
+    const bridge={sess:sess,auth:'1',role:sessionStorage.getItem('adsboard_role')||'ngp',account:accountId,name:clientName,username,ts:Date.now()};
+    localStorage.setItem('_ngp_bridge',JSON.stringify(bridge));
+  }catch(e){}
+  return '?novo=1'
+    + (accountId  ? '&account='  + encodeURIComponent(accountId)  : '')
+    + (clientName ? '&cliente='  + encodeURIComponent(clientName) : '')
+    + (username   ? '&username=' + encodeURIComponent(username)   : '')
+    + '&period=' + metaPreset + extra;
+}
+function openRelatorio()   { window.open('relatorio.html?novo=1'    + _buildRelParams().slice(5), '_blank'); }
+function openRelatorioV2() { window.open('relatorio-v2.html'        + _buildRelParams(),          '_blank'); }
+
+function doLogout() {
+  if(!confirm('Deseja sair?')) return;
+  fetch(SURL+'/functions/v1/logout',{method:'POST',headers:{'Content-Type':'application/json','apikey':ANON,'Authorization':'Bearer '+sess},body:JSON.stringify({token:sess})}).catch(()=>{});
+  sessionStorage.clear(); localStorage.removeItem('_ngp_persist'); window.location.href='login.html';
+}
+
+// ── STATE ──
+let allClients = [];
+let allCampaigns = [];
+let selectedCampaignIds = null; // null = todas, Set = seleção específica
+let allCampaignsCmp = [];
+let currentPeriod = 'last30';
+let cmpEnabled = false;
+let currentCmpPeriod = 'lastmonth';
+let customSince = '', customUntil = '';
+let cmpCustomSince = '', cmpCustomUntil = '';
+const PERIOD_LABELS = {today:'Hoje',yesterday:'Ontem',last7:'Últ. 7 dias',last30:'Últ. 30 dias',thismonth:'Este mês',lastmonth:'Mês anterior',last90:'Últ. 90 dias'};
+
+// ── METRIC CATALOG ──
+const METRIC_CATALOG = [
+  {id:'spend',        label:'Investido',        cat:'Financeiro'},
+  {id:'revenue',      label:'Receita',          cat:'Financeiro'},
+  {id:'roas',         label:'ROAS',             cat:'Financeiro'},
+  {id:'cpc',          label:'CPC médio',        cat:'Financeiro'},
+  {id:'cpl',          label:'CPL',              cat:'Financeiro'},
+  {id:'cpa',          label:'CPA',              cat:'Financeiro'},
+  {id:'conversations',label:'Conversas',        cat:'Resultados'},
+  {id:'leads',        label:'Leads',            cat:'Resultados'},
+  {id:'purchases',    label:'Compras',          cat:'Resultados'},
+  {id:'resultado',    label:'Resultado',        cat:'Resultados'},
+  {id:'impressions',  label:'Impressões',       cat:'Alcance'},
+  {id:'clicks',       label:'Cliques',          cat:'Alcance'},
+  {id:'ctr',          label:'CTR médio',        cat:'Alcance'},
+  {id:'campaigns',    label:'Campanhas',        cat:'Geral'},
+];
+const DEFAULT_METRICS = ['spend','revenue','roas','cpc','conversations','leads','purchases','impressions','clicks','ctr'];
+function loadSelectedMetrics(accountId){
+  try{
+    const key = accountId ? 'ngp_metrics_'+accountId : 'ngp_metrics_default';
+    const s=localStorage.getItem(key);
+    if(s){const a=JSON.parse(s);if(Array.isArray(a)&&a.length)return a;}
+  }catch(_){}
+  return [...DEFAULT_METRICS];
+}
+let selectedMetrics = loadSelectedMetrics();
+let modalMetrics = [];
+let mbDragSrcIdx = null;
+
+let chartMetric = 'spend';
+
+// Retorna campanhas filtradas pela seleção atual
+function getFilteredCampaigns() {
+  if (!selectedCampaignIds) return allCampaigns;
+  return allCampaigns.filter(c => selectedCampaignIds.has(c.id));
+}
+
+// Abre modal de seleção de campanhas para os KPIs
+function openCampFilter() {
+  if (!allCampaigns.length) return;
+  const overlay = document.getElementById('camp-filter-overlay');
+  const list    = document.getElementById('camp-filter-list');
+  const current = selectedCampaignIds ?? new Set(allCampaigns.map(c => c.id));
+
+  list.innerHTML = allCampaigns.map(c => `
+    <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;transition:background .15s;font-size:13px;color:var(--text);" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
+      <input type="checkbox" value="${esc(c.id)}" ${current.has(c.id)?'checked':''} style="width:15px;height:15px;accent-color:var(--red);cursor:pointer;">
+      <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(c.name)}</span>
+      <span style="font-size:11px;color:var(--text3);flex-shrink:0;">R$ ${fmt(c.spend)}</span>
+      <span style="font-size:10px;padding:2px 7px;border-radius:99px;background:${c.status==='ACTIVE'?'#dcfce7':'#f3f4f6'};color:${c.status==='ACTIVE'?'#16a34a':'var(--text3)'};flex-shrink:0;">${c.status==='ACTIVE'?'Ativa':'Pausada'}</span>
+    </label>`).join('');
+
+  overlay.style.display = 'flex';
+}
+
+function closeCampFilter() {
+  document.getElementById('camp-filter-overlay').style.display = 'none';
+}
+
+function selectAllCamps(val) {
+  document.querySelectorAll('#camp-filter-list input[type=checkbox]')
+    .forEach(cb => cb.checked = val);
+}
+
+function applyCampFilter() {
+  const checked = [...document.querySelectorAll('#camp-filter-list input[type=checkbox]:checked')]
+    .map(cb => cb.value);
+  selectedCampaignIds = checked.length === allCampaigns.length ? null : new Set(checked);
+  closeCampFilter();
+  renderKPIs();
+  updateCampFilterBadge();
+}
+
+function updateCampFilterBadge() {
+  const badge = document.getElementById('camp-filter-badge');
+  const btn   = document.getElementById('camp-filter-btn');
+  if (!badge || !btn) return;
+  if (!selectedCampaignIds) {
+    badge.style.display = 'none';
+    btn.style.borderColor = 'var(--border)';
+    btn.style.color = 'var(--text2)';
+  } else {
+    badge.textContent = selectedCampaignIds.size + '/' + allCampaigns.length;
+    badge.style.display = 'inline-flex';
+    btn.style.borderColor = 'var(--red)';
+    btn.style.color = 'var(--red)';
+  }
+}
+const charts = {};
+const COLORS = ['#3b82f6','#22c55e','#a855f7','#f59e0b','#14b8a6','#ef4444','#f97316','#8b5cf6','#ec4899','#06b6d4'];
+const BG_COLORS = ['135deg,#3b82f6,#7c3aed','135deg,#059669,#14b8a6','135deg,#dc2626,#f97316','135deg,#7c3aed,#ec4899','135deg,#0891b2,#3b82f6','135deg,#16a34a,#65a30d','135deg,#ea580c,#f59e0b','135deg,#be185d,#7c3aed'];
+
+function getDateParam() {
+  const map={today:'today',yesterday:'yesterday',last7:'last_7d',last30:'last_30d',thismonth:'this_month',lastmonth:'last_month',last90:'last_90d'};
+  if(currentPeriod==='custom'&&customSince&&customUntil) return {time_range:JSON.stringify({since:customSince,until:customUntil})};
+  return {date_preset:map[currentPeriod]||'last_30d'};
+}
+function getCmpParam() {
+  if(!cmpEnabled) return null;
+  const map={today:'today',yesterday:'yesterday',last7:'last_7d',last30:'last_30d',thismonth:'this_month',lastmonth:'last_month',last90:'last_90d'};
+  if(currentCmpPeriod==='custom'&&cmpCustomSince&&cmpCustomUntil) return {time_range:JSON.stringify({since:cmpCustomSince,until:cmpCustomUntil})};
+  return {date_preset:map[currentCmpPeriod]||'last_month'};
+}
+function getCmpLabel() {
+  if(!cmpEnabled) return '';
+  if(currentCmpPeriod==='custom'&&cmpCustomSince&&cmpCustomUntil) {
+    const fmt = d => d.split('-').reverse().join('/');
+    return fmt(cmpCustomSince)+' – '+fmt(cmpCustomUntil);
+  }
+  return PERIOD_LABELS[currentCmpPeriod]||'período anterior';
+}
+
+function navTo(page, title, el) {
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('page-title').textContent = title;
+
+  // Relatório abre em nova aba — já tratado no onclick
+  if(page === 'relatorios') return;
+
+  // Precisa ter conta selecionada
+  const viewing = sessionStorage.getItem('ngp_viewing_account');
+  if(!viewing) {
+    document.getElementById('screen-select').style.display = 'block';
+    document.getElementById('screen-dashboard').style.display = 'none';
+    document.getElementById('header-filters').style.display = 'none';
+    return;
+  }
+
+  // Garante que dashboard está visível
+  document.getElementById('screen-select').style.display = 'none';
+  document.getElementById('screen-dashboard').style.display = 'block';
+  document.getElementById('header-filters').style.display = 'flex';
+
+  // Troca a sub-aba
+  if(['resumo','campanhas','graficos'].includes(page)) {
+    // Find the matching tab button and call switchSubPage
+    const tabs = document.querySelectorAll('#screen-dashboard .bd-tab');
+    const pageMap = {resumo:0, campanhas:1, graficos:2};
+    const tabBtn = tabs[pageMap[page]];
+    if(tabBtn) switchSubPage(page, tabBtn);
+  }
+}
+
+function switchSubPage(page, btn) {
+  document.querySelectorAll('#screen-dashboard .bd-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  ['resumo','campanhas','graficos','relatorios','plataformas'].forEach(function(p){
+    var el=document.getElementById('sub-'+p); if(el) el.style.display='none';
+  });
+  var sub = document.getElementById('sub-'+page);
+  if(sub) sub.style.display = 'block';
+  if(page==='campanhas' && allCampaigns.length && !document.getElementById('acc-list').innerHTML.trim()) loadCampaignAccordion();
+  if(page==='graficos' && allCampaigns.length && !chartsLoaded) loadCharts();
+  if(page==='relatorios') loadRelatorios();
+  if(page==='plataformas') renderPlataformas();
+}
+
+// ── RELATÓRIOS DO CLIENTE ─────────────────────────────────────────────────────
+async function loadRelatorios(force) {
+  var username = sessionStorage.getItem('ngp_viewing_username');
+  console.log('[loadRelatorios] username:', username, '| sess:', sess ? 'ok' : 'NULL');
+  if(!username) {
+    var emptyEl = document.getElementById('rel-list-empty');
+    if(emptyEl) { emptyEl.style.display='block'; emptyEl.textContent='Username do cliente não encontrado na sessão.'; }
+    return;
+  }
+
+  var loading = document.getElementById('rel-list-loading');
+  var listEl  = document.getElementById('rel-list');
+  var emptyEl = document.getElementById('rel-list-empty');
+
+  loading.style.display = 'block';
+  listEl.innerHTML = '';
+  emptyEl.style.display = 'none';
+
+  try {
+    // Usa ANON como Bearer — RLS policy pública (USING true) aceita anon key
+    var res = await fetch(
+      SURL+'/rest/v1/relatorios?cliente_username=eq.'+encodeURIComponent(username)+'&select=id,titulo,periodo,updated_at,dados&order=updated_at.desc',
+      { headers:{'apikey':ANON,'Authorization':'Bearer '+ANON} }
+    );
+    var data = await res.json();
+    console.log('[loadRelatorios] status:', res.status, '| registros:', Array.isArray(data)?data.length:data);
+    loading.style.display = 'none';
+
+    if(!Array.isArray(data) || !data.length) { emptyEl.style.display = 'block'; return; }
+
+    listEl.innerHTML = data.map(function(r){
+      var titulo   = r.titulo  || 'Sem título';
+      var periodo  = r.periodo || '—';
+      var isPro    = r.dados && r.dados.tipo === 'v2';
+      var fileUrl  = isPro ? 'relatorio-v2.html' : 'relatorio.html';
+      var badge    = isPro
+        ? '<span style="font-size:9px;font-weight:700;background:var(--red);color:#fff;padding:2px 6px;border-radius:4px;margin-left:6px;vertical-align:middle;">PRO</span>'
+        : '';
+      var data_fmt = r.updated_at
+        ? new Date(r.updated_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'})
+        : '—';
+      return `<div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);">
+        <div style="width:38px;height:38px;border-radius:8px;background:var(--red-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;">${isPro?'✦':''}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(titulo)}${badge}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px;">${esc(periodo)} &nbsp;·&nbsp; Atualizado em ${data_fmt}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0;">
+          <button onclick="window.open('${fileUrl}?id=${r.id}','_blank','noopener,noreferrer')" style="padding:7px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;color:var(--text2);white-space:nowrap;font-family:'Sora',sans-serif;transition:all .15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">Abrir →</button>
+          <button onclick="deleteRelatorio('${r.id}',this)" title="Excluir relatório" style="padding:7px 10px;background:#fff;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;cursor:pointer;color:var(--text3);transition:all .15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">🗑</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    loading.style.display = 'none';
+    listEl.innerHTML = '<div style="color:var(--red);font-size:12px;text-align:center;padding:20px;">Erro ao carregar relatórios.</div>';
+  }
+}
+
+async function deleteRelatorio(id, btn) {
+  if(!confirm('Excluir este relatório? Esta ação não pode ser desfeita.')) return;
+  const card = btn.closest('div[style*="background:#fff"]');
+  if(card) { card.style.opacity='0.4'; card.style.pointerEvents='none'; }
+  try {
+    const res = await fetch(SURL+'/functions/v1/delete-relatorio', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':ANON,'Authorization':'Bearer '+sess},
+      body: JSON.stringify({session_token:sess, id})
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || 'HTTP '+res.status);
+    if(card) card.remove();
+    // Mostra "nenhum" se ficou vazio
+    var listEl = document.getElementById('rel-list');
+    if(listEl && !listEl.children.length) {
+      document.getElementById('rel-list-empty').style.display='block';
+    }
+  } catch(e) {
+    alert('Erro ao excluir: '+e.message);
+    if(card) { card.style.opacity='1'; card.style.pointerEvents=''; }
+  }
+}
+
+// ── LOAD ACCOUNTS FROM SUPABASE ──
+async function init() {
+  try {
+    // 1. Try edge function get-ngp-data
+    const r = await fetch(SURL+'/functions/v1/get-ngp-data', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':ANON,'Authorization':'Bearer '+sess},
+      body: JSON.stringify({session_token: sess})
+    });
+    const d = await r.json();
+
+    if(!r.ok || d.error) {
+      throw new Error(d.error || 'Falha ao carregar dados NGP. Verifique a Edge Function get-ngp-data.');
+    }
+
+    allClients = d.clientes || [];
+
+    renderGrid(allClients);
+  } catch(e) {
+    console.error('init error:', e);
+    document.getElementById('acc-loading').innerHTML = '<div style="color:var(--red);font-size:13px;">Erro: '+esc(e.message)+'</div>';
+  }
+}
+
+function renderGrid(clients) {
+  const loading = document.getElementById('acc-loading');
+  const grid    = document.getElementById('acc-grid');
+  loading.style.display = 'none';
+
+  if(!clients.length) {
+    grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--text3);">Nenhum cliente cadastrado.</div>';
+    grid.style.display='grid'; return;
+  }
+
+  grid.innerHTML = clients.map((c,i) => {
+    const initials = c.nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    const bg = BG_COLORS[i % BG_COLORS.length];
+    const has = !!c.meta_account_id;
+    const avatarHtml = c.avatar_url
+      ? `<img src="${esc(c.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" onerror="this.style.display='none'"/>`
+      : esc(initials);
+    return '<div class="acc-card" ' +
+      'data-username="' + esc(c.username) + '" ' +
+      'data-nome="' + esc(c.nome) + '" ' +
+      'data-account="' + esc(c.meta_account_id||'') + '" ' +
+      'data-avatar="' + esc(c.avatar_url||'') + '" ' +
+      'onclick="selectAccountCard(this)">' +
+      '<button class="acc-edit-btn" onclick="event.stopPropagation();openEditModal(this.closest(\'[data-username]\'))" title="Editar">⚙️</button>' +
+      '<div class="acc-avatar" style="background:linear-gradient('+bg+')">'+avatarHtml+'</div>' +
+      '<div class="acc-name">'+esc(c.nome)+'</div>' +
+      '<div class="acc-id">'+(has?esc(c.meta_account_id):'—')+'</div>' +
+      '<div class="acc-badge '+(has?'ok':'err')+'">'+(has?'✓ Conta configurada':'Sem conta')+'</div>' +
+    '</div>';
+  }).join('')
+  // Card "Nova Integração"
+  + '<div class="acc-card-add" onclick="openAddModal()">' +
+    '<div class="acc-card-add-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>' +
+    '<div class="acc-card-add-text">Nova Integração</div>' +
+  '</div>';
+  grid.style.display = 'grid';
+}
+
+function filterAccounts(q) {
+  if(!q) { renderGrid(allClients); return; }
+  renderGrid(allClients.filter(c =>
+    c.nome.toLowerCase().includes(q.toLowerCase()) ||
+    (c.meta_account_id||'').includes(q)
+  ));
+}
+
+function selectAccountCard(el) {
+  const username  = el.getAttribute('data-username');
+  const nome      = el.getAttribute('data-nome');
+  const accountId = el.getAttribute('data-account');
+  selectAccount(username, nome, accountId);
+}
+
+// ── MODAL: ADICIONAR CONTA ────────────────────────────────────────────────────
+function openAddModal() {
+  document.getElementById('add-nome').value = '';
+  document.getElementById('add-username').value = '';
+  document.getElementById('add-meta-id').value = '';
+  document.getElementById('add-senha').value = '';
+  var err = document.getElementById('add-error');
+  err.style.display='none'; err.textContent='';
+  document.getElementById('modal-add').classList.add('open');
+}
+function closeAddModal() {
+  document.getElementById('modal-add').classList.remove('open');
+}
+async function submitAddCliente() {
+  var nome     = document.getElementById('add-nome').value.trim();
+  var username = document.getElementById('add-username').value.trim().toLowerCase();
+  var metaId   = document.getElementById('add-meta-id').value.trim();
+  var senha    = document.getElementById('add-senha').value;
+  var errEl    = document.getElementById('add-error');
+  var btn      = document.getElementById('add-submit');
+  errEl.style.display='none';
+  if(!nome||!username){errEl.textContent='Nome e username são obrigatórios.';errEl.style.display='block';return;}
+  btn.textContent='Salvando...'; btn.disabled=true;
+  try {
+    const body = {nome,username,role:'cliente'};
+    if(metaId) body.meta_account_id=metaId;
+    if(senha)  body.senha=senha;
+    const r = await fetch(SURL+'/rest/v1/usuarios', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':ANON,'Authorization':'Bearer '+ANON,'Prefer':'return=minimal'},
+      body:JSON.stringify(body)
+    });
+    if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.message||d.details||'Erro ao adicionar');}
+    closeAddModal();
+    await reloadClients();
+  } catch(e){
+    errEl.textContent=e.message; errEl.style.display='block';
+  }
+  btn.textContent='Adicionar'; btn.disabled=false;
+}
+
+// ── MODAL: EDITAR CONTA ───────────────────────────────────────────────────────
+let _editUsername = '';
+let _editFile = null;
+function openEditModal(cardEl) {
+  _editUsername = cardEl.getAttribute('data-username');
+  _editFile = null;
+  var nome    = cardEl.getAttribute('data-nome');
+  var avatar  = cardEl.getAttribute('data-avatar');
+  document.getElementById('edit-nome').value = nome;
+  var err = document.getElementById('edit-error');
+  err.style.display='none'; err.textContent='';
+  // Avatar preview
+  var prev = document.getElementById('edit-avatar-preview');
+  var initEl = document.getElementById('edit-avatar-initials');
+  var existImg = prev.querySelector('img');
+  if(existImg) existImg.remove();
+  if(avatar){
+    var img=document.createElement('img');
+    img.src=avatar; img.style.cssText='width:100%;height:100%;object-fit:cover;';
+    img.onerror=()=>{img.remove();initEl.textContent=nome.slice(0,2).toUpperCase();};
+    initEl.textContent=''; prev.prepend(img);
+  } else {
+    initEl.textContent = nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  }
+  document.getElementById('modal-edit').classList.add('open');
+}
+function closeEditModal() {
+  document.getElementById('modal-edit').classList.remove('open');
+}
+function onEditFileChange(input) {
+  if(!input.files||!input.files[0]) return;
+  _editFile = input.files[0];
+  var prev=document.getElementById('edit-avatar-preview');
+  var initEl=document.getElementById('edit-avatar-initials');
+  var existImg=prev.querySelector('img');
+  if(existImg) existImg.remove();
+  var img=document.createElement('img');
+  img.src=URL.createObjectURL(_editFile);
+  img.style.cssText='width:100%;height:100%;object-fit:cover;';
+  initEl.textContent=''; prev.prepend(img);
+}
+async function submitEditCliente() {
+  var nome = document.getElementById('edit-nome').value.trim();
+  var errEl= document.getElementById('edit-error');
+  var btn  = document.getElementById('edit-submit');
+  errEl.style.display='none';
+  if(!nome){errEl.textContent='Nome é obrigatório.';errEl.style.display='block';return;}
+  btn.textContent='Salvando...'; btn.disabled=true;
+  try{
+    var avatarUrl = '';
+    if(_editFile){
+      var ext=_editFile.name.split('.').pop();
+      var fname=_editUsername+'_'+Date.now()+'.'+ext;
+      var up=await fetch(SURL+'/storage/v1/object/avatars/'+fname,{
+        method:'POST',
+        headers:{'apikey':ANON,'Authorization':'Bearer '+ANON,'Content-Type':_editFile.type},
+        body:_editFile
+      });
+      if(!up.ok) throw new Error('Erro no upload da imagem');
+      avatarUrl=SURL+'/storage/v1/object/public/avatars/'+fname;
+    }
+    const body={nome};
+    if(avatarUrl) body.avatar_url=avatarUrl;
+    const r=await fetch(SURL+'/rest/v1/usuarios?username=eq.'+encodeURIComponent(_editUsername),{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','apikey':ANON,'Authorization':'Bearer '+ANON,'Prefer':'return=minimal'},
+      body:JSON.stringify(body)
+    });
+    if(!r.ok) throw new Error('Erro ao salvar');
+    closeEditModal();
+    await reloadClients();
+  } catch(e){
+    errEl.textContent=e.message; errEl.style.display='block';
+  }
+  btn.textContent='Salvar'; btn.disabled=false;
+}
+
+async function reloadClients() {
+  document.getElementById('acc-grid').style.display='none';
+  document.getElementById('acc-loading').style.display='flex';
+  await init();
+}
+
+function selectAccount(username, nome, accountId) {
+  if(!accountId) { alert('Cliente "'+nome+'" não tem conta configurada no Supabase.'); return; }
+  sessionStorage.setItem('ngp_viewing_account', accountId);
+  sessionStorage.setItem('ngp_viewing_name', nome);
+  sessionStorage.setItem('ngp_viewing_username', username);
+  _relLoaded = null; // força reload ao abrir aba de relatórios
+  // Carrega métricas salvas para este cliente
+  selectedMetrics = loadSelectedMetrics(accountId);
+  // Reset controles de período na viewing bar
+  currentPeriod = 'last30'; cmpEnabled = false;
+  customSince = ''; customUntil = ''; cmpCustomSince = ''; cmpCustomUntil = '';
+  const vbP = document.getElementById('vb-period-filter');
+  if(vbP) vbP.value = 'last30';
+  const vbCW = document.getElementById('vb-custom-wrap');
+  if(vbCW) vbCW.style.display = 'none';
+  const vbCmpBtn = document.getElementById('vb-cmp-btn');
+  if(vbCmpBtn) { vbCmpBtn.textContent = '⟷ Comparar'; vbCmpBtn.classList.remove('cmp-btn-on'); }
+  const vbCmpWrap = document.getElementById('vb-cmp-wrap');
+  if(vbCmpWrap) vbCmpWrap.style.display = 'none';
+  const vbCmpCW = document.getElementById('vb-cmp-custom-wrap');
+  if(vbCmpCW) vbCmpCW.style.display = 'none';
+
+  // Viewing bar
+  const initials = nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  const idx = allClients.findIndex(c=>c.username===username);
+  const bg  = BG_COLORS[idx >= 0 ? idx % BG_COLORS.length : 0];
+  document.getElementById('v-av').textContent  = initials;
+  document.getElementById('v-av').style.background = 'linear-gradient('+bg+')';
+  document.getElementById('v-name').textContent = nome;
+  document.getElementById('v-id').textContent   = 'Conta: '+accountId;
+
+  // Reset TUDO antes de carregar nova conta
+  allCampaigns = [];
+  chartItems = []; chartAdsets = []; chartAds = [];
+  chartsLoaded = false;
+
+  // Limpa KPIs
+  const kpiAll = document.getElementById('kpi-all');
+  if(kpiAll) kpiAll.innerHTML = '';
+
+  // Limpa tabela
+  const tb = document.getElementById('table-body');
+  if(tb) tb.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:32px;color:var(--text3);"><div class="spinner" style="margin:0 auto 8px;"></div>Carregando...</td></tr>';
+
+  // Limpa gráficos
+  Object.keys(charts).forEach(k => { if(charts[k]){charts[k].destroy();delete charts[k];} });
+  const grid = document.getElementById('chart-widget-grid');
+  if(grid) grid.innerHTML = '';
+
+  // Limpa acordeão
+  const accList = document.getElementById('acc-list');
+  if(accList) accList.innerHTML = '';
+  Object.keys(accOpen).forEach(k => delete accOpen[k]);
+
+  // Switch screens
+  document.getElementById('screen-select').style.display    = 'none';
+  document.getElementById('screen-dashboard').style.display = 'block';
+  document.getElementById('header-filters').style.display   = 'flex';
+  document.getElementById('page-title').textContent = nome;
+
+  // Volta para aba resumo
+  ['resumo','campanhas','graficos'].forEach(p => {
+    const el = document.getElementById('sub-'+p);
+    if(el) el.style.display = 'none';
+  });
+  const sub = document.getElementById('sub-resumo');
+  if(sub) sub.style.display = 'block';
+  document.querySelectorAll('#screen-dashboard .bd-tab').forEach((b,i) => {
+    b.classList.toggle('active', i===0);
+  });
+
+  loadData();
+}
+
+function backToAccounts() {
+  sessionStorage.removeItem('ngp_viewing_account');
+  sessionStorage.removeItem('ngp_viewing_name');
+  sessionStorage.removeItem('ngp_viewing_username');
+  document.getElementById('screen-select').style.display    = 'block';
+  document.getElementById('screen-dashboard').style.display = 'none';
+  document.getElementById('header-filters').style.display   = 'none';
+  document.getElementById('page-title').textContent = 'Selecionar conta';
+  allCampaigns = [];
+  // Reset search and re-render grid
+  document.getElementById('acc-search').value = '';
+  renderGrid(allClients);
+}
+
+// ── META PROXY ── Token Meta fica 100% server-side; cliente nunca recebe nem envia o token
+async function metaCall(endpoint, params={}) {
+  if(!sess) throw new Error('Sessão inválida. Faça login novamente.');
+  const viewing = sessionStorage.getItem('ngp_viewing_account');
+  const res = await fetch(SURL+'/functions/v1/meta-proxy', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','apikey':ANON,'Authorization':'Bearer '+sess},
+    body: JSON.stringify({session_token:sess, endpoint, params, account_id:viewing||null})
+  });
+  if(!res.ok){
+    const e=await res.json().catch(()=>({}));
+    const errObj=e.error||e;
+    const msg=typeof errObj==='string'?errObj:(errObj.message||errObj.error_user_msg||errObj.error_user_title||JSON.stringify(errObj));
+    throw new Error('HTTP '+res.status+': '+msg);
+  }
+  return res.json();
+}
+
+function parseIns(ins) {
+  const actions=ins.actions||[], av=ins.action_values||[];
+  const spend=parseFloat(ins.spend||0);
+  const purVal=parseFloat(av.find(a=>a.action_type==='purchase')?.value||0);
+  const roasArr=ins.purchase_roas||[];
+  let roas=roasArr.length?parseFloat(roasArr[0].value):0;
+  if(!roas&&purVal>0&&spend>0) roas=purVal/spend;
+  return {
+    spend, impressions:parseInt(ins.impressions||0),
+    clicks:parseInt(ins.clicks||0), ctr:parseFloat(ins.ctr||0), cpc:parseFloat(ins.cpc||0),
+    conversations:Math.round(parseFloat(actions.find(a=>a.action_type?.includes('messaging_conversation_started')||a.action_type?.includes('total_messaging'))?.value||0)),
+    leads:Math.round(parseFloat(actions.find(a=>a.action_type==='lead'||a.action_type==='leadgen_grouped')?.value||0)),
+    purchases:Math.round(parseFloat(actions.find(a=>a.action_type==='purchase')?.value||0)),
+    purchaseValue:purVal, roas:parseFloat(roas.toFixed(2))
+  };
+}
+
+async function loadData() {
+  const accountId = sessionStorage.getItem('ngp_viewing_account');
+  if(!accountId) return;
+
+  showLoading('Buscando campanhas...');
+  try {
+    const cr = await metaCall('{account_id}/campaigns', {
+      fields:'id,name,status,objective,daily_budget,lifetime_budget',
+      limit:'100'
+    });
+    if(cr.error) throw new Error(cr.error.message);
+    const campaigns = cr.data||[];
+    if(!campaigns.length) throw new Error('Nenhuma campanha encontrada.');
+
+    showLoading('Buscando métricas ('+campaigns.length+' campanhas)...');
+    allCampaigns = [];
+    selectedCampaignIds = null; // reset seleção ao recarregar dados
+    updateCampFilterBadge();
+    const dateParam = getDateParam();
+
+    for(let i=0; i<campaigns.length; i+=10) {
+      const batch = campaigns.slice(i,i+10);
+      await Promise.all(batch.map(async c => {
+        try {
+          const ir = await metaCall(c.id+'/insights', {
+            fields:'impressions,clicks,spend,ctr,cpc,actions,action_values,purchase_roas',
+            ...dateParam
+          });
+          const ins = ir.data?.[0]||{};
+          allCampaigns.push({id:c.id,name:c.name,status:c.status,
+            objective:(c.objective||'').replace(/_/g,' ').toLowerCase(),
+            ...parseIns(ins)});
+        } catch(_) {
+          allCampaigns.push({id:c.id,name:c.name,status:c.status,objective:'',
+            spend:0,impressions:0,clicks:0,ctr:0,cpc:0,conversations:0,leads:0,purchases:0,purchaseValue:0,roas:0});
+        }
+      }));
+    }
+
+    // Período de comparação
+    allCampaignsCmp = [];
+    const cmpDp = getCmpParam();
+    if(cmpDp) {
+      showLoading('Buscando métricas de comparação...');
+      for(let i=0; i<campaigns.length; i+=10) {
+        const batch = campaigns.slice(i,i+10);
+        await Promise.all(batch.map(async c => {
+          try {
+            const ir = await metaCall(c.id+'/insights', {
+              fields:'impressions,clicks,spend,ctr,cpc,actions,action_values,purchase_roas',
+              ...cmpDp
+            });
+            allCampaignsCmp.push({id:c.id,...parseIns(ir.data?.[0]||{})});
+          } catch(_) {
+            allCampaignsCmp.push({id:c.id,spend:0,impressions:0,clicks:0,ctr:0,cpc:0,conversations:0,leads:0,purchases:0,purchaseValue:0,roas:0});
+          }
+        }));
+      }
+    }
+
+    renderKPIs(); filterTable(); renderCharts(); saveMetricsForIA();
+  } catch(e) {
+    document.getElementById('table-body').innerHTML=
+      '<tr><td colspan="12" style="text-align:center;padding:32px;color:var(--red);">'+esc(e.message)+'</td></tr>';
+  }
+  hideLoading();
+}
+
+// ── VIEWING BAR PERIOD CONTROLS (mirrors filter-bar logic, shared state) ──
+function onVbPeriodChange() {
+  const val = document.getElementById('vb-period-filter').value;
+  currentPeriod = val;
+  // keep top filter-bar in sync (hidden but kept)
+  const top = document.getElementById('period-filter');
+  if(top) top.value = val;
+  const wrap = document.getElementById('vb-custom-wrap');
+  if(val === 'custom') {
+    const today = new Date().toISOString().slice(0,10);
+    const before = new Date(Date.now()-30*86400000).toISOString().slice(0,10);
+    document.getElementById('vb-custom-since').value = before;
+    document.getElementById('vb-custom-until').value = today;
+    wrap.style.display = 'flex';
+  } else {
+    wrap.style.display = 'none';
+    loadData();
+  }
+}
+function applyVbCustomDate() {
+  customSince = document.getElementById('vb-custom-since').value;
+  customUntil = document.getElementById('vb-custom-until').value;
+  if(!customSince||!customUntil) return alert('Selecione as duas datas.');
+  if(customSince>customUntil) return alert('Data inicial deve ser antes da data final.');
+  if(cmpEnabled) {
+    const s = new Date(customSince), u = new Date(customUntil);
+    const days = Math.round((u - s) / 86400000) + 1;
+    const cmpU = new Date(s - 86400000);
+    const cmpS = new Date(cmpU - (days - 1) * 86400000);
+    cmpCustomSince = cmpS.toISOString().slice(0,10);
+    cmpCustomUntil = cmpU.toISOString().slice(0,10);
+    currentCmpPeriod = 'custom';
+    const si = document.getElementById('vb-cmp-since'), ui2 = document.getElementById('vb-cmp-until');
+    if(si) si.value = cmpCustomSince;
+    if(ui2) ui2.value = cmpCustomUntil;
+    document.getElementById('vb-cmp-period').value = 'custom';
+    document.getElementById('vb-cmp-custom-wrap').style.display = 'flex';
+  }
+  loadData();
+}
+function toggleVbCompare() {
+  cmpEnabled = !cmpEnabled;
+  const btn = document.getElementById('vb-cmp-btn');
+  const wrap = document.getElementById('vb-cmp-wrap');
+  if(cmpEnabled) {
+    btn.textContent = '⟷ Comparando'; btn.classList.add('cmp-btn-on');
+    wrap.style.display = 'flex'; loadData();
+  } else {
+    btn.textContent = '⟷ Comparar'; btn.classList.remove('cmp-btn-on');
+    wrap.style.display = 'none';
+    allCampaignsCmp = []; renderKPIs(); filterTable();
+  }
+}
+function onVbCmpPeriodChange() {
+  currentCmpPeriod = document.getElementById('vb-cmp-period').value;
+  const wrap = document.getElementById('vb-cmp-custom-wrap');
+  if(currentCmpPeriod === 'custom') {
+    const today = new Date().toISOString().slice(0,10);
+    const before = new Date(Date.now()-30*86400000).toISOString().slice(0,10);
+    document.getElementById('vb-cmp-since').value = before;
+    document.getElementById('vb-cmp-until').value = today;
+    wrap.style.display = 'flex';
+  } else {
+    wrap.style.display = 'none';
+    if(cmpEnabled) loadData();
+  }
+}
+function applyVbCmpCustomDate() {
+  cmpCustomSince = document.getElementById('vb-cmp-since').value;
+  cmpCustomUntil = document.getElementById('vb-cmp-until').value;
+  if(!cmpCustomSince||!cmpCustomUntil) return alert('Selecione as duas datas de comparação.');
+  if(cmpCustomSince>cmpCustomUntil) return alert('Data inicial deve ser antes da data final.');
+  loadData();
+}
+
+function onPeriodChange() {
+  currentPeriod = document.getElementById('period-filter').value;
+  const wrap = document.getElementById('custom-date-wrap');
+  if(currentPeriod === 'custom') {
+    const today = new Date().toISOString().slice(0,10);
+    const before = new Date(Date.now()-30*86400000).toISOString().slice(0,10);
+    document.getElementById('custom-since').value = before;
+    document.getElementById('custom-until').value = today;
+    wrap.style.display = 'flex';
+  } else {
+    wrap.style.display = 'none';
+    loadData();
+  }
+}
+function applyCustomDate() {
+  customSince = document.getElementById('custom-since').value;
+  customUntil = document.getElementById('custom-until').value;
+  if(!customSince||!customUntil) return alert('Selecione as duas datas.');
+  if(customSince>customUntil) return alert('Data inicial deve ser antes da data final.');
+
+  // Se comparação ativa, calcula período anterior equivalente automaticamente
+  if(cmpEnabled) {
+    const s = new Date(customSince), u = new Date(customUntil);
+    const days = Math.round((u - s) / 86400000) + 1; // nº de dias do período
+    const cmpU = new Date(s - 86400000);              // dia antes do início
+    const cmpS = new Date(cmpU - (days - 1) * 86400000);
+    cmpCustomSince = cmpS.toISOString().slice(0,10);
+    cmpCustomUntil = cmpU.toISOString().slice(0,10);
+    currentCmpPeriod = 'custom';
+    // Atualiza os inputs de data da comparação
+    const si = document.getElementById('cmp-since'), ui = document.getElementById('cmp-until');
+    if(si) si.value = cmpCustomSince;
+    if(ui) ui.value = cmpCustomUntil;
+    document.getElementById('cmp-period-filter').value = 'custom';
+    document.getElementById('cmp-custom-wrap').style.display = 'flex';
+  }
+  loadData();
+}
+function toggleCompare() {
+  cmpEnabled = !cmpEnabled;
+  const btn = document.getElementById('cmp-btn');
+  const wrap = document.getElementById('cmp-wrap');
+  if(cmpEnabled) {
+    btn.textContent = '⟷ Comparando'; btn.classList.add('cmp-btn-on');
+    wrap.style.display = 'flex'; loadData();
+  } else {
+    btn.textContent = '⟷ Comparar'; btn.classList.remove('cmp-btn-on');
+    wrap.style.display = 'none';
+    allCampaignsCmp = []; renderKPIs(); filterTable();
+  }
+}
+function onCmpPeriodChange() {
+  currentCmpPeriod = document.getElementById('cmp-period-filter').value;
+  const cmpCustomWrap = document.getElementById('cmp-custom-wrap');
+  if(currentCmpPeriod === 'custom') {
+    const today = new Date().toISOString().slice(0,10);
+    const before = new Date(Date.now()-30*86400000).toISOString().slice(0,10);
+    document.getElementById('cmp-since').value = before;
+    document.getElementById('cmp-until').value = today;
+    cmpCustomWrap.style.display = 'flex';
+  } else {
+    cmpCustomWrap.style.display = 'none';
+    if(cmpEnabled) loadData();
+  }
+}
+function applyCmpCustomDate() {
+  cmpCustomSince = document.getElementById('cmp-since').value;
+  cmpCustomUntil = document.getElementById('cmp-until').value;
+  if(!cmpCustomSince||!cmpCustomUntil) return alert('Selecione as duas datas de comparação.');
+  if(cmpCustomSince>cmpCustomUntil) return alert('Data inicial deve ser antes da data final.');
+  loadData();
+}
+
+function saveMetricsForIA() {
+  const fc      = getFilteredCampaigns();
+  const tSpend  = fc.reduce((s,c)=>s+c.spend,0);
+  const tImp    = fc.reduce((s,c)=>s+c.impressions,0);
+  const tClk    = fc.reduce((s,c)=>s+c.clicks,0);
+  const tLeads  = fc.reduce((s,c)=>s+c.leads,0);
+  const tPur    = fc.reduce((s,c)=>s+c.purchases,0);
+  const tRev    = fc.reduce((s,c)=>s+c.purchaseValue,0);
+  const avgCtr  = tImp>0 ? (tClk/tImp*100).toFixed(2) : 0;
+  const avgRoas = tSpend>0 ? (tRev/tSpend).toFixed(2) : 0;
+  const avgCpc  = tClk>0  ? (tSpend/tClk).toFixed(2)  : 0;
+  const avgCpl  = tLeads>0? (tSpend/tLeads).toFixed(2) : 0;
+  const active  = fc.filter(c=>c.status==='ACTIVE').length;
+  const periodLabel = document.getElementById('period-filter')?.selectedOptions[0]?.text || currentPeriod;
+  sessionStorage.setItem('ngp_ia_metrics', JSON.stringify({
+    spend: tSpend.toFixed(2), impressions: Math.round(tImp),
+    clicks: Math.round(tClk), leads: tLeads, purchases: tPur,
+    revenue: tRev.toFixed(2), ctr: avgCtr, roas: avgRoas,
+    cpc: avgCpc, cpl: avgCpl, active_campaigns: active,
+    total_campaigns: fc.length
+  }));
+  sessionStorage.setItem('ngp_ia_period', periodLabel);
+}
+
+function calcDelta(cur, prev) { if(!prev) return null; return ((cur-prev)/prev)*100; }
+function deltaBadge(d, invert=false) {
+  if(d===null||d===undefined) return '';
+  const isPos = invert ? d<0 : d>0;
+  const arrow = d>0?'▲':'▼';
+  return `<span class="kpi-delta ${isPos?'delta-pos':'delta-neg'}">${arrow} ${Math.abs(d).toFixed(1)}%</span>`;
+}
+function kpiCard(label, value, sub='', cls='', cmpValue=null, deltaVal=null, invertDelta=false, cmpLabel='') {
+  const badge = cmpValue!==null ? deltaBadge(deltaVal, invertDelta) : '';
+  const bottom = cmpValue!==null
+    ? `<div class="kpi-cmp">${cmpValue} · ${cmpLabel||'período anterior'}</div>`
+    : `<div class="kpi-sub">${sub}</div>`;
+  return `<div class="kpi"><div class="kpi-label">${label}</div><div class="kpi-value-row"><div class="kpi-value ${cls}">${value}</div>${badge}</div>${bottom}</div>`;
+}
+
+function renderKPIs() {
+  const fc=getFilteredCampaigns();
+  const tSpend=fc.reduce((s,c)=>s+c.spend,0);
+  const tImp=fc.reduce((s,c)=>s+c.impressions,0);
+  const tClk=fc.reduce((s,c)=>s+c.clicks,0);
+  const tConv=fc.reduce((s,c)=>s+c.conversations,0);
+  const tLeads=fc.reduce((s,c)=>s+c.leads,0);
+  const tPur=fc.reduce((s,c)=>s+c.purchases,0);
+  const tRev=fc.reduce((s,c)=>s+c.purchaseValue,0);
+  const avgCtr=tImp>0?(tClk/tImp*100):0;
+  const avgRoas=tSpend>0?tRev/tSpend:0;
+  const avgCpc=tClk>0?tSpend/tClk:0;
+  const act=fc.filter(c=>c.status==='ACTIVE').length;
+  const avgCpl=tLeads>0?tSpend/tLeads:0;
+  const tResults=tConv+tLeads+tPur;
+  const avgCpa=tResults>0?tSpend/tResults:0;
+
+  const hasCmp = allCampaignsCmp.length>0;
+  const cSpend=allCampaignsCmp.reduce((s,c)=>s+c.spend,0);
+  const cImp=allCampaignsCmp.reduce((s,c)=>s+c.impressions,0);
+  const cClk=allCampaignsCmp.reduce((s,c)=>s+c.clicks,0);
+  const cConv=allCampaignsCmp.reduce((s,c)=>s+c.conversations,0);
+  const cLeads=allCampaignsCmp.reduce((s,c)=>s+c.leads,0);
+  const cPur=allCampaignsCmp.reduce((s,c)=>s+c.purchases,0);
+  const cRev=allCampaignsCmp.reduce((s,c)=>s+c.purchaseValue,0);
+  const cAvgCtr=cImp>0?(cClk/cImp*100):0;
+  const cAvgRoas=cSpend>0?cRev/cSpend:0;
+  const cAvgCpc=cClk>0?cSpend/cClk:0;
+  const cAvgCpl=cLeads>0?cSpend/cLeads:0;
+  const cmpLbl = getCmpLabel();
+
+  const M = {
+    spend:         ()=>kpiCard('Investido','R$ '+fmt(tSpend),act+' campanhas ativas','',hasCmp?'R$ '+fmt(cSpend):null,hasCmp?calcDelta(tSpend,cSpend):null,false,cmpLbl),
+    revenue:       ()=>kpiCard('Receita',tRev>0?'R$ '+fmt(tRev):'N/A',tPur>0?tPur+' compras':'—','',hasCmp?'R$ '+fmt(cRev):null,hasCmp?calcDelta(tRev,cRev):null,false,cmpLbl),
+    roas:          ()=>kpiCard('ROAS',avgRoas>0?avgRoas.toFixed(2)+'x':'N/A','retorno por R$ 1 gasto',avgRoas>=3?'good':avgRoas>=1.5?'warn':'',hasCmp?(cAvgRoas>0?cAvgRoas.toFixed(2)+'x':'N/A'):null,hasCmp?calcDelta(avgRoas,cAvgRoas):null,false,cmpLbl),
+    cpc:           ()=>kpiCard('CPC médio',tClk>0?'R$ '+fmt(avgCpc):'N/A',fmtN(tClk)+' cliques','',hasCmp?(cClk>0?'R$ '+fmt(cAvgCpc):'N/A'):null,hasCmp?calcDelta(avgCpc,cAvgCpc):null,true,cmpLbl),
+    cpl:           ()=>kpiCard('CPL',tLeads>0?'R$ '+fmt(avgCpl):'N/A',tLeads+' leads','',hasCmp?(cLeads>0?'R$ '+fmt(cAvgCpl):'N/A'):null,hasCmp?calcDelta(avgCpl,cAvgCpl):null,true,cmpLbl),
+    cpa:           ()=>kpiCard('CPA',tResults>0?'R$ '+fmt(avgCpa):'N/A','custo por ação','',null,null,true,cmpLbl),
+    conversations: ()=>kpiCard('Conversas',fmtN(tConv),tConv>0?'R$ '+fmt(tSpend/tConv)+'/conv':'—','',hasCmp?fmtN(cConv):null,hasCmp?calcDelta(tConv,cConv):null,false,cmpLbl),
+    leads:         ()=>kpiCard('Leads',fmtN(tLeads),tLeads>0?'R$ '+fmt(tSpend/tLeads)+'/lead':'—','',hasCmp?fmtN(cLeads):null,hasCmp?calcDelta(tLeads,cLeads):null,false,cmpLbl),
+    purchases:     ()=>kpiCard('Compras',fmtN(tPur),tPur>0?'R$ '+fmt(tSpend/tPur)+'/compra':'—','',hasCmp?fmtN(cPur):null,hasCmp?calcDelta(tPur,cPur):null,false,cmpLbl),
+    resultado:     ()=>kpiCard('Resultado',tConv>0?fmtN(tConv)+' conv':tLeads>0?fmtN(tLeads)+' leads':tPur>0?fmtN(tPur)+' compras':'—','principal'),
+    impressions:   ()=>kpiCard('Impressões',fmtI(tImp),'alcance total','',hasCmp?fmtI(cImp):null,hasCmp?calcDelta(tImp,cImp):null,false,cmpLbl),
+    clicks:        ()=>kpiCard('Cliques',fmtN(tClk),'no link','',hasCmp?fmtN(cClk):null,hasCmp?calcDelta(tClk,cClk):null,false,cmpLbl),
+    ctr:           ()=>kpiCard('CTR médio',avgCtr.toFixed(2)+'%',fmtI(tImp)+' impressões',avgCtr>=2?'good':avgCtr>=1?'warn':'',hasCmp?cAvgCtr.toFixed(2)+'%':null,hasCmp?calcDelta(avgCtr,cAvgCtr):null,false,cmpLbl),
+    campaigns:     ()=>kpiCard('Campanhas',allCampaigns.length+' total',act+' ativas / '+(allCampaigns.length-act)+' pausadas'),
+  };
+
+  // Distribui métricas pelas seções corretas conforme categoria do METRIC_CATALOG
+  const catToEl = { Financeiro: 'kpi-fin', Resultados: 'kpi-res', Alcance: 'kpi-reach', Geral: 'kpi-fin' };
+  ['kpi-fin','kpi-res','kpi-reach'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.innerHTML = '';
+  });
+  selectedMetrics.forEach(id => {
+    const meta = METRIC_CATALOG.find(m => m.id === id);
+    if(!meta || !M[id]) return;
+    const el = document.getElementById(catToEl[meta.cat] || 'kpi-fin');
+    if(el) el.innerHTML += M[id]();
+  });
+  // kpi-all mantido oculto para compatibilidade com o builder
+  const allEl = document.getElementById('kpi-all');
+  if(allEl) allEl.innerHTML = selectedMetrics.map(id => M[id] ? M[id]() : '').join('');
+}
+
+// ── PLATAFORMAS ──
+let allCampaignsGoogle = [];
+let currentPlatform = 'meta';
+
+function openPlatform(plat) {
+  // Se não tem conta selecionada, ignora
+  if(!sessionStorage.getItem('ngp_viewing_account')) return;
+  // Ativa aba Plataformas no nav
+  const platTab = [...document.querySelectorAll('#screen-dashboard .bd-tab')].find(b=>b.textContent.includes('Plataformas'));
+  if(platTab) { switchSubPage('plataformas', platTab); }
+  // Ativa a plataforma correta
+  const platBtn = document.querySelector(`[onclick="switchPlatform('${plat}',this)"]`);
+  if(platBtn) switchPlatform(plat, platBtn);
+  // Atualiza destaque no sidebar
+  document.getElementById('nav-meta')?.classList.toggle('active-platform', plat==='meta');
+  document.getElementById('nav-google')?.classList.toggle('active-platform', plat==='google');
+}
+
+function switchPlatform(plat, btn) {
+  currentPlatform = plat;
+  document.querySelectorAll('.plat-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.plat-section').forEach(s=>s.classList.remove('active'));
+  const sec = document.getElementById('plat-'+plat);
+  if(sec) sec.classList.add('active');
+}
+
+function renderPlataformas() {
+  renderMetaPlatform();
+  renderGooglePlatform();
+}
+
+function renderMetaPlatform() {
+  const camps = allCampaigns;
+  const act = camps.filter(c=>c.status==='ACTIVE').length;
+  const tSpend = camps.reduce((s,c)=>s+c.spend,0);
+  const tImp   = camps.reduce((s,c)=>s+c.impressions,0);
+  const tClk   = camps.reduce((s,c)=>s+c.clicks,0);
+  const tConv  = camps.reduce((s,c)=>s+c.conversations+c.leads+c.purchases,0);
+  const tRev   = camps.reduce((s,c)=>s+c.purchaseValue,0);
+  const avgCtr = tImp>0?(tClk/tImp*100):0;
+  const avgRoas= tSpend>0?tRev/tSpend:0;
+  const avgCpc = tClk>0?tSpend/tClk:0;
+
+  const countEl = document.getElementById('plat-meta-count');
+  if(countEl) countEl.textContent = camps.length+' campanhas · '+act+' ativas';
+
+  const kpiEl = document.getElementById('plat-meta-kpis');
+  if(kpiEl) kpiEl.innerHTML = [
+    kpiCard('Investido','R$ '+fmt(tSpend),act+' campanhas ativas'),
+    kpiCard('Impressões',fmtI(tImp),'alcance total'),
+    kpiCard('Cliques',fmtN(tClk),'no link'),
+    kpiCard('CTR médio',avgCtr.toFixed(2)+'%',fmtI(tImp)+' impressões',avgCtr>=2?'good':avgCtr>=1?'warn':''),
+    kpiCard('Campanhas',fc.length+(selectedCampaignIds?'/'+allCampaigns.length:'')+' total',act+' ativas / '+(fc.length-act)+' pausadas'),
+    kpiCard('CPC médio',tClk>0?'R$ '+fmt(avgCpc):'N/A',fmtN(tClk)+' cliques'),
+    kpiCard('Resultado',fmtN(tConv),'conversas · leads · compras'),
+    kpiCard('Receita',tRev>0?'R$ '+fmt(tRev):'N/A','valor convertido'),
+    kpiCard('ROAS',avgRoas>0?avgRoas.toFixed(2)+'x':'N/A','retorno por R$ 1',avgRoas>=3?'good':avgRoas>=1.5?'warn':''),
+  ].join('');
+
+  const tbody = document.getElementById('plat-meta-table');
+  if(tbody) {
+    const sorted = [...camps].sort((a,b)=>b.spend-a.spend);
+    tbody.innerHTML = sorted.map(c => {
+      const res = c.conversations+c.leads+c.purchases;
+      const ctr = c.impressions>0?(c.clicks/c.impressions*100):0;
+      const cpc = c.clicks>0?c.spend/c.clicks:0;
+      const statusCls = c.status==='ACTIVE'?'color:#22c55e':'color:#6b7280';
+      return `<tr>
+        <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(c.name)}">${esc(c.name)}</td>
+        <td><span style="${statusCls};font-size:11px;font-weight:600;">${c.status==='ACTIVE'?'Ativa':'Pausada'}</span></td>
+        <td>R$ ${fmt(c.spend)}</td>
+        <td>${fmtI(c.impressions)}</td>
+        <td>${fmtN(c.clicks)}</td>
+        <td>${ctr.toFixed(2)}%</td>
+        <td>${c.clicks>0?'R$ '+fmt(cpc):'—'}</td>
+        <td>${fmtN(res)}</td>
+        <td>${c.purchaseValue>0&&c.spend>0?(c.purchaseValue/c.spend).toFixed(2)+'x':'—'}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:24px;">Nenhuma campanha</td></tr>';
+  }
+}
+
+function renderGooglePlatform() {
+  const hasGoogle = allCampaignsGoogle.length > 0;
+  const emptyEl = document.getElementById('plat-google-empty');
+  const connEl  = document.getElementById('plat-google-connected');
+  if(emptyEl) emptyEl.style.display = hasGoogle ? 'none' : 'flex';
+  if(connEl)  connEl.style.display  = hasGoogle ? 'block' : 'none';
+
+  if(!hasGoogle) return;
+
+  const camps = allCampaignsGoogle;
+  const act = camps.filter(c=>c.status==='ENABLED').length;
+  const tSpend = camps.reduce((s,c)=>s+c.spend,0);
+  const tImp   = camps.reduce((s,c)=>s+c.impressions,0);
+  const tClk   = camps.reduce((s,c)=>s+c.clicks,0);
+  const tConv  = camps.reduce((s,c)=>s+(c.conversions||0),0);
+  const avgCtr = tImp>0?(tClk/tImp*100):0;
+  const avgCpc = tClk>0?tSpend/tClk:0;
+
+  const countEl = document.getElementById('plat-google-count');
+  if(countEl) countEl.textContent = camps.length+' campanhas · '+act+' ativas';
+
+  const kpiEl = document.getElementById('plat-google-kpis');
+  if(kpiEl) kpiEl.innerHTML = [
+    kpiCard('Investido','R$ '+fmt(tSpend),act+' campanhas ativas'),
+    kpiCard('Impressões',fmtI(tImp),'alcance total'),
+    kpiCard('Cliques',fmtN(tClk),'no link'),
+    kpiCard('CTR médio',avgCtr.toFixed(2)+'%','taxa de cliques',avgCtr>=2?'good':avgCtr>=1?'warn':''),
+    kpiCard('CPC médio',tClk>0?'R$ '+fmt(avgCpc):'N/A',fmtN(tClk)+' cliques'),
+    kpiCard('Conversões',fmtN(tConv),'total de conversões'),
+  ].join('');
+}
+
+// ── METRIC BUILDER MODAL ──
+function openMetricModal() {
+  modalMetrics = [...selectedMetrics];
+  document.getElementById('mbuilder-search').value = '';
+  renderMetricAvail('');
+  renderMetricSel();
+  document.getElementById('mbuilder-overlay').classList.add('open');
+}
+function closeMetricModal() {
+  document.getElementById('mbuilder-overlay').classList.remove('open');
+}
+function renderMetricAvail(q) {
+  const lq = (q||'').toLowerCase();
+  const cats = {};
+  METRIC_CATALOG
+    .filter(m => !lq || m.label.toLowerCase().includes(lq) || m.cat.toLowerCase().includes(lq))
+    .forEach(m => { (cats[m.cat] = cats[m.cat]||[]).push(m); });
+
+  const html = Object.entries(cats).map(([cat, metrics]) =>
+    `<div class="mbuilder-cat-label">${cat}</div>` +
+    metrics.map(m => {
+      const isSel = modalMetrics.includes(m.id);
+      return `<div class="mbuilder-metric-item ${isSel?'msel':''}" onclick="toggleMetric('${m.id}')">
+        <span class="mbuilder-metric-name">${m.label}</span>
+        <span class="mbuilder-metric-add">＋</span>
+        <span class="mbuilder-metric-check">✓</span>
+      </div>`;
+    }).join('')
+  ).join('');
+
+  document.getElementById('mbuilder-avail-list').innerHTML = html || '<div style="padding:16px;font-size:12px;color:var(--text3);">Nenhuma métrica encontrada.</div>';
+  _updateMbCount();
+}
+function renderMetricSel() {
+  const list = document.getElementById('mbuilder-sel-list');
+  if(!modalMetrics.length) {
+    list.innerHTML = '<div class="mbuilder-sel-empty">Nenhuma métrica selecionada.<br>Clique em uma métrica à esquerda para adicionar.</div>';
+    _updateMbCount(); return;
+  }
+  list.innerHTML = modalMetrics.map((id, idx) => {
+    const m = METRIC_CATALOG.find(x => x.id === id);
+    if(!m) return '';
+    return `<div class="mbuilder-sel-item" draggable="true" data-idx="${idx}"
+      ondragstart="mbDragStart(event,${idx})"
+      ondragover="mbDragOver(event,${idx})"
+      ondrop="mbDrop(event,${idx})"
+      ondragend="mbDragEnd(event)">
+      <span class="mbuilder-drag-handle">⠿</span>
+      <div style="flex:1;min-width:0;">
+        <div class="mbuilder-sel-name">${m.label}</div>
+        <div class="mbuilder-sel-cat">${m.cat}</div>
+      </div>
+      <button class="mbuilder-sel-remove" onclick="removeMetric('${id}')" title="Remover">×</button>
+    </div>`;
+  }).join('');
+  _updateMbCount();
+}
+function _updateMbCount() {
+  const n = modalMetrics.length;
+  document.getElementById('mbuilder-count').textContent = n + ' métrica' + (n!==1?'s':'') + ' selecionada' + (n!==1?'s':'');
+}
+function toggleMetric(id) {
+  const i = modalMetrics.indexOf(id);
+  if(i >= 0) modalMetrics.splice(i, 1);
+  else modalMetrics.push(id);
+  renderMetricAvail(document.getElementById('mbuilder-search').value);
+  renderMetricSel();
+}
+function removeMetric(id) {
+  modalMetrics = modalMetrics.filter(x => x !== id);
+  renderMetricAvail(document.getElementById('mbuilder-search').value);
+  renderMetricSel();
+}
+function mbDragStart(e, idx) {
+  mbDragSrcIdx = idx;
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+function mbDragOver(e, idx) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('.mbuilder-sel-item').forEach(el => el.classList.remove('drag-over'));
+  if(idx !== mbDragSrcIdx) e.currentTarget.classList.add('drag-over');
+}
+function mbDrop(e, idx) {
+  e.preventDefault();
+  if(mbDragSrcIdx === null || mbDragSrcIdx === idx) return;
+  const moved = modalMetrics.splice(mbDragSrcIdx, 1)[0];
+  modalMetrics.splice(idx, 0, moved);
+  mbDragSrcIdx = null;
+  renderMetricSel();
+  renderMetricAvail(document.getElementById('mbuilder-search').value);
+}
+function mbDragEnd(e) {
+  document.querySelectorAll('.mbuilder-sel-item').forEach(el => el.classList.remove('drag-over','dragging'));
+  mbDragSrcIdx = null;
+}
+function saveAndCloseMetrics() {
+  if(!modalMetrics.length) { alert('Selecione pelo menos uma métrica.'); return; }
+  selectedMetrics = [...modalMetrics];
+  const accountId = sessionStorage.getItem('ngp_viewing_account');
+  const key = accountId ? 'ngp_metrics_'+accountId : 'ngp_metrics_default';
+  localStorage.setItem(key, JSON.stringify(selectedMetrics));
+  closeMetricModal();
+  renderKPIs();
+}
+function resetMetrics() {
+  modalMetrics = [...DEFAULT_METRICS];
+  renderMetricAvail(document.getElementById('mbuilder-search').value);
+  renderMetricSel();
+}
+
+function filterTable(q='') {
+  const status = document.getElementById('status-filter').value;
+  const list = allCampaigns.filter(c =>
+    (!q||c.name.toLowerCase().includes(q.toLowerCase())) &&
+    (!status||c.status===status)
+  ).sort((a,b)=>b.spend-a.spend);
+
+  document.getElementById('table-body').innerHTML = list.map(c => {
+    const dot = c.status==='ACTIVE'?'#22c55e':c.status==='PAUSED'?'#f59e0b':'#4a5168';
+    const lbl = c.status==='ACTIVE'?'Ativa':c.status==='PAUSED'?'Pausada':'Arq.';
+    const rc  = c.roas>=3?'td-good':c.roas>=1.5?'td-warn':c.roas>0?'td-bad':'';
+    return `<tr>
+      <td class="td-name" title="${esc(c.name)}">${esc(c.name)}</td>
+      <td><span class="status-dot" style="background:${dot}"></span>${lbl}</td>
+      <td class="td-mono">R$ ${fmt(c.spend)}</td>
+      <td class="td-mono">${fmtI(c.impressions)}</td>
+      <td class="td-mono">${fmtN(c.clicks)}</td>
+      <td class="td-mono ${c.ctr>=2?'td-good':c.ctr>=1?'td-warn':''}">${c.ctr>0?c.ctr.toFixed(2)+'%':'—'}</td>
+      <td class="td-mono">${c.cpc>0?'R$ '+fmt(c.cpc):'—'}</td>
+      <td class="td-mono">${c.conversations>0?fmtN(c.conversations):'—'}</td>
+      <td class="td-mono">${c.leads>0?fmtN(c.leads):'—'}</td>
+      <td class="td-mono">${c.purchases>0?fmtN(c.purchases):'—'}</td>
+      <td class="td-mono">${c.purchaseValue>0?'R$ '+fmt(c.purchaseValue):'—'}</td>
+      <td class="td-mono ${rc}">${c.roas>0?c.roas.toFixed(2)+'x':'—'}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="12" style="text-align:center;padding:32px;color:var(--text3);">Nenhuma campanha encontrada</td></tr>';
+}
+
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+
+function renderCharts() {
+  const top = [...allCampaigns].sort((a,b)=>b.spend-a.spend).slice(0,8);
+
+  // Bar
+  destroyChart('chart-bar');
+  const barEl = document.getElementById('chart-bar');
+  if(barEl) charts['chart-bar'] = new Chart(barEl,{
+    type:'bar',
+    data:{labels:top.map(c=>c.name.length>20?c.name.slice(0,20)+'…':c.name),
+      datasets:[{data:top.map(c=>c[chartMetric]||c.spend),backgroundColor:top.map((_,i)=>COLORS[i%COLORS.length]+'cc'),borderRadius:4,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{grid:{display:false},ticks:{color:'#4a5168',font:{size:10}},border:{display:false}},
+              y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#4a5168',font:{size:10}},border:{display:false}}},
+      animation:{duration:400}}
+  });
+
+  // Donut
+  destroyChart('chart-donut');
+  const total = top.reduce((s,c)=>s+c.spend,0);
+  const donutEl = document.getElementById('chart-donut');
+  if(donutEl) charts['chart-donut'] = new Chart(donutEl,{
+    type:'doughnut',
+    data:{labels:top.map(c=>c.name.length>18?c.name.slice(0,18)+'…':c.name),
+      datasets:[{data:top.map(c=>c.spend),backgroundColor:COLORS,borderWidth:0,hoverOffset:6}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'65%',
+      plugins:{legend:{display:true,position:'bottom',labels:{color:'#8b92a5',font:{size:10},boxWidth:8,padding:8,usePointStyle:true}},
+        tooltip:{callbacks:{label:ctx=>{const pct=total>0?((ctx.parsed/total)*100).toFixed(1):'0';return ` R$ ${fmt(ctx.parsed)} (${pct}%)`;}}}},
+      animation:{duration:400}}
+  });
+}
+
+function switchChart(metric, btn) {
+  chartMetric = metric;
+  document.querySelectorAll('.chart-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCharts();
+}
+
+
+// ── BREAKDOWN ──
+let currentBreakdown='none', bdMetric='spend';
+function setBreakdown(type,btn){
+  currentBreakdown=type;
+  document.querySelectorAll('.bd-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const mr=document.getElementById('bd-metric-row');
+  const al=document.getElementById('acc-list');
+  const bc=document.getElementById('bd-content');
+  if(type==='none'){mr.style.display='none';al.style.display='block';bc.style.display='none';}
+  else{mr.style.display='block';al.style.display='none';bc.style.display='block';loadBreakdown(type);}
+}
+function setBdMetric(m,btn){
+  bdMetric=m;
+  document.querySelectorAll('.bd-metric-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(currentBreakdown!=='none')loadBreakdown(currentBreakdown);
+}
+async function loadBreakdown(type){
+  const bc=document.getElementById('bd-content');
+  bc.innerHTML='<div style="text-align:center;padding:32px;"><div class="spinner"></div></div>';
+  try{
+    if(type==='creative'){await loadCreativeBreakdown();return;}
+    const bdMap={gender:'gender',age:'age',region:'region',device:'impression_device'};
+    const bdParam=bdMap[type];
+    const activeCamps=allCampaigns.filter(c=>c.status==='ACTIVE').slice(0,5);
+    if(!activeCamps.length){bc.innerHTML='<div class="empty">Nenhuma campanha ativa.</div>';return;}
+    const aggregated={};
+    await Promise.all(activeCamps.map(async camp=>{
+      try{
+        const d=await metaCall(camp.id+'/insights',{
+          fields:'impressions,clicks,spend,ctr,actions,action_values',
+          breakdowns:bdParam,
+          ...getDateParam(),limit:'50'
+        });
+        (d.data||[]).forEach(row=>{
+          const key=row[bdParam]||'Desconhecido';
+          if(!aggregated[key])aggregated[key]={label:key,spend:0,impressions:0,clicks:0,conversations:0,leads:0,purchases:0,count:0};
+          const g=aggregated[key];
+          const actions=row.actions||[];
+          g.spend+=parseFloat(row.spend||0);
+          g.impressions+=parseInt(row.impressions||0);
+          g.clicks+=parseInt(row.clicks||0);
+          g.conversations+=Math.round(parseFloat(actions.find(a=>a.action_type?.includes('messaging_conversation_started')||a.action_type?.includes('total_messaging'))?.value||0));
+          g.leads+=Math.round(parseFloat(actions.find(a=>a.action_type==='lead'||a.action_type==='leadgen_grouped')?.value||0));
+          g.purchases+=Math.round(parseFloat(actions.find(a=>a.action_type==='purchase')?.value||0));
+        });
+      }catch(_){}
+    }));
+    Object.values(aggregated).forEach(g=>{g.ctr=g.impressions>0?(g.clicks/g.impressions*100):0;g.result=g.conversations||g.leads||g.purchases||0;});
+    const sortKey=bdMetric==='result'?'result':bdMetric==='ctr'?'ctr':bdMetric;
+    const rows=Object.values(aggregated).sort((a,b)=>b[sortKey]-a[sortKey]);
+    const maxVal=Math.max(...rows.map(r=>r[sortKey]||0),0.001);
+    const totalSpend=rows.reduce((s,r)=>s+r.spend,0);
+    const labelMap={male:'Masculino',female:'Feminino',unknown:'Desconhecido'};
+    const stateMap={AC:'Acre',AL:'Alagoas',AP:'Amapá',AM:'Amazonas',BA:'Bahia',CE:'Ceará',DF:'Distrito Federal',ES:'Espírito Santo',GO:'Goiás',MA:'Maranhão',MT:'Mato Grosso',MS:'Mato Grosso do Sul',MG:'Minas Gerais',PA:'Pará',PB:'Paraíba',PR:'Paraná',PE:'Pernambuco',PI:'Piauí',RJ:'Rio de Janeiro',RN:'Rio Grande do Norte',RS:'Rio Grande do Sul',RO:'Rondônia',RR:'Roraima',SC:'Santa Catarina',SP:'São Paulo',SE:'Sergipe',TO:'Tocantins'};
+    const titles={gender:'Por Gênero',age:'Por Faixa Etária',region:'Por Estado',device:'Por Dispositivo'};
+    const metricLabels={spend:'Gasto',impressions:'Impressões',clicks:'Cliques',ctr:'CTR',result:'Resultado'};
+    const barColors={spend:'#3b82f6',impressions:'#a855f7',clicks:'#14b8a6',ctr:'#f59e0b',result:'#22c55e'};
+    const fmtMetric=(v,m)=>m==='spend'?'R$ '+fmt(v):m==='ctr'?v.toFixed(2)+'%':m==='impressions'?fmtI(v):fmtN(v);
+    bc.innerHTML=`<div class="bd-table-wrap">
+      <div class="bd-table-header"><div class="bd-table-title">${titles[type]||type}</div><div style="font-size:11px;color:var(--text3);">Por ${metricLabels[bdMetric]}</div></div>
+      ${rows.map((r,i)=>{
+        const val=r[sortKey]||0;
+        const pct=maxVal>0?(val/maxVal*100).toFixed(1):0;
+        const spendPct=totalSpend>0?((r.spend/totalSpend)*100).toFixed(1):0;
+        const lbl=esc(labelMap[r.label]||stateMap[r.label]||r.label);
+        const res=r.conversations>0?r.conversations+' conv':r.leads>0?r.leads+' leads':r.purchases>0?r.purchases+' compras':'—';
+        return `<div class="bd-bar-row">
+          <div class="bd-bar-label">${i<3?(i+1)+'. ':''} ${lbl}</div>
+          <div class="bd-bar-track"><div class="bd-bar-fill" style="width:${pct}%;background:${barColors[bdMetric]||'#3b82f6'};"></div></div>
+          <div class="bd-bar-val">${fmtMetric(val,bdMetric)}</div>
+          <div class="bd-bar-sub">${r.spend>0?'R$ '+fmt(r.spend)+' ('+spendPct+'%)':''}</div>
+          <div style="font-size:10px;color:var(--text3);min-width:80px;text-align:right;">${res}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }catch(e){bc.innerHTML=`<div class="empty" style="color:var(--red);">Erro: ${esc(e.message)}</div>`;}
+}
+async function loadCreativeBreakdown(){
+  const bc=document.getElementById('bd-content');
+  try{
+    const activeCamps=allCampaigns.filter(c=>c.status==='ACTIVE').slice(0,8);
+    if(!activeCamps.length){bc.innerHTML='<div class="empty">Nenhuma campanha ativa.</div>';return;}
+    const allAds=[];
+    await Promise.all(activeCamps.map(async camp=>{
+      try{
+        const d=await metaCall(camp.id+'/ads',{
+          fields:'id,name,status,creative{thumbnail_url,image_url},insights{spend,impressions,clicks,ctr,actions,action_values,purchase_roas}',
+          ...getDateParam(),limit:'30'
+        });
+        (d.data||[]).forEach(ad=>{
+          const ins=parseIns(ad.insights?.data?.[0]||{});
+          if(ins.spend>0)allAds.push({...ins,id:ad.id,name:ad.name,campName:camp.name,thumb:ad.creative?.image_url||ad.creative?.thumbnail_url||null});
+        });
+      }catch(_){}
+    }));
+    allAds.sort((a,b)=>bdMetric==='result'?(b.conversations||b.leads||b.purchases||0)-(a.conversations||a.leads||a.purchases||0):b[bdMetric==='ctr'?'ctr':'spend']-a[bdMetric==='ctr'?'ctr':'spend']);
+    const top=allAds.slice(0,12);
+    if(!top.length){bc.innerHTML='<div class="empty">Nenhum anúncio com dados.</div>';return;}
+    bc.innerHTML=`<div style="margin-bottom:12px;font-size:12px;color:var(--text3);">${top.length} criativos</div>
+    <div class="creative-grid-bd">
+      ${top.map((ad,i)=>{
+        const res=ad.conversations>0?(ad.conversations+' conv'):ad.leads>0?(ad.leads+' leads'):ad.purchases>0?(ad.purchases+' compras'):'—';
+        const rc=ad.roas>=3?'var(--green)':ad.roas>=1.5?'var(--amber)':'var(--red)';
+        return `<div class="creative-bd-card">
+          ${i<3?`<div class="creative-bd-rank">${i+1}</div>`:''}
+          ${ad.thumb?`<img src="${esc(ad.thumb)}" class="creative-bd-thumb" onerror="this.style.display='none'"/>`:`<div class="creative-bd-thumb-ph"></div>`}
+          <div class="creative-bd-info">
+            <div class="creative-bd-name">${esc(ad.name)}</div>
+            <div style="font-size:10px;color:var(--text3);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(ad.campName)}</div>
+            <div class="creative-bd-stats">
+              <div class="creative-bd-stat">Gasto<span>R$ ${fmt(ad.spend)}</span></div>
+              <div class="creative-bd-stat">CTR<span>${ad.ctr>0?ad.ctr.toFixed(2)+'%':'—'}</span></div>
+              <div class="creative-bd-stat">Resultado<span style="color:var(--green)">${res}</span></div>
+              ${ad.roas>0?`<div class="creative-bd-stat">ROAS<span style="color:${rc}">${ad.roas.toFixed(2)}x</span></div>`:''}
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }catch(e){bc.innerHTML=`<div class="empty" style="color:var(--red);">Erro: ${esc(e.message)}</div>`;}
+}
+
+// ── ACCORDION ──
+const accOpen={}, adsetOpen={};
+let chartsLoaded=false;
+
+function loadCampaignAccordion(){
+  if(!allCampaigns.length)return;
+  document.getElementById('acc-count').textContent=allCampaigns.length+' campanhas';
+  renderAccordion(allCampaigns);
+}
+function filterAccordion(q){
+  const status=document.getElementById('acc-status-filter').value;
+  const sort=document.getElementById('acc-sort-filter').value;
+  let filtered=allCampaigns.filter(c=>(!q||c.name.toLowerCase().includes(q.toLowerCase()))&&(!status||c.status===status));
+  filtered.sort((a,b)=>sort==='roas'?b.roas-a.roas:sort==='ctr'?b.ctr-a.ctr:(b[sort]||0)-(a[sort]||0));
+  renderAccordion(filtered);
+}
+function renderAccordion(list){
+  const el=document.getElementById('acc-list');
+  if(!list.length){el.innerHTML='<div class="acc-loading-msg">Nenhuma campanha encontrada.</div>';return;}
+  el.innerHTML=list.map(c=>{
+    const sc=c.status==='ACTIVE'?'background:var(--green-dim);color:var(--green)':c.status==='PAUSED'?'background:var(--amber-dim);color:var(--amber)':'background:var(--bg3);color:var(--text3)';
+    const sl=c.status==='ACTIVE'?'Ativa':c.status==='PAUSED'?'Pausada':'Arquivada';
+    const rc=c.roas>=3?'color:var(--green)':c.roas>=1.5?'color:var(--amber)':c.roas>0?'color:var(--red)':'';
+    return `<div class="acc-card${accOpen[c.id]?' open':''}" id="ac-${esc(c.id)}">
+      <div class="acc-header" onclick="toggleCamp('${esc(c.id)}')">
+        <svg class="acc-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
+        <div style="flex:1"><div class="acc-camp-name">${esc(c.name)}</div><div class="acc-camp-obj">${esc(c.objective)||'campanha'}</div></div>
+        <span class="acc-status" style="${sc}">${sl}</span>
+      </div>
+      <div class="acc-stats">
+        <div class="acc-stat"><div class="acc-stat-label">Investido</div><div class="acc-stat-val">R$ ${fmt(c.spend)}</div></div>
+        <div class="acc-stat"><div class="acc-stat-label">Impressões</div><div class="acc-stat-val">${fmtI(c.impressions)}</div></div>
+        <div class="acc-stat"><div class="acc-stat-label">Cliques</div><div class="acc-stat-val">${fmtN(c.clicks)}</div></div>
+        <div class="acc-stat"><div class="acc-stat-label">CTR</div><div class="acc-stat-val">${c.ctr>0?c.ctr.toFixed(2)+'%':'—'}</div></div>
+        ${c.conversations>0?`<div class="acc-stat"><div class="acc-stat-label">Conversas</div><div class="acc-stat-val" style="color:var(--purple)">${fmtN(c.conversations)}</div></div>`:''}
+        ${c.leads>0?`<div class="acc-stat"><div class="acc-stat-label">Leads</div><div class="acc-stat-val" style="color:var(--teal)">${fmtN(c.leads)}</div></div>`:''}
+        ${c.purchases>0?`<div class="acc-stat"><div class="acc-stat-label">Compras</div><div class="acc-stat-val" style="color:var(--green)">${fmtN(c.purchases)}</div></div>`:''}
+        ${c.roas>0?`<div class="acc-stat"><div class="acc-stat-label">ROAS</div><div class="acc-stat-val" style="${rc}">${c.roas.toFixed(2)}x</div></div>`:''}
+      </div>
+      <div class="acc-adsets" id="adsets-${c.id}">
+        <div class="acc-loading-msg"><div class="spinner" style="width:14px;height:14px;border-width:1.5px;"></div>Carregando conjuntos...</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+async function toggleCamp(id){
+  const card=document.getElementById('ac-'+id);
+  const wrap=document.getElementById('adsets-'+id);
+  if(!card)return;
+  if(card.classList.contains('open')){card.classList.remove('open');accOpen[id]=false;return;}
+  card.classList.add('open');accOpen[id]=true;
+  if(wrap.dataset.loaded)return;
+  wrap.dataset.loaded='1';
+  try{
+    const d=await metaCall(id+'/adsets',{
+      fields:'id,name,status,insights{spend,impressions,clicks,ctr,actions,action_values,purchase_roas}',
+      ...getDateParam(),limit:'50'
+    });
+    const adsets=d.data||[];
+    if(!adsets.length){wrap.innerHTML='<div class="acc-loading-msg" style="color:var(--text3);">Nenhum conjunto encontrado.</div>';return;}
+    wrap.innerHTML=adsets.map(as=>{
+      const ins=parseIns(as.insights?.data?.[0]||{});
+      const sc2=as.status==='ACTIVE'?'color:var(--green)':as.status==='PAUSED'?'color:var(--amber)':'color:var(--text3)';
+      return `<div class="acc-adset" id="aset-${esc(as.id)}">
+        <div class="acc-adset-header" onclick="toggleAdset('${esc(as.id)}','${esc(id)}')">
+          <svg style="width:14px;height:14px;color:var(--text3);transition:transform 0.2s;flex-shrink:0;" class="as-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
+          <span class="acc-adset-name">${esc(as.name)}</span>
+          <span style="font-size:9px;font-weight:700;${sc2}">${as.status==='ACTIVE'?'Ativo':as.status==='PAUSED'?'Pausado':'Arq.'}</span>
+        </div>
+        <div class="acc-adset-stats">
+          <div class="acc-adset-stat">Invest.<span>R$ ${fmt(ins.spend)}</span></div>
+          <div class="acc-adset-stat">Imp.<span>${fmtI(ins.impressions)}</span></div>
+          <div class="acc-adset-stat">CTR<span>${ins.ctr>0?ins.ctr.toFixed(2)+'%':'—'}</span></div>
+          ${ins.conversations>0?`<div class="acc-adset-stat">Conv.<span style="color:var(--purple)">${ins.conversations}</span></div>`:''}
+          ${ins.leads>0?`<div class="acc-adset-stat">Leads<span style="color:var(--teal)">${ins.leads}</span></div>`:''}
+          ${ins.roas>0?`<div class="acc-adset-stat">ROAS<span style="color:var(--green)">${ins.roas.toFixed(2)}x</span></div>`:''}
+        </div>
+        <div class="acc-ads" id="ads-${as.id}">
+          <div class="acc-loading-msg" style="padding:6px 0;"><div class="spinner" style="width:12px;height:12px;border-width:1.5px;"></div>Carregando anúncios...</div>
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){wrap.innerHTML=`<div class="acc-loading-msg" style="color:var(--red);">Erro: ${esc(e.message)}</div>`;}
+}
+async function toggleAdset(asId,campId){
+  const row=document.getElementById('aset-'+asId);
+  const wrap=document.getElementById('ads-'+asId);
+  const chev=row?.querySelector('.as-chev');
+  if(!row)return;
+  if(row.classList.contains('open')){row.classList.remove('open');if(chev)chev.style.transform='';return;}
+  row.classList.add('open');if(chev)chev.style.transform='rotate(90deg)';
+  if(wrap.dataset.loaded)return;
+  wrap.dataset.loaded='1';
+  try{
+    const d=await metaCall(asId+'/ads',{
+      fields:'id,name,status,creative{thumbnail_url,image_url},insights{spend,impressions,clicks,ctr,actions,action_values,purchase_roas}',
+      ...getDateParam(),limit:'50'
+    });
+    const ads=d.data||[];
+    if(!ads.length){wrap.innerHTML='<div style="font-size:12px;color:var(--text3);padding:4px 0;">Nenhum anúncio.</div>';return;}
+    wrap.innerHTML=ads.map(ad=>{
+      const ins=parseIns(ad.insights?.data?.[0]||{});
+      const thumb=ad.creative?.image_url||ad.creative?.thumbnail_url||null;
+      const res=ins.conversations>0?(ins.conversations+' conv'):ins.leads>0?(ins.leads+' leads'):ins.purchases>0?(ins.purchases+' compras'):'—';
+      return `<div class="acc-ad">
+        ${thumb?`<img src="${esc(thumb)}" class="acc-ad-thumb" onerror="this.style.display='none'"/>`:`<div class="acc-ad-thumb" style="display:flex;align-items:center;justify-content:center;font-size:14px;"></div>`}
+        <div class="acc-ad-name" title="${esc(ad.name)}">${esc(ad.name)}</div>
+        <div class="acc-ad-metrics">
+          <div class="acc-ad-metric"><span>R$ ${fmt(ins.spend)}</span>Gasto</div>
+          <div class="acc-ad-metric"><span>${ins.ctr>0?ins.ctr.toFixed(2)+'%':'—'}</span>CTR</div>
+          <div class="acc-ad-metric"><span>${res}</span>Result.</div>
+          ${ins.roas>0?`<div class="acc-ad-metric"><span style="color:var(--green)">${ins.roas.toFixed(2)}x</span>ROAS</div>`:''}
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){wrap.innerHTML=`<div style="font-size:12px;color:var(--red);">${esc(e.message)}</div>`;}
+}
+
+// ── CHARTS TAB ──
+let chartLevel='campaign', chartType='bar', chartLayout=2;
+let chartItems=[], chartAdsets=[], chartAds=[];
+
+const CHART_METRICS=[
+  {key:'spend',label:'Gasto',color:'#3b82f6',fmt:v=>'R$ '+fmt(v)},
+  {key:'impressions',label:'Impressões',color:'#a855f7',fmt:v=>fmtI(v)},
+  {key:'clicks',label:'Cliques',color:'#14b8a6',fmt:v=>fmtN(v)},
+  {key:'ctr',label:'CTR %',color:'#f59e0b',fmt:v=>v.toFixed(2)+'%'},
+  {key:'cpc',label:'CPC',color:'#06b6d4',fmt:v=>'R$ '+fmt(v)},
+  {key:'conversations',label:'Conversas',color:'#a78bfa',fmt:v=>fmtN(v)},
+  {key:'cpcv',label:'Custo/Conv',color:'#8b5cf6',fmt:v=>v>0?'R$ '+fmt(v):'—',calc:c=>c.conversations>0?c.spend/c.conversations:0},
+  {key:'leads',label:'Leads',color:'#2dd4bf',fmt:v=>fmtN(v)},
+  {key:'cpl',label:'CPL',color:'#0d9488',fmt:v=>v>0?'R$ '+fmt(v):'—',calc:c=>c.leads>0?c.spend/c.leads:0},
+  {key:'purchases',label:'Compras',color:'#22c55e',fmt:v=>fmtN(v)},
+  {key:'purchaseValue',label:'Receita',color:'#16a34a',fmt:v=>'R$ '+fmt(v)},
+  {key:'roas',label:'ROAS',color:'#f5a623',fmt:v=>v>0?v.toFixed(2)+'x':'—'},
+  {key:'cpa',label:'CPA',color:'#ea580c',fmt:v=>v>0?'R$ '+fmt(v):'—',calc:c=>c.purchases>0?c.spend/c.purchases:0},
+];
+let activeChartMetrics=new Set(['spend','impressions','clicks','ctr','conversations','roas']);
+function getMetricVal(m,c){if(m.calc)return m.calc(c)||0;return c[m.key]||0;}
+
+function loadCharts(){
+  chartsLoaded=true;
+  const campSel=document.getElementById('cg-camp-sel');
+  campSel.innerHTML='<option value="">Todas</option>';
+  [...allCampaigns].sort((a,b)=>b.spend-a.spend).forEach(c=>{
+    const opt=document.createElement('option');opt.value=c.id;opt.textContent=(c.status==='ACTIVE'?'● ':'○ ')+c.name;campSel.appendChild(opt);
+  });
+  renderMetricPills();
+  chartItems=[...allCampaigns].sort((a,b)=>b.spend-a.spend);
+  renderChartWidgets();
+}
+function renderMetricPills(){
+  const el=document.getElementById('chart-metric-pills');if(!el)return;
+  el.innerHTML=CHART_METRICS.map(m=>`<div class="metric-pill ${activeChartMetrics.has(m.key)?'active':''}" onclick="toggleChartMetric('${m.key}',this)"><span class="metric-pill-dot" style="background:${m.color};"></span>${m.label}</div>`).join('');
+}
+function toggleChartMetric(key,el){if(activeChartMetrics.has(key))activeChartMetrics.delete(key);else activeChartMetrics.add(key);el.classList.toggle('active');renderChartWidgets();}
+function setChartLevel(level,btn){
+  chartLevel=level;
+  document.querySelectorAll('.chart-lvl-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+  document.getElementById('cg-adset-wrap').style.display=level!=='campaign'?'flex':'none';
+  document.getElementById('cg-ad-wrap').style.display=level==='ad'?'flex':'none';
+  if(level==='campaign'){chartItems=[...allCampaigns].sort((a,b)=>b.spend-a.spend);renderChartWidgets();}
+  else loadChartData();
+}
+function setChartType(type,btn){chartType=type;document.querySelectorAll('#sub-graficos .bd-tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderChartWidgets();}
+function setChartLayout(n,btn){
+  chartLayout=n;document.querySelectorAll('[onclick^="setChartLayout"]').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+  const grid=document.getElementById('chart-widget-grid');
+  if(grid)grid.style.gridTemplateColumns=n===1?'1fr':n===3?'repeat(3,1fr)':'repeat(2,1fr)';
+  renderChartWidgets();
+}
+function onChartCampChange(){if(chartLevel!=='campaign')loadChartData();}
+function onChartAdsetChange(){if(chartLevel==='ad')loadChartData();}
+async function loadChartData(){
+  const campId=document.getElementById('cg-camp-sel').value;
+  const adsetId=document.getElementById('cg-adset-sel')?.value;
+  const loading=document.getElementById('chart-loading');
+  const grid=document.getElementById('chart-widget-grid');
+  if(chartLevel==='campaign'){chartItems=campId?allCampaigns.filter(c=>c.id===campId):[...allCampaigns].sort((a,b)=>b.spend-a.spend);renderChartWidgets();return;}
+  loading.style.display='block';grid.style.display='none';
+  try{
+    if(chartLevel==='adset'){
+      const campIds=campId?[campId]:allCampaigns.filter(c=>c.status==='ACTIVE').map(c=>c.id).slice(0,10);
+      chartAdsets=[];
+      await Promise.all(campIds.map(async cid=>{
+        const d=await metaCall(cid+'/adsets',{fields:'id,name,status,insights{spend,impressions,clicks,ctr,cpc,actions,action_values,purchase_roas}',...getDateParam(),limit:'50'});
+        const camp=allCampaigns.find(c=>c.id===cid);
+        (d.data||[]).forEach(as=>{const ins=parseIns(as.insights?.data?.[0]||{});chartAdsets.push({id:as.id,name:as.name,campName:camp?.name||'',status:as.status,...ins});});
+      }));
+      const adsetSel=document.getElementById('cg-adset-sel');
+      adsetSel.innerHTML='<option value="">Todos ('+chartAdsets.length+')</option>';
+      chartAdsets.forEach(as=>{const opt=document.createElement('option');opt.value=as.id;opt.textContent=as.name;adsetSel.appendChild(opt);});
+      chartItems=[...chartAdsets].sort((a,b)=>b.spend-a.spend);
+    } else if(chartLevel==='ad'){
+      const sourceIds=adsetId?[adsetId]:(chartAdsets.length?chartAdsets.map(a=>a.id).slice(0,15):[]);
+      chartAds=[];
+      await Promise.all(sourceIds.slice(0,15).map(async sid=>{
+        const d=await metaCall(sid+'/ads',{fields:'id,name,status,creative{thumbnail_url,image_url},insights{spend,impressions,clicks,ctr,cpc,actions,action_values,purchase_roas}',...getDateParam(),limit:'30'});
+        (d.data||[]).forEach(ad=>{const ins=parseIns(ad.insights?.data?.[0]||{});chartAds.push({id:ad.id,name:ad.name,status:ad.status,thumb:ad.creative?.image_url||ad.creative?.thumbnail_url||null,...ins});});
+      }));
+      const adSel=document.getElementById('cg-ad-sel');
+      adSel.innerHTML='<option value="">Todos ('+chartAds.length+')</option>';
+      chartAds.forEach(ad=>{const opt=document.createElement('option');opt.value=ad.id;opt.textContent=ad.name;adSel.appendChild(opt);});
+      chartItems=[...chartAds].sort((a,b)=>b.spend-a.spend);
+    }
+  }catch(e){console.error(e);}
+  loading.style.display='none';grid.style.display='';
+  renderChartWidgets();
+}
+function renderChartWidgets(){
+  const grid=document.getElementById('chart-widget-grid');if(!grid)return;
+  let items=[...chartItems];
+  const adId=document.getElementById('cg-ad-sel')?.value;
+  const asId=document.getElementById('cg-adset-sel')?.value;
+  if(adId&&chartLevel==='ad')items=chartAds.filter(a=>a.id===adId);
+  else if(asId&&chartLevel==='adset')items=chartAdsets.filter(a=>a.id===asId);
+  if(!items.length){grid.innerHTML='<div class="empty" style="grid-column:1/-1;">← Selecione filtros e clique Carregar</div>';return;}
+  const metrics=CHART_METRICS.filter(m=>activeChartMetrics.has(m.key));
+  if(!metrics.length){grid.innerHTML='<div class="empty" style="grid-column:1/-1;">← Selecione métricas acima</div>';return;}
+  const labels=items.map(c=>c.name.length>18?c.name.slice(0,18)+'…':c.name);
+  Object.keys(charts).filter(k=>k.startsWith('cw-')).forEach(k=>{if(charts[k]){charts[k].destroy();delete charts[k];}});
+  grid.innerHTML=metrics.map((m,i)=>`<div class="chart-widget"><div class="chart-widget-header"><div class="chart-widget-title"><span style="width:8px;height:8px;border-radius:50%;background:${m.color};display:inline-block;"></span>${m.label}</div></div><div class="chart-widget-body" style="height:${chartLayout===1?'280px':'220px'};"><canvas id="cw-${m.key}-${i}"></canvas></div></div>`).join('');
+  setTimeout(()=>{metrics.forEach((m,i)=>{const el=document.getElementById('cw-'+m.key+'-'+i);if(!el)return;drawOneChart('cw-'+m.key+'-'+i,m,labels,items.map(c=>getMetricVal(m,c)));});},50);
+}
+function drawOneChart(canvasId,m,labels,vals){
+  if(charts[canvasId]){charts[canvasId].destroy();delete charts[canvasId];}
+  const el=document.getElementById(canvasId);if(!el)return;
+  const type=chartType==='horizontalBar'?'bar':chartType;
+  const isHoriz=chartType==='horizontalBar',isDoughnut=type==='doughnut',isRadar=type==='radar';
+  const data=isRadar?vals.map(v=>{const mx=Math.max(...vals,0.001);return(v/mx*100);}):vals;
+  charts[canvasId]=new Chart(el,{
+    type:isRadar?'radar':isDoughnut?'doughnut':'bar',
+    data:{labels,datasets:[{label:m.label,data,backgroundColor:isDoughnut?COLORS.map(c=>c+'cc'):m.color+'cc',borderColor:m.color,borderWidth:type==='line'?2:0,borderRadius:type==='bar'?4:0,fill:type==='line'?{target:'origin',above:m.color+'22'}:false,tension:0.35,pointRadius:type==='line'?4:0,hoverOffset:isDoughnut?6:0,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:{duration:350},
+      plugins:{legend:{display:isDoughnut,position:'bottom',labels:{color:'#8b92a5',font:{size:10},boxWidth:8,padding:8,usePointStyle:true}},tooltip:{callbacks:{label:ctx=>{const v=isDoughnut?ctx.parsed:isHoriz?ctx.parsed.x:ctx.parsed.y;return ' '+m.label+': '+m.fmt(isRadar?vals[ctx.dataIndex]:v);}}}},
+      indexAxis:!isDoughnut&&!isRadar?isHoriz?'y':'x':undefined,
+      scales:isDoughnut||isRadar?isRadar?{r:{grid:{color:'rgba(255,255,255,0.06)'},angleLines:{color:'rgba(255,255,255,0.06)'},ticks:{display:false},pointLabels:{color:'#8b92a5',font:{size:9}}}}:{}:{
+        x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#4a5168',font:{size:9},maxRotation:isHoriz?0:30,callback:isHoriz?v=>m.fmt(v):undefined},border:{display:false}},
+        y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#4a5168',font:{size:9},callback:!isHoriz?v=>m.fmt(v):undefined},border:{display:false}}
+      }}
+  });
+}
+
+// ── START ──
+init();
+</script>
+</body>
+</html>
