@@ -61,14 +61,30 @@ serve(async (req) => {
 
     accountId = String(accountId).replace(/^act_/, '')
 
-    // 4. Buscar meta_token
-    const { data: ngpUser } = await sb
-      .from('usuarios')
-      .select('meta_token')
-      .eq('id', sessions[0].usuario_id)
-      .single()
+    // 4. Buscar meta_token — se account_id veio da requisição (NGP vendo cliente),
+    //    usar o token do cliente dono daquela conta; caso contrário usar o do usuário logado.
+    let metaToken: string | undefined
 
-    const metaToken = ngpUser?.meta_token || Deno.env.get('META_ACCESS_TOKEN')
+    if (account_id && account_id !== usuario.meta_account_id) {
+      // NGP visualizando conta de cliente: buscar token do cliente
+      const { data: clienteUser } = await sb
+        .from('usuarios')
+        .select('meta_token')
+        .eq('meta_account_id', account_id)
+        .single()
+      metaToken = clienteUser?.meta_token
+    }
+
+    if (!metaToken) {
+      // Fallback: token do usuário logado ou variável de ambiente
+      const { data: selfUser } = await sb
+        .from('usuarios')
+        .select('meta_token')
+        .eq('id', sessions[0].usuario_id)
+        .single()
+      metaToken = selfUser?.meta_token || Deno.env.get('META_ACCESS_TOKEN')
+    }
+
     if (!metaToken) {
       return new Response(JSON.stringify({ error: 'Meta token não configurado.' }), {
         status: 503, headers: { ...CORS, 'Content-Type': 'application/json' },

@@ -85,7 +85,7 @@ export default function PerfilPage() {
       const saveData = await saveRes.json()
       if (!saveRes.ok) throw new Error(saveData.error || 'save')
 
-      sessionStorage.setItem('adsboard_foto', publicUrl)
+      localStorage.setItem('adsboard_foto', publicUrl)
       setFotoUrl(publicUrl)
       showMsg(setMsgFoto, '✓ Foto atualizada com sucesso!', true)
     } catch {
@@ -110,7 +110,7 @@ export default function PerfilPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erro')
-      sessionStorage.setItem('adsboard_user', novoNome)
+      localStorage.setItem('adsboard_user', novoNome)
       showMsg(setMsgNome, '✓ Nome atualizado com sucesso!', true)
     } catch {
       showMsg(setMsgNome, 'Erro ao salvar. Tente novamente.', false)

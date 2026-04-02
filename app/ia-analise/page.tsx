@@ -87,34 +87,30 @@ export default function IaAnalisePage() {
 
   useEffect(() => {
     if (!sess || sess.auth !== '1') { router.replace('/login'); return }
-    const name = sessionStorage.getItem('ngp_viewing_name') || ''
-    const account = sessionStorage.getItem('ngp_viewing_account') || ''
+    const name = localStorage.getItem('ngp_viewing_name') || ''
+    const account = localStorage.getItem('ngp_viewing_account') || ''
     if (!account) {
       alert('Selecione um cliente no dashboard antes de acessar a Análise de IA.')
       router.replace('/dashboard')
       return
     }
     setClientName(name)
-    setPeriod(sessionStorage.getItem('ngp_ia_period') || 'últimos 30 dias')
+    setPeriod(localStorage.getItem('ngp_ia_period') || 'últimos 30 dias')
     loadMetrics()
     loadSavedKey('openai')
   }, [])
 
   function loadMetrics() {
-    const stored = sessionStorage.getItem('ngp_ia_metrics')
+    const stored = localStorage.getItem('ngp_ia_metrics')
     if (stored) {
       try { setMetrics(JSON.parse(stored)) } catch { }
     }
   }
 
   function loadSavedKey(p: string) {
-    let key = sessionStorage.getItem('ngp_ia_key_' + p) || ''
-    if (!key) {
-      const legacy = localStorage.getItem('ngp_ia_key_' + p) || ''
-      if (legacy) { sessionStorage.setItem('ngp_ia_key_' + p, legacy); localStorage.removeItem('ngp_ia_key_' + p); key = legacy }
-    }
+    const key = localStorage.getItem('ngp_ia_key_' + p) || ''
     setApiKey(key)
-    const ep = sessionStorage.getItem('ngp_ia_endpoint_custom') || ''
+    const ep = localStorage.getItem('ngp_ia_endpoint_custom') || ''
     if (ep) setCustomEndpoint(ep)
   }
 
@@ -126,13 +122,12 @@ export default function IaAnalisePage() {
 
   function handleKeyChange(v: string) {
     setApiKey(v)
-    if (v) sessionStorage.setItem('ngp_ia_key_' + provider, v)
-    localStorage.removeItem('ngp_ia_key_' + provider)
+    if (v) localStorage.setItem('ngp_ia_key_' + provider, v)
   }
 
   function handleEndpointChange(v: string) {
     setCustomEndpoint(v)
-    if (v) sessionStorage.setItem('ngp_ia_endpoint_custom', v)
+    if (v) localStorage.setItem('ngp_ia_endpoint_custom', v)
   }
 
   function buildPrompt() {

@@ -15,11 +15,11 @@ const KEYS = {
 export function getSession(): Session | null {
   if (typeof window === 'undefined') return null
   try {
-    const auth    = sessionStorage.getItem(KEYS.auth)
-    const session = sessionStorage.getItem(KEYS.session)
+    const auth    = localStorage.getItem(KEYS.auth)
+    const session = localStorage.getItem(KEYS.session)
     if (!auth || !session) return null
 
-    const expires = sessionStorage.getItem(KEYS.expires) || ''
+    const expires = localStorage.getItem(KEYS.expires) || ''
     if (expires && new Date(expires) < new Date()) {
       clearSession()
       return null
@@ -28,12 +28,12 @@ export function getSession(): Session | null {
     return {
       auth,
       session,
-      user:        sessionStorage.getItem(KEYS.user)        || '',
-      role:       (sessionStorage.getItem(KEYS.role)        || 'cliente') as 'ngp' | 'cliente',
-      username:    sessionStorage.getItem(KEYS.username)    || '',
+      user:        localStorage.getItem(KEYS.user)        || '',
+      role:       (localStorage.getItem(KEYS.role)        || 'cliente') as 'ngp' | 'cliente',
+      username:    localStorage.getItem(KEYS.username)    || '',
       expires,
-      metaAccount: sessionStorage.getItem(KEYS.metaAccount) || undefined,
-      foto:        sessionStorage.getItem(KEYS.foto)        || undefined,
+      metaAccount: localStorage.getItem(KEYS.metaAccount) || undefined,
+      foto:        localStorage.getItem(KEYS.foto)        || undefined,
     }
   } catch {
     return null
@@ -41,22 +41,22 @@ export function getSession(): Session | null {
 }
 
 export function setSession(data: Session) {
-  sessionStorage.setItem(KEYS.auth,     data.auth)
-  sessionStorage.setItem(KEYS.session,  data.session)
-  sessionStorage.setItem(KEYS.user,     data.user)
-  sessionStorage.setItem(KEYS.role,     data.role)
-  sessionStorage.setItem(KEYS.username, data.username)
-  sessionStorage.setItem(KEYS.expires,  data.expires)
-  if (data.metaAccount) sessionStorage.setItem(KEYS.metaAccount, data.metaAccount)
-  if (data.foto)        sessionStorage.setItem(KEYS.foto, data.foto)
+  localStorage.setItem(KEYS.auth,     data.auth)
+  localStorage.setItem(KEYS.session,  data.session)
+  localStorage.setItem(KEYS.user,     data.user)
+  localStorage.setItem(KEYS.role,     data.role)
+  localStorage.setItem(KEYS.username, data.username)
+  localStorage.setItem(KEYS.expires,  data.expires)
+  if (data.metaAccount) localStorage.setItem(KEYS.metaAccount, data.metaAccount)
+  if (data.foto)        localStorage.setItem(KEYS.foto, data.foto)
 }
 
 export function clearSession() {
-  Object.values(KEYS).forEach(k => sessionStorage.removeItem(k))
-  sessionStorage.removeItem('ngp_viewing_account')
-  sessionStorage.removeItem('ngp_viewing_name')
-  sessionStorage.removeItem('ngp_viewing_username')
-  sessionStorage.removeItem('ngp_viewing_id')
+  Object.values(KEYS).forEach(k => localStorage.removeItem(k))
+  localStorage.removeItem('ngp_viewing_account')
+  localStorage.removeItem('ngp_viewing_name')
+  localStorage.removeItem('ngp_viewing_username')
+  localStorage.removeItem('ngp_viewing_id')
 }
 
 export function isAuthenticated(): boolean {

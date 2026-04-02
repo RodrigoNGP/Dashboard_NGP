@@ -42,7 +42,7 @@ export default function AccountSelector() {
       }
 
       // Recuperar conta atualmente selecionada
-      const current = sessionStorage.getItem('ngp_viewing_account')
+      const current = localStorage.getItem('ngp_viewing_account')
       setCurrentAccount(current)
     } catch (e) {
       console.error('Erro ao carregar contas:', e)
@@ -52,10 +52,10 @@ export default function AccountSelector() {
   }
 
   function selectAccount(accountId: string, clienteName: string, clienteUsername: string, clienteId: string) {
-    sessionStorage.setItem('ngp_viewing_account', accountId)
-    sessionStorage.setItem('ngp_viewing_name', clienteName)
-    sessionStorage.setItem('ngp_viewing_username', clienteUsername)
-    sessionStorage.setItem('ngp_viewing_id', clienteId)
+    localStorage.setItem('ngp_viewing_account', accountId)
+    localStorage.setItem('ngp_viewing_name', clienteName)
+    localStorage.setItem('ngp_viewing_username', clienteUsername)
+    localStorage.setItem('ngp_viewing_id', clienteId)
     setCurrentAccount(accountId)
     setShowDropdown(false)
     // Trigger page reload to refresh data with new account

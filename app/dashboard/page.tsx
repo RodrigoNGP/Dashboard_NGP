@@ -112,10 +112,10 @@ export default function DashboardPage() {
   // ─── Init ────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!sess || sess.role !== 'ngp') return
-    const vAcc  = sessionStorage.getItem('ngp_viewing_account')
-    const vName = sessionStorage.getItem('ngp_viewing_name')
-    const vUser = sessionStorage.getItem('ngp_viewing_username')
-    const vId   = sessionStorage.getItem('ngp_viewing_id')
+    const vAcc  = localStorage.getItem('ngp_viewing_account')
+    const vName = localStorage.getItem('ngp_viewing_name')
+    const vUser = localStorage.getItem('ngp_viewing_username')
+    const vId   = localStorage.getItem('ngp_viewing_id')
     if (vAcc && vName && vUser) {
       setViewing({ account: vAcc, name: vName, username: vUser, id: vId || '' })
       setScreen('dashboard')
@@ -404,20 +404,20 @@ export default function DashboardPage() {
 
   function selectAccount(c: Cliente) {
     const v: Viewing = { account: c.meta_account_id || '', name: c.nome, username: c.username, id: c.id }
-    sessionStorage.setItem('ngp_viewing_account',  v.account)
-    sessionStorage.setItem('ngp_viewing_name',     v.name)
-    sessionStorage.setItem('ngp_viewing_username', v.username)
-    sessionStorage.setItem('ngp_viewing_id',       v.id)
+    localStorage.setItem('ngp_viewing_account',  v.account)
+    localStorage.setItem('ngp_viewing_name',     v.name)
+    localStorage.setItem('ngp_viewing_username', v.username)
+    localStorage.setItem('ngp_viewing_id',       v.id)
     setViewing(v); setScreen('dashboard'); setActiveTab('resumo')
     setCampaigns([]); setRelatorios([]); setAdsetMap({}); setAdsMap({})
     setOpenCamps(new Set()); setOpenAdsets(new Set())
   }
 
   function backToSelect() {
-    sessionStorage.removeItem('ngp_viewing_account')
-    sessionStorage.removeItem('ngp_viewing_name')
-    sessionStorage.removeItem('ngp_viewing_username')
-    sessionStorage.removeItem('ngp_viewing_id')
+    localStorage.removeItem('ngp_viewing_account')
+    localStorage.removeItem('ngp_viewing_name')
+    localStorage.removeItem('ngp_viewing_username')
+    localStorage.removeItem('ngp_viewing_id')
     setViewing(null); setScreen('select')
   }
 

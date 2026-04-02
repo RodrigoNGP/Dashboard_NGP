@@ -64,11 +64,11 @@ function LoginContent() {
 
       setSession(sessionData)
       console.log('[login] setSession() called')
-      console.log('[login] Verifying sessionStorage after setSession:')
-      console.log('  adsboard_auth:', sessionStorage.getItem('adsboard_auth'))
-      console.log('  adsboard_session:', sessionStorage.getItem('adsboard_session'))
-      console.log('  adsboard_user:', sessionStorage.getItem('adsboard_user'))
-      console.log('  adsboard_role:', sessionStorage.getItem('adsboard_role'))
+      console.log('[login] Verifying localStorage after setSession:')
+      console.log('  adsboard_auth:', localStorage.getItem('adsboard_auth'))
+      console.log('  adsboard_session:', localStorage.getItem('adsboard_session'))
+      console.log('  adsboard_user:', localStorage.getItem('adsboard_user'))
+      console.log('  adsboard_role:', localStorage.getItem('adsboard_role'))
 
       setLoadingMsg(`Bem-vindo, ${data.user.nome}!`)
       const returnUrl = params.get('returnUrl')
