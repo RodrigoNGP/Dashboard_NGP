@@ -25,6 +25,22 @@ interface Viewing { account: string; name: string; username: string; id: string 
 
 const INS_FIELDS = 'campaign_id,campaign_name,spend,impressions,clicks,ctr,cpc,reach,actions,action_values,purchase_roas'
 
+const ALL_METRICS = [
+  { id: 'spend',         label: 'Investido',   section: '💰 Financeiro' },
+  { id: 'revenue',       label: 'Receita',     section: '💰 Financeiro' },
+  { id: 'roas',          label: 'ROAS',        section: '💰 Financeiro' },
+  { id: 'avgCpc',        label: 'CPC médio',   section: '💰 Financeiro' },
+  { id: 'conversations', label: 'Conversas',   section: '🎯 Resultados' },
+  { id: 'leads',         label: 'Leads',       section: '🎯 Resultados' },
+  { id: 'purchases',     label: 'Compras',     section: '🎯 Resultados' },
+  { id: 'result',        label: 'Resultado',   section: '🎯 Resultados' },
+  { id: 'impressions',   label: 'Impressões',  section: '📣 Alcance' },
+  { id: 'clicks',        label: 'Cliques',     section: '📣 Alcance' },
+  { id: 'ctr',           label: 'CTR médio',   section: '📣 Alcance' },
+  { id: 'count',         label: 'Campanhas',   section: '📣 Alcance' },
+]
+const DEFAULT_METRICS = ALL_METRICS.map(m => m.id)
+
 const BG_COLORS = [
   'linear-gradient(135deg,#3b82f6,#7c3aed)',
   'linear-gradient(135deg,#059669,#14b8a6)',
@@ -98,6 +114,46 @@ export default function DashboardPage() {
 
   // ── Relatórios ───────────────────────────────────────────────────────────
   const [relatorios, setRelatorios] = useState<Relatorio[]>([])
+
+  // ── Campaign filter (resumo) ─────────────────────────────────────────────
+  const [selectedCampIds, setSelectedCampIds] = useState<Set<string>>(new Set())
+  const [campFilterOpen, setCampFilterOpen]   = useState(false)
+  const campFilterRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (campFilterRef.current && !campFilterRef.current.contains(e.target as Node)) {
+        setCampFilterOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Reset filter when account/period changes
+  useEffect(() => { setSelectedCampIds(new Set()) }, [viewing, period])
+
+  // ── Metrics customizer ───────────────────────────────────────────────────
+  const [visibleMetrics, setVisibleMetrics] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('adsboard_visible_metrics')
+      return saved ? JSON.parse(saved) : DEFAULT_METRICS
+    } catch { return DEFAULT_METRICS }
+  })
+  const [metricsModalOpen, setMetricsModalOpen] = useState(false)
+
+  function toggleMetric(id: string) {
+    setVisibleMetrics(prev => {
+      const next = prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]
+      localStorage.setItem('adsboard_visible_metrics', JSON.stringify(next))
+      return next
+    })
+  }
+
+  function resetMetrics() {
+    setVisibleMetrics(DEFAULT_METRICS)
+    localStorage.setItem('adsboard_visible_metrics', JSON.stringify(DEFAULT_METRICS))
+  }
 
   // ── Account modal ────────────────────────────────────────────────────────
   const [modalOpen, setModalOpen]     = useState(false)
@@ -461,13 +517,18 @@ export default function DashboardPage() {
   }
 
   // ─── Derived ──────────────────────────────────────────────────────────────
-  const tSpend = campaigns.reduce((s, c) => s + c.spend, 0)
-  const tImp   = campaigns.reduce((s, c) => s + c.impressions, 0)
-  const tClk   = campaigns.reduce((s, c) => s + c.clicks, 0)
-  const tConv  = campaigns.reduce((s, c) => s + c.conversations, 0)
-  const tLeads = campaigns.reduce((s, c) => s + c.leads, 0)
-  const tPur   = campaigns.reduce((s, c) => s + c.purchases, 0)
-  const tRev   = campaigns.reduce((s, c) => s + c.purchaseValue, 0)
+  // metricsBase = campaigns filtered by the resumo campaign-filter (empty = all)
+  const metricsBase = selectedCampIds.size > 0
+    ? campaigns.filter(c => selectedCampIds.has(c.id))
+    : campaigns
+
+  const tSpend = metricsBase.reduce((s, c) => s + c.spend, 0)
+  const tImp   = metricsBase.reduce((s, c) => s + c.impressions, 0)
+  const tClk   = metricsBase.reduce((s, c) => s + c.clicks, 0)
+  const tConv  = metricsBase.reduce((s, c) => s + c.conversations, 0)
+  const tLeads = metricsBase.reduce((s, c) => s + c.leads, 0)
+  const tPur   = metricsBase.reduce((s, c) => s + c.purchases, 0)
+  const tRev   = metricsBase.reduce((s, c) => s + c.purchaseValue, 0)
   const avgCtr = tImp > 0 ? (tClk / tImp * 100) : 0
   const totRoas = tSpend > 0 ? (tRev / tSpend) : 0
   const avgCpc  = tClk > 0 ? (tSpend / tClk) : 0
@@ -619,26 +680,171 @@ export default function DashboardPage() {
             {loading && <div className={styles.loadingBar}><div className={styles.spinner} /> Carregando dados...</div>}
             {error   && <div className={styles.errorBox}>⚠️ {error}</div>}
 
-            <div className={styles.kpiSections}>
-              <KpiSection title="💰 Financeiro" cmpLabel={cmpLabel} items={[
-                { label: 'Investido', value: `R$ ${fmt(tSpend)}`, currRaw: tSpend, prevRaw: hasCmp ? pSpend : undefined, prev: hasCmp ? `R$ ${fmt(pSpend)}` : undefined },
-                { label: 'Receita',   value: `R$ ${fmt(tRev)}`,   currRaw: tRev,   prevRaw: hasCmp ? pRev   : undefined, prev: hasCmp ? `R$ ${fmt(pRev)}`   : undefined },
-                { label: 'ROAS',      value: `${totRoas.toFixed(2)}x`, accent: true, currRaw: totRoas, prevRaw: hasCmp ? pRoas : undefined, prev: hasCmp ? `${pRoas.toFixed(2)}x` : undefined },
-                { label: 'CPC médio', value: `R$ ${fmt(avgCpc)}`, currRaw: avgCpc, prevRaw: hasCmp ? pCpc   : undefined, prev: hasCmp ? `R$ ${fmt(pCpc)}`   : undefined },
-              ]} />
-              <KpiSection title="🎯 Resultados" cmpLabel={cmpLabel} items={[
-                { label: 'Conversas', value: fmtN(tConv),  currRaw: tConv,  prevRaw: hasCmp ? pConv  : undefined, prev: hasCmp ? fmtN(pConv)  : undefined },
-                { label: 'Leads',     value: fmtN(tLeads), currRaw: tLeads, prevRaw: hasCmp ? pLeads : undefined, prev: hasCmp ? fmtN(pLeads) : undefined },
-                { label: 'Compras',   value: fmtN(tPur),   currRaw: tPur,   prevRaw: hasCmp ? pPur   : undefined, prev: hasCmp ? fmtN(pPur)   : undefined },
-                { label: 'Resultado', value: fmtN(totRes), accent: totRes > 0, currRaw: totRes, prevRaw: hasCmp ? pRes : undefined, prev: hasCmp ? fmtN(pRes) : undefined },
-              ]} />
-              <KpiSection title="📣 Alcance" cmpLabel={cmpLabel} items={[
-                { label: 'Impressões', value: fmtI(tImp), currRaw: tImp, prevRaw: hasCmp ? pImp : undefined, prev: hasCmp ? fmtI(pImp) : undefined },
-                { label: 'Cliques',    value: fmtN(tClk), currRaw: tClk, prevRaw: hasCmp ? pClk : undefined, prev: hasCmp ? fmtN(pClk) : undefined },
-                { label: 'CTR médio',  value: `${avgCtr.toFixed(2)}%`, currRaw: avgCtr, prevRaw: hasCmp ? pCtr : undefined, prev: hasCmp ? `${pCtr.toFixed(2)}%` : undefined },
-                { label: 'Campanhas',  value: String(campaigns.length) },
-              ]} />
+            {/* Campaign filter */}
+            {campaigns.length > 0 && (
+              <div ref={campFilterRef} style={{ position: 'relative', marginBottom: 14 }}>
+                <button
+                  onClick={() => setCampFilterOpen(p => !p)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    background: selectedCampIds.size > 0 ? 'rgba(204,20,20,0.06)' : '#fff',
+                    border: selectedCampIds.size > 0 ? '1.5px solid #CC1414' : '1.5px solid #E5E5EA',
+                    borderRadius: 9, padding: '8px 14px', fontSize: 13, fontWeight: 500,
+                    color: selectedCampIds.size > 0 ? '#CC1414' : '#6E6E73',
+                    cursor: 'pointer', fontFamily: "'Sora', sans-serif", transition: 'all .15s',
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width={14} height={14}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                  {selectedCampIds.size === 0
+                    ? 'Todas as campanhas'
+                    : selectedCampIds.size === 1
+                      ? campaigns.find(c => selectedCampIds.has(c.id))?.name?.slice(0, 32) + (campaigns.find(c => selectedCampIds.has(c.id))?.name?.length! > 32 ? '…' : '')
+                      : `${selectedCampIds.size} campanhas selecionadas`
+                  }
+                  {selectedCampIds.size > 0 && (
+                    <span
+                      onClick={e => { e.stopPropagation(); setSelectedCampIds(new Set()) }}
+                      style={{ marginLeft: 4, fontSize: 15, lineHeight: 1, opacity: 0.6, cursor: 'pointer' }}
+                    >×</span>
+                  )}
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width={12} height={12} style={{ marginLeft: 2, transform: campFilterOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+
+                {campFilterOpen && (
+                  <div style={{
+                    position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50,
+                    background: '#fff', border: '1.5px solid #E5E5EA', borderRadius: 12,
+                    boxShadow: '0 8px 30px rgba(0,0,0,0.12)', minWidth: 320, maxWidth: 480,
+                    maxHeight: 360, display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                  }}>
+                    {/* Dropdown header */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid #E5E5EA', flexShrink: 0 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#111' }}>Filtrar métricas por campanha</span>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                          onClick={() => setSelectedCampIds(new Set(campaigns.map(c => c.id)))}
+                          style={{ background: 'none', border: 'none', fontSize: 11, fontWeight: 600, color: '#CC1414', cursor: 'pointer', fontFamily: 'inherit', padding: '2px 0' }}
+                        >Selecionar todas</button>
+                        <span style={{ color: '#E5E5EA' }}>|</span>
+                        <button
+                          onClick={() => setSelectedCampIds(new Set())}
+                          style={{ background: 'none', border: 'none', fontSize: 11, fontWeight: 600, color: '#6E6E73', cursor: 'pointer', fontFamily: 'inherit', padding: '2px 0' }}
+                        >Limpar</button>
+                      </div>
+                    </div>
+
+                    {/* Campaign list */}
+                    <div style={{ overflowY: 'auto', flex: 1 }}>
+                      {campaigns.map(c => {
+                        const checked = selectedCampIds.has(c.id)
+                        return (
+                          <div
+                            key={c.id}
+                            onClick={() => {
+                              setSelectedCampIds(prev => {
+                                const next = new Set(prev)
+                                if (next.has(c.id)) next.delete(c.id); else next.add(c.id)
+                                return next
+                              })
+                            }}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px',
+                              cursor: 'pointer', transition: 'background .1s',
+                              background: checked ? 'rgba(204,20,20,0.04)' : 'transparent',
+                              borderBottom: '1px solid #F5F5F7',
+                            }}
+                            onMouseEnter={e => { if (!checked) (e.currentTarget as HTMLDivElement).style.background = '#FAFAFA' }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = checked ? 'rgba(204,20,20,0.04)' : 'transparent' }}
+                          >
+                            <div style={{
+                              width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+                              background: checked ? '#CC1414' : '#fff',
+                              border: checked ? '2px solid #CC1414' : '2px solid #D1D1D6',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              transition: 'all .12s',
+                            }}>
+                              {checked && <svg viewBox="0 0 10 10" fill="none" width={9} height={9}><path d="M1.5 5l2.5 2.5 5-5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 12, fontWeight: checked ? 600 : 400, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</div>
+                              <div style={{ fontSize: 10, color: '#AEAEB2', marginTop: 1 }}>
+                                R$ {fmt(c.spend)} · {fmtI(c.impressions)} imp · {c.ctr.toFixed(2)}% CTR
+                              </div>
+                            </div>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, flexShrink: 0, background: c.status === 'ACTIVE' ? '#dcfce7' : '#f3f4f6', color: c.status === 'ACTIVE' ? '#15803d' : '#6b7280' }}>
+                              {c.status === 'ACTIVE' ? 'Ativa' : 'Pausada'}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* Dropdown footer */}
+                    <div style={{ padding: '10px 14px', borderTop: '1px solid #E5E5EA', background: '#FAFAFA', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+                      <span style={{ fontSize: 11, color: '#AEAEB2' }}>
+                        {selectedCampIds.size === 0 ? 'Exibindo todas' : `${selectedCampIds.size} de ${campaigns.length} campanhas`}
+                      </span>
+                      <button
+                        onClick={() => setCampFilterOpen(false)}
+                        style={{ background: '#CC1414', border: 'none', borderRadius: 7, padding: '6px 14px', fontSize: 12, fontWeight: 700, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}
+                      >Aplicar</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#6E6E73' }}>Resumo · {periodLabel}</span>
+              <button
+                onClick={() => setMetricsModalOpen(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1.5px solid #E5E5EA', borderRadius: 8, padding: '5px 12px', fontSize: 12, fontWeight: 600, color: '#6E6E73', cursor: 'pointer', fontFamily: "'Sora', sans-serif", transition: 'all .15s' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#CC1414'; (e.currentTarget as HTMLButtonElement).style.color = '#CC1414' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#E5E5EA'; (e.currentTarget as HTMLButtonElement).style.color = '#6E6E73' }}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width={14} height={14}><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                Personalizar métricas
+                {visibleMetrics.length < DEFAULT_METRICS.length && (
+                  <span style={{ background: '#CC1414', color: '#fff', borderRadius: 20, fontSize: 10, fontWeight: 700, padding: '1px 6px', marginLeft: 2 }}>
+                    {visibleMetrics.length}/{DEFAULT_METRICS.length}
+                  </span>
+                )}
+              </button>
             </div>
+
+            {(() => {
+              const vm = visibleMetrics
+              const finItems = [
+                { id: 'spend',   label: 'Investido', value: `R$ ${fmt(tSpend)}`, currRaw: tSpend,   prevRaw: hasCmp ? pSpend : undefined, prev: hasCmp ? `R$ ${fmt(pSpend)}` : undefined },
+                { id: 'revenue', label: 'Receita',   value: `R$ ${fmt(tRev)}`,   currRaw: tRev,     prevRaw: hasCmp ? pRev   : undefined, prev: hasCmp ? `R$ ${fmt(pRev)}`   : undefined },
+                { id: 'roas',    label: 'ROAS',      value: `${totRoas.toFixed(2)}x`, accent: true, currRaw: totRoas, prevRaw: hasCmp ? pRoas : undefined, prev: hasCmp ? `${pRoas.toFixed(2)}x` : undefined },
+                { id: 'avgCpc',  label: 'CPC médio', value: `R$ ${fmt(avgCpc)}`, currRaw: avgCpc,   prevRaw: hasCmp ? pCpc   : undefined, prev: hasCmp ? `R$ ${fmt(pCpc)}`   : undefined },
+              ].filter(it => vm.includes(it.id))
+              const resItems = [
+                { id: 'conversations', label: 'Conversas', value: fmtN(tConv),  currRaw: tConv,  prevRaw: hasCmp ? pConv  : undefined, prev: hasCmp ? fmtN(pConv)  : undefined },
+                { id: 'leads',         label: 'Leads',     value: fmtN(tLeads), currRaw: tLeads, prevRaw: hasCmp ? pLeads : undefined, prev: hasCmp ? fmtN(pLeads) : undefined },
+                { id: 'purchases',     label: 'Compras',   value: fmtN(tPur),   currRaw: tPur,   prevRaw: hasCmp ? pPur   : undefined, prev: hasCmp ? fmtN(pPur)   : undefined },
+                { id: 'result',        label: 'Resultado', value: fmtN(totRes), accent: totRes > 0, currRaw: totRes, prevRaw: hasCmp ? pRes : undefined, prev: hasCmp ? fmtN(pRes) : undefined },
+              ].filter(it => vm.includes(it.id))
+              const alcItems = [
+                { id: 'impressions', label: 'Impressões', value: fmtI(tImp), currRaw: tImp, prevRaw: hasCmp ? pImp : undefined, prev: hasCmp ? fmtI(pImp) : undefined },
+                { id: 'clicks',      label: 'Cliques',    value: fmtN(tClk), currRaw: tClk, prevRaw: hasCmp ? pClk : undefined, prev: hasCmp ? fmtN(pClk) : undefined },
+                { id: 'ctr',         label: 'CTR médio',  value: `${avgCtr.toFixed(2)}%`, currRaw: avgCtr, prevRaw: hasCmp ? pCtr : undefined, prev: hasCmp ? `${pCtr.toFixed(2)}%` : undefined },
+                { id: 'count',       label: 'Campanhas',  value: String(campaigns.length) },
+              ].filter(it => vm.includes(it.id))
+              return (
+                <div className={styles.kpiSections}>
+                  {finItems.length > 0 && <KpiSection title="💰 Financeiro" cmpLabel={cmpLabel} items={finItems} />}
+                  {resItems.length > 0 && <KpiSection title="🎯 Resultados" cmpLabel={cmpLabel} items={resItems} />}
+                  {alcItems.length > 0 && <KpiSection title="📣 Alcance"    cmpLabel={cmpLabel} items={alcItems} />}
+                  {finItems.length === 0 && resItems.length === 0 && alcItems.length === 0 && (
+                    <div style={{ flex: 1, background: '#fff', border: '1px dashed #E5E5EA', borderRadius: 10, padding: '32px 20px', textAlign: 'center', color: '#AEAEB2', fontSize: 13 }}>
+                      Nenhuma métrica visível. <button onClick={() => setMetricsModalOpen(true)} style={{ background: 'none', border: 'none', color: '#CC1414', cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: 'inherit' }}>Clique aqui para adicionar</button>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
 
             {campaigns.length > 0 && (
               <div className={styles.chartsRow}>
@@ -1079,6 +1285,7 @@ export default function DashboardPage() {
       </div>
 
       {modalOpen && <AccountModal data={modalEdit || {}} loading={modalLoading} error={modalError} onSave={saveClient} onDelete={deleteClient} onClose={() => { setModalOpen(false); setModalEdit(null); setModalError('') }} />}
+      {metricsModalOpen && <MetricsModal visible={visibleMetrics} onToggle={toggleMetric} onReset={resetMetrics} onClose={() => setMetricsModalOpen(false)} />}
     </div>
   )
 }
@@ -1127,6 +1334,82 @@ function KpiSection({ title, cmpLabel, items }: {
             </div>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+// ─── Metrics Customizer Modal ──────────────────────────────────────────────────
+function MetricsModal({ visible, onToggle, onReset, onClose }: {
+  visible: string[]
+  onToggle: (id: string) => void
+  onReset: () => void
+  onClose: () => void
+}) {
+  const sections = Array.from(new Set(ALL_METRICS.map(m => m.section)))
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 16px', borderBottom: '1px solid #E5E5EA' }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#111' }}>Personalizar métricas</div>
+            <div style={{ fontSize: 12, color: '#6E6E73', marginTop: 2 }}>Escolha quais métricas exibir no resumo</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: '1px solid #E5E5EA', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', fontSize: 16, color: '#6E6E73', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+        </div>
+
+        {/* Metrics list grouped by section */}
+        <div style={{ padding: '16px 24px', maxHeight: 400, overflowY: 'auto' }}>
+          {sections.map(section => (
+            <div key={section} style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#AEAEB2', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 10 }}>{section}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {ALL_METRICS.filter(m => m.section === section).map(metric => {
+                  const active = visible.includes(metric.id)
+                  return (
+                    <button
+                      key={metric.id}
+                      onClick={() => onToggle(metric.id)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        background: active ? 'rgba(204,20,20,0.06)' : '#F5F5F7',
+                        border: active ? '1.5px solid #CC1414' : '1.5px solid #E5E5EA',
+                        borderRadius: 9, padding: '10px 14px', cursor: 'pointer',
+                        fontFamily: "'Sora', sans-serif", transition: 'all .15s', textAlign: 'left',
+                      }}
+                    >
+                      <div style={{
+                        width: 18, height: 18, borderRadius: 5, flexShrink: 0,
+                        background: active ? '#CC1414' : '#fff',
+                        border: active ? '2px solid #CC1414' : '2px solid #D1D1D6',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'all .15s',
+                      }}>
+                        {active && <svg viewBox="0 0 12 12" fill="none" width={10} height={10}><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                      </div>
+                      <span style={{ fontSize: 13, fontWeight: active ? 600 : 400, color: active ? '#111' : '#6E6E73' }}>{metric.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 24px', borderTop: '1px solid #E5E5EA', background: '#FAFAFA' }}>
+          <div style={{ fontSize: 12, color: '#AEAEB2' }}>{visible.length} de {DEFAULT_METRICS.length} métricas ativas</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={onReset} style={{ background: 'none', border: '1px solid #E5E5EA', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 600, color: '#6E6E73', cursor: 'pointer', fontFamily: "'Sora', sans-serif" }}>
+              Restaurar padrão
+            </button>
+            <button onClick={onClose} style={{ background: '#CC1414', border: 'none', borderRadius: 8, padding: '7px 16px', fontSize: 12, fontWeight: 700, color: '#fff', cursor: 'pointer', fontFamily: "'Sora', sans-serif" }}>
+              Concluir
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

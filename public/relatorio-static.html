@@ -512,6 +512,7 @@ let D={
   segEnabled:false,campanhas:[],
   secTitles:defaultSecTitles(),
   secOrder:defaultSecOrder(),
+  customSections:{},
 };
 let view='form',savedTimer=null;
 const SK='ngp_rel_v4';
@@ -585,6 +586,7 @@ function loadData(){
     if(!D.secTitles)D.secTitles=defaultSecTitles();
     else D.secTitles={...defaultSecTitles(),...D.secTitles};
     if(!D.secOrder)D.secOrder=defaultSecOrder();
+    if(!D.customSections)D.customSections={};
   }catch(_){}
 }
 function updSecTitle(key,val){
@@ -984,9 +986,13 @@ function renderSegmentos(){
 
 // ── SECTION ORDER PANEL ───────────────────────────────────────────────────────
 let _dragSrcIdx=null;
-function secLabel(key){
+function secLabelBuiltIn(key){
   const t=D.secTitles||defaultSecTitles();
-  return {resumo:t.resumo,numeros:t.numeros,criativos:t.criativos,acoes:t.acoes,passos:t.passos,anexos:t.anexos}[key]||key;
+  return{resumo:t.resumo,numeros:t.numeros,criativos:t.criativos,acoes:t.acoes,passos:t.passos,anexos:t.anexos}[key]||key;
+}
+function secLabel(key){
+  if(key.startsWith('custom_'))return D.customSections?.[key]?.title||'Seção personalizada';
+  return secLabelBuiltIn(key);
 }
 function toggleSecOrderPanel(){
   const panel=document.getElementById('sec-order-panel');
@@ -1018,8 +1024,37 @@ function _renderSecOrderItems(){
          ondrop="secDrop(event,${i})">
       <span class="sec-order-handle">⠿</span>
       <span class="sec-order-num">${String(i+1).padStart(2,'0')}</span>
-      <span class="sec-order-name">${secLabel(key)}</span>
+      <span class="sec-order-name" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${secLabel(key)}</span>
+      <button title="Remover seção" onclick="removeSection('${key}')"
+        style="background:none;border:none;color:#4A4A4E;cursor:pointer;font-size:15px;padding:2px 4px;line-height:1;flex-shrink:0;transition:color .15s"
+        onmouseover="this.style.color='#CC1414'" onmouseout="this.style.color='#4A4A4E'">×</button>
     </div>`).join('');
+
+  // Footer: add section + restore hidden built-ins
+  const footer=document.getElementById('sec-order-footer');
+  if(!footer)return;
+  const builtIn=['resumo','numeros','criativos','acoes','passos','anexos'];
+  const hidden=builtIn.filter(k=>!order.includes(k));
+  const btnStyle='display:flex;align-items:center;gap:8px;background:#2C2C2E;border:1px solid rgba(255,255,255,.07);color:#C7C7CC;font-size:12px;font-weight:600;padding:8px 12px;border-radius:6px;cursor:pointer;width:100%;text-align:left;font-family:inherit;transition:background .12s';
+  const restoreStyle='display:flex;align-items:center;gap:8px;background:rgba(204,20,20,.1);border:1px solid rgba(204,20,20,.25);color:#FF6B6B;font-size:12px;font-weight:600;padding:8px 12px;border-radius:6px;cursor:pointer;width:100%;text-align:left;font-family:inherit;transition:background .12s';
+  footer.innerHTML=`
+    <div style="border-top:1px solid rgba(255,255,255,.07);margin-top:10px;padding-top:12px">
+      <div style="font-size:9px;font-weight:700;color:#4A4A4E;letter-spacing:.09em;text-transform:uppercase;margin-bottom:8px">Adicionar seção</div>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <button style="${btnStyle}" onmouseover="this.style.background='#3A3A3C'" onmouseout="this.style.background='#2C2C2E'" onclick="addCustomSection('texto')">
+          <span style="font-size:15px">📝</span> Texto livre
+        </button>
+        <button style="${btnStyle}" onmouseover="this.style.background='#3A3A3C'" onmouseout="this.style.background='#2C2C2E'" onclick="addCustomSection('topicos')">
+          <span style="font-size:15px">📋</span> Lista de tópicos
+        </button>
+        ${hidden.length>0?`
+        <div style="font-size:9px;font-weight:700;color:#4A4A4E;letter-spacing:.09em;text-transform:uppercase;margin-top:6px;margin-bottom:6px">Seções ocultas</div>
+        ${hidden.map(k=>`
+        <button style="${restoreStyle}" onmouseover="this.style.background='rgba(204,20,20,.2)'" onmouseout="this.style.background='rgba(204,20,20,.1)'" onclick="restoreSection('${k}')">
+          <span style="font-size:13px">↩</span> ${secLabelBuiltIn(k)}
+        </button>`).join('')}`:''}
+      </div>
+    </div>`;
 }
 function secDragStart(e,idx){
   _dragSrcIdx=idx;
@@ -1042,6 +1077,67 @@ function secDrop(e,toIdx){
   saveData();
   document.getElementById('app').innerHTML=renderForm();
   openSecOrderPanel();
+}
+
+// ── CUSTOM SECTIONS ───────────────────────────────────────────────────────────
+function addCustomSection(type){
+  const id='custom_'+uid();
+  if(!D.customSections)D.customSections={};
+  D.customSections[id]={
+    type,
+    title:type==='texto'?'Nova Seção':'Lista de Itens',
+    content:type==='topicos'?['']:'',
+  };
+  if(!D.secOrder)D.secOrder=defaultSecOrder();
+  D.secOrder=[...D.secOrder,id];
+  saveData();
+  document.getElementById('app').innerHTML=renderForm();
+  openSecOrderPanel();
+}
+function removeSection(key){
+  D.secOrder=(D.secOrder||defaultSecOrder()).filter(k=>k!==key);
+  if(key.startsWith('custom_')&&D.customSections)delete D.customSections[key];
+  saveData();
+  document.getElementById('app').innerHTML=renderForm();
+  openSecOrderPanel();
+}
+function restoreSection(key){
+  if(!(D.secOrder||[]).includes(key)){
+    if(!D.secOrder)D.secOrder=defaultSecOrder();
+    D.secOrder=[...D.secOrder,key];
+    saveData();
+    document.getElementById('app').innerHTML=renderForm();
+    openSecOrderPanel();
+  }
+}
+function updCustomTitle(key,val){
+  if(!D.customSections?.[key])return;
+  D.customSections[key].title=val;
+  saveData();
+  _renderSecOrderItems();
+}
+function updCustomContent(key,val){
+  if(!D.customSections?.[key])return;
+  D.customSections[key].content=val;
+  saveData();
+}
+function updCustomTopico(key,idx,val){
+  if(!D.customSections?.[key])return;
+  if(!Array.isArray(D.customSections[key].content))D.customSections[key].content=[''];
+  D.customSections[key].content[idx]=val;
+  saveData();
+}
+function addCustomTopico(key){
+  if(!D.customSections?.[key])return;
+  if(!Array.isArray(D.customSections[key].content))D.customSections[key].content=[''];
+  D.customSections[key].content.push('');
+  saveData();render();
+}
+function removeCustomTopico(key,idx){
+  if(!D.customSections?.[key])return;
+  if(!Array.isArray(D.customSections[key].content))return;
+  D.customSections[key].content.splice(idx,1);
+  saveData();render();
 }
 
 // ── SECTION BLOCKS ────────────────────────────────────────────────────────────
@@ -1100,11 +1196,42 @@ function renderSecAnexos(){return`
     </div>
     <button class="btn-add" style="margin-top:12px" onclick="addAnexo()">+ Adicionar anexo</button>
   </div>`;}
+function renderSecCustomTexto(key,n){
+  const sec=D.customSections?.[key]||{title:'Nova Seção',content:''};
+  return`<div class="card">
+    <div class="sec-head">
+      <div class="sec-num">${n}</div>
+      <input class="sec-title-input" value="${esc(sec.title)}" oninput="updCustomTitle('${key}',this.value)" title="Clique para editar o título"/>
+    </div>
+    <textarea class="field" rows="4" placeholder="Escreva o conteúdo desta seção..." oninput="updCustomContent('${key}',this.value)">${esc(sec.content||'')}</textarea>
+  </div>`;
+}
+function renderSecCustomTopicos(key,n){
+  const sec=D.customSections?.[key]||{title:'Lista de Itens',content:['']};
+  const items=Array.isArray(sec.content)&&sec.content.length>0?sec.content:[''];
+  return`<div class="card">
+    <div class="sec-head">
+      <div class="sec-num">${n}</div>
+      <input class="sec-title-input" value="${esc(sec.title)}" oninput="updCustomTitle('${key}',this.value)" title="Clique para editar o título"/>
+    </div>
+    ${items.map((p,i)=>`
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div class="bullet-dot">•</div>
+        <input class="field" value="${esc(p)}" placeholder="Item ${i+1}" oninput="updCustomTopico('${key}',${i},this.value)"/>
+        ${i>=1?`<button class="btn-remove" onclick="removeCustomTopico('${key}',${i})">×</button>`:''}
+      </div>`).join('')}
+    <button class="btn-add" style="margin-top:6px" onclick="addCustomTopico('${key}')">+ Item</button>
+  </div>`;
+}
 function renderOrderedSections(metaBtn){
   const order=D.secOrder||defaultSecOrder();
   let num=1;
   return order.map(key=>{
     const n=String(num++).padStart(2,'0');
+    if(key.startsWith('custom_')){
+      const sec=D.customSections?.[key];if(!sec)return'';
+      return sec.type==='topicos'?renderSecCustomTopicos(key,n):renderSecCustomTexto(key,n);
+    }
     switch(key){
       case 'resumo':    return renderSecResumo(n);
       case 'numeros':   return renderSecNumeros(n,metaBtn)+renderSegmentos();
@@ -1153,6 +1280,7 @@ function renderForm(){
     <div id="sec-order-panel" class="sec-order-panel">
       <div class="sec-order-panel-title">☰ Ordem das seções</div>
       <div id="sec-order-list"></div>
+      <div id="sec-order-footer"></div>
     </div>
 
     <div class="form-wrap">
@@ -1326,77 +1454,89 @@ function renderPreview(){
             :`<span class="reportei-preview-url empty">Link não informado</span>`}
         </div>
 
-        <div class="ps" style="margin-top:24px">
-          <div class="ps-head ps-head-accent"><div class="ps-num">01</div><div class="ps-title">${esc(d.secTitles?.resumo||'Resumo da Semana')}</div></div>
-          <p style="font-size:13px;line-height:1.8;color:${d.resumo?'#333':'#AEAEB2'};white-space:pre-wrap">${esc(d.resumo)||'Nenhum resumo informado.'}</p>
-        </div>
-
-        <div class="ps">
-          <div class="ps-head ps-head-accent"><div class="ps-num">02</div><div class="ps-title">${esc(d.secTitles?.numeros||'Números da Semana')}</div></div>
-          ${pTable(d.metricas,d.extraCols)}
-        </div>
-
-        ${d.segEnabled&&d.campanhas.length>0?`
-        <div class="ps">
-          <div class="ps-head"><div class="ps-title">Campanhas Segmentadas</div></div>
-          ${d.campanhas.map(c=>{
-            const pm=PLATS[c.platform]||PLATS.none;
-            const isPlatSpec=['google','youtube','tiktok'].includes(c.platform);
-            return`
-            <div class="p-seg-title-wrap">
-              ${c.platform!=='none'&&c.platform!=='other'?platSVG(c.platform,13):''}
-              <span style="font-size:10px;font-weight:800;color:${pm.color};text-transform:uppercase;letter-spacing:.08em">${esc(c.nome)}</span>
-              ${c.platform!=='none'?`<span style="font-size:9px;color:${pm.color};font-weight:600;opacity:.7">${pm.label}</span>`:''}
-            </div>
-            ${isPlatSpec?pPlatCamp(c):pGenericCamp(c.genericMetrics)}
-            ${!isPlatSpec?pMiniCriativo(c.criativo):''}`;
-          }).join('')}
-        </div>`:''}
-
-        <div class="ps">
-          <div class="ps-head ps-head-accent"><div class="ps-num">03</div><div class="ps-title">${esc(d.secTitles?.criativos||'Criativos Campeões')}</div></div>
-          <div class="p-criativos">
-            ${d.criativos.map((c,ci)=>`
-              <div class="p-criativo">
-                <div class="p-criativo-head"><div class="p-criativo-badge">CRIATIVO ${ci+1}</div></div>
-                <div class="p-criativo-body">
-                  <div class="p-c-lbl">NOME / ID</div><div class="p-c-val ${c.nome?'':'empty'}">${esc(c.nome)||'—'}</div>
-                  ${c.chips.some(ch=>ch.val)?`<div class="p-c-lbl">RESULTADOS</div><div class="p-chips">${c.chips.filter(ch=>ch.val).map(ch=>`<div class="p-chip"><div class="p-chip-lbl">${esc(ch.label)}</div><div class="p-chip-val">${esc(ch.val)}</div></div>`).join('')}</div>`:''}
-                  <div class="p-c-lbl">POR QUE ESTÁ GANHANDO</div><div class="p-c-val ${c.porqueGanha?'':'empty'}">${esc(c.porqueGanha)||'—'}</div>
-                  ${c.img?`<img class="p-img" src="${esc(c.img)}" alt=""/>`:`<div class="p-no-img"><span>Sem imagem</span></div>`}
+        ${(()=>{
+          const order=d.secOrder||defaultSecOrder();
+          let num=1;
+          return order.map(key=>{
+            const n=String(num++).padStart(2,'0');
+            // ── Custom sections ──
+            if(key.startsWith('custom_')){
+              const sec=d.customSections?.[key];if(!sec)return'';
+              if(sec.type==='topicos'){
+                const items=Array.isArray(sec.content)?sec.content.filter(p=>p.trim()):[];
+                return`<div class="ps"><div class="ps-head ps-head-accent"><div class="ps-num">${n}</div><div class="ps-title">${esc(sec.title)}</div></div>
+                  ${items.length===0?'<div class="empty-text">Sem itens.</div>':items.map(p=>`<div class="p-bullet"><span class="p-bullet-dot">•</span><span>${esc(p)}</span></div>`).join('')}
+                </div>`;
+              }else{
+                return`<div class="ps"><div class="ps-head ps-head-accent"><div class="ps-num">${n}</div><div class="ps-title">${esc(sec.title)}</div></div>
+                  <p style="font-size:13px;line-height:1.8;color:${sec.content?'#333':'#AEAEB2'};white-space:pre-wrap">${esc(sec.content)||'Sem conteúdo.'}</p>
+                </div>`;
+              }
+            }
+            // ── Built-in sections ──
+            switch(key){
+              case 'resumo': return`<div class="ps" style="margin-top:24px">
+                <div class="ps-head ps-head-accent"><div class="ps-num">${n}</div><div class="ps-title">${esc(d.secTitles?.resumo||'Resumo da Semana')}</div></div>
+                <p style="font-size:13px;line-height:1.8;color:${d.resumo?'#333':'#AEAEB2'};white-space:pre-wrap">${esc(d.resumo)||'Nenhum resumo informado.'}</p>
+              </div>`;
+              case 'numeros': return`<div class="ps">
+                <div class="ps-head ps-head-accent"><div class="ps-num">${n}</div><div class="ps-title">${esc(d.secTitles?.numeros||'Números da Semana')}</div></div>
+                ${pTable(d.metricas,d.extraCols)}
+              </div>`+(d.segEnabled&&d.campanhas.length>0?`<div class="ps">
+                <div class="ps-head"><div class="ps-title">Campanhas Segmentadas</div></div>
+                ${d.campanhas.map(c=>{
+                  const pm=PLATS[c.platform]||PLATS.none;
+                  const isPlatSpec=['google','youtube','tiktok'].includes(c.platform);
+                  return`<div class="p-seg-title-wrap">
+                    ${c.platform!=='none'&&c.platform!=='other'?platSVG(c.platform,13):''}
+                    <span style="font-size:10px;font-weight:800;color:${pm.color};text-transform:uppercase;letter-spacing:.08em">${esc(c.nome)}</span>
+                    ${c.platform!=='none'?`<span style="font-size:9px;color:${pm.color};font-weight:600;opacity:.7">${pm.label}</span>`:''}
+                  </div>
+                  ${isPlatSpec?pPlatCamp(c):pGenericCamp(c.genericMetrics)}
+                  ${!isPlatSpec?pMiniCriativo(c.criativo):''}`;
+                }).join('')}
+              </div>`:'');
+              case 'criativos': return`<div class="ps">
+                <div class="ps-head ps-head-accent"><div class="ps-num">${n}</div><div class="ps-title">${esc(d.secTitles?.criativos||'Criativos Campeões')}</div></div>
+                <div class="p-criativos">
+                  ${d.criativos.map((c,ci)=>`<div class="p-criativo">
+                    <div class="p-criativo-head"><div class="p-criativo-badge">CRIATIVO ${ci+1}</div></div>
+                    <div class="p-criativo-body">
+                      <div class="p-c-lbl">NOME / ID</div><div class="p-c-val ${c.nome?'':'empty'}">${esc(c.nome)||'—'}</div>
+                      ${c.chips.some(ch=>ch.val)?`<div class="p-c-lbl">RESULTADOS</div><div class="p-chips">${c.chips.filter(ch=>ch.val).map(ch=>`<div class="p-chip"><div class="p-chip-lbl">${esc(ch.label)}</div><div class="p-chip-val">${esc(ch.val)}</div></div>`).join('')}</div>`:''}
+                      <div class="p-c-lbl">POR QUE ESTÁ GANHANDO</div><div class="p-c-val ${c.porqueGanha?'':'empty'}">${esc(c.porqueGanha)||'—'}</div>
+                      ${c.img?`<img class="p-img" src="${esc(c.img)}" alt=""/>`:`<div class="p-no-img"><span>Sem imagem</span></div>`}
+                    </div>
+                  </div>`).join('')}
                 </div>
-              </div>`).join('')}
-          </div>
-        </div>
-
-        <div class="ps">
-          <div class="ps-head ps-head-accent"><div class="ps-num">04</div><div class="ps-title">${esc(d.secTitles?.acoes||'O que Fizemos')}</div></div>
-          ${acoesFilled.length===0?'<div class="empty-text">Nenhuma ação informada.</div>':`
-          <div class="p-acoes-grid">
-            <div class="p-acoes-col-head">Ação Realizada</div>
-            <div class="p-acoes-col-head">Motivador / Por quê</div>
-            ${acoesFilled.map(a=>`
-              <div class="p-acoes-cell"><span class="dot">•</span>${esc(a.acao)}</div>
-              <div class="p-acoes-cell"><span class="dot" style="color:#888">→</span>${esc(a.motivo)||'—'}</div>`).join('')}
-          </div>`}
-        </div>
-
-        <div class="ps">
-          <div class="ps-head ps-head-accent"><div class="ps-num">05</div><div class="ps-title">${esc(d.secTitles?.passos||'Próximos Passos')}</div></div>
-          ${passosFilled.length===0?'<div class="empty-text">Nenhum próximo passo.</div>':passosFilled.map(p=>`<div class="p-bullet"><span class="p-bullet-dot">•</span><span>${esc(p)}</span></div>`).join('')}
-        </div>
-
-        ${hasAnexos?`
-        <div class="ps">
-          <div class="ps-head"><div class="ps-title">${esc(d.secTitles?.anexos||'Anexos / Prints Adicionais')}</div></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            ${d.anexos.filter(a=>a.img).map(a=>`
-            <div class="p-anexo-item">
-              <img class="p-anexo-img" src="${esc(a.img)}" alt=""/>
-              ${a.comment?`<div class="p-anexo-comment">${esc(a.comment)}</div>`:''}
-            </div>`).join('')}
-          </div>
-        </div>`:''}
+              </div>`;
+              case 'acoes': return`<div class="ps">
+                <div class="ps-head ps-head-accent"><div class="ps-num">${n}</div><div class="ps-title">${esc(d.secTitles?.acoes||'O que Fizemos')}</div></div>
+                ${acoesFilled.length===0?'<div class="empty-text">Nenhuma ação informada.</div>':`<div class="p-acoes-grid">
+                  <div class="p-acoes-col-head">Ação Realizada</div>
+                  <div class="p-acoes-col-head">Motivador / Por quê</div>
+                  ${acoesFilled.map(a=>`
+                    <div class="p-acoes-cell"><span class="dot">•</span>${esc(a.acao)}</div>
+                    <div class="p-acoes-cell"><span class="dot" style="color:#888">→</span>${esc(a.motivo)||'—'}</div>`).join('')}
+                </div>`}
+              </div>`;
+              case 'passos': return`<div class="ps">
+                <div class="ps-head ps-head-accent"><div class="ps-num">${n}</div><div class="ps-title">${esc(d.secTitles?.passos||'Próximos Passos')}</div></div>
+                ${passosFilled.length===0?'<div class="empty-text">Nenhum próximo passo.</div>':passosFilled.map(p=>`<div class="p-bullet"><span class="p-bullet-dot">•</span><span>${esc(p)}</span></div>`).join('')}
+              </div>`;
+              case 'anexos': return hasAnexos?`<div class="ps">
+                <div class="ps-head"><div class="ps-title">${esc(d.secTitles?.anexos||'Anexos / Prints Adicionais')}</div></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                  ${d.anexos.filter(a=>a.img).map(a=>`<div class="p-anexo-item">
+                    <img class="p-anexo-img" src="${esc(a.img)}" alt=""/>
+                    ${a.comment?`<div class="p-anexo-comment">${esc(a.comment)}</div>`:''}
+                  </div>`).join('')}
+                </div>
+              </div>`:'';
+              default: return'';
+            }
+          }).join('');
+        })()}
 
         <div class="p-footer">
           <div class="p-footer-brand">NGP · Nova Gestão de Performance</div>
