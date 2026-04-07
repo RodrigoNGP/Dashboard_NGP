@@ -23,7 +23,7 @@ type Screen = 'select' | 'dashboard'
 type Tab = 'resumo' | 'campanhas' | 'graficos' | 'relatorios' | 'plataformas'
 interface Viewing { account: string; name: string; username: string; id: string }
 
-const INS_FIELDS = 'campaign_id,campaign_name,campaign_effective_status,spend,impressions,clicks,ctr,cpc,reach,actions,action_values,purchase_roas'
+const INS_FIELDS = 'campaign_id,campaign_name,spend,impressions,clicks,ctr,cpc,reach,actions,action_values,purchase_roas'
 
 const ALL_METRICS = [
   { id: 'spend',         label: 'Investido',   section: '💰 Financeiro' },
@@ -228,15 +228,33 @@ export default function DashboardPage() {
     if (!viewing) return
     setLoading(true); setError('')
     try {
-      const d = await metaCall('insights', {
-        level: 'campaign', fields: INS_FIELDS, limit: '100', ...dp,
-      }, viewing.account)
+      // Buscar insights e status das campanhas em paralelo
+      const [d, campData] = await Promise.all([
+        metaCall('insights', {
+          level: 'campaign', fields: INS_FIELDS, limit: '100', ...dp,
+        }, viewing.account),
+        metaCall('campaigns', {
+          fields: 'id,effective_status', limit: '100',
+        }, viewing.account),
+      ])
       if (d.error) throw new Error(d.error.message || JSON.stringify(d.error))
-      const mapped = (d.data || []).map((c: Record<string, unknown>) => ({
-        id: String(c.campaign_id || ''), name: String(c.campaign_name || ''),
-        status: String(c.campaign_effective_status || ''), objective: '',
-        ...(parseIns(c) || {}),
-      })) as Campaign[]
+
+      // Montar mapa de status: campaign_id → effective_status
+      const statusMap: Record<string, string> = {}
+      if (campData?.data) {
+        for (const c of campData.data as { id: string; effective_status: string }[]) {
+          statusMap[c.id] = c.effective_status || ''
+        }
+      }
+
+      const mapped = (d.data || []).map((c: Record<string, unknown>) => {
+        const campId = String(c.campaign_id || '')
+        return {
+          id: campId, name: String(c.campaign_name || ''),
+          status: statusMap[campId] || '', objective: '',
+          ...(parseIns(c) || {}),
+        }
+      }) as Campaign[]
       setCampaigns(mapped.sort((a, b) => b.spend - a.spend))
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Erro ao carregar dados')
@@ -253,7 +271,7 @@ export default function DashboardPage() {
       if (d.error) return
       const mapped = (d.data || []).map((c: Record<string, unknown>) => ({
         id: String(c.campaign_id || ''), name: String(c.campaign_name || ''),
-        status: String(c.campaign_effective_status || ''), objective: '',
+        status: '', objective: '',
         ...(parseIns(c) || {}),
       })) as Campaign[]
       setPrevCampaigns(mapped)
