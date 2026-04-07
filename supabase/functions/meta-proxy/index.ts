@@ -49,9 +49,10 @@ serve(async (req) => {
 
     accountId = String(accountId).replace(/^act_/, '')
 
-    // 4. Buscar meta_token
-    // NGP usa o próprio token (Business Manager com acesso a todas as contas)
-    // Cliente usa o próprio token ou fallback para env var
+    // 4. Buscar meta_token — cadeia de fallback:
+    //    1) Token do próprio usuário logado
+    //    2) Variável de ambiente META_ACCESS_TOKEN
+    //    3) Token de qualquer usuário NGP ativo (Business Manager)
     const { data: tokenUser } = await sb
       .from('usuarios')
       .select('meta_token')
@@ -60,19 +61,21 @@ serve(async (req) => {
 
     let metaToken = tokenUser?.meta_token || Deno.env.get('META_ACCESS_TOKEN')
 
-    // Se NGP não tem token, tenta buscar do cliente dono da conta
-    if (!metaToken && usuario.role === 'ngp' && account_id) {
-      const cleanId = String(account_id).replace(/^act_/, '')
-      const { data: clienteOwner } = await sb
+    // Fallback: buscar token de um NGP ativo (o Business Manager central)
+    if (!metaToken) {
+      const { data: ngpFallback } = await sb
         .from('usuarios')
         .select('meta_token')
-        .eq('meta_account_id', cleanId)
-        .eq('role', 'cliente')
+        .eq('role', 'ngp')
+        .eq('ativo', true)
+        .not('meta_token', 'is', null)
+        .limit(1)
         .single()
-      metaToken = clienteOwner?.meta_token
+      metaToken = ngpFallback?.meta_token
     }
+
     if (!metaToken) {
-      return json(req, { error: 'Meta token não configurado.' }, 503)
+      return json(req, { error: 'Meta token não configurado. Peça ao gestor para configurar.' }, 503)
     }
 
     // 5. Construir URL
