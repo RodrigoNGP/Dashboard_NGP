@@ -35,6 +35,7 @@ export default function ClientePage() {
     try {
       const d = await metaCall('{account_id}/campaigns', {
         fields: 'id,name,status,objective,insights{spend,impressions,clicks,ctr,cpc,actions,action_values,purchase_roas}',
+        filtering: JSON.stringify([{ field: 'effective_status', operator: 'IN', value: ['ACTIVE'] }]),
         limit: '100',
         ...dp,
       })
