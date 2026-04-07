@@ -1,10 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'content-type, apikey, authorization',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+import * as bcrypt from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
+import { handleCors, json } from "../_shared/cors.ts";
 
 const errMsg = (e: unknown): string => {
   if (!e) return 'Erro desconhecido';
@@ -15,27 +11,27 @@ const errMsg = (e: unknown): string => {
 };
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
+  const cors = handleCors(req);
+  if (cors) return cors;
 
   try {
     const { session_token, nome, username, meta_account_id, senha, foto_base64, foto_mime } = await req.json();
 
     if (!session_token) {
-      return new Response(JSON.stringify({ error: 'Sessão inválida.' }), {
-        status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
+      return json(req, { error: 'Sessão inválida.' }, 401);
     }
 
     if (!nome || !username) {
-      return new Response(JSON.stringify({ error: 'Nome e username são obrigatórios.' }), {
-        status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
+      return json(req, { error: 'Nome e username são obrigatórios.' }, 400);
     }
 
     if (!senha) {
-      return new Response(JSON.stringify({ error: 'Senha é obrigatória.' }), {
-        status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
+      return json(req, { error: 'Senha é obrigatória.' }, 400);
+    }
+
+    // Validação de senha forte
+    if (typeof senha !== 'string' || senha.length < 8) {
+      return json(req, { error: 'Senha deve ter pelo menos 8 caracteres.' }, 400);
     }
 
     const SURL    = Deno.env.get('SUPABASE_URL')!;
@@ -51,9 +47,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (!sessao) {
-      return new Response(JSON.stringify({ error: 'Sessão expirada. Faça login novamente.' }), {
-        status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
+      return json(req, { error: 'Sessão expirada. Faça login novamente.' }, 401);
     }
 
     // Verifica se é NGP
@@ -64,9 +58,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (!usuario || usuario.role !== 'ngp') {
-      return new Response(JSON.stringify({ error: 'Acesso negado.' }), {
-        status: 403, headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
+      return json(req, { error: 'Acesso negado.' }, 403);
     }
 
     // Verifica se username já existe
@@ -77,9 +69,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (existing) {
-      return new Response(JSON.stringify({ error: 'Username já está em uso.' }), {
-        status: 409, headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
+      return json(req, { error: 'Username já está em uso.' }, 409);
     }
 
     // Upload de foto se fornecida
@@ -96,12 +86,15 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Hash da senha com bcrypt
+    const hashedPassword = await bcrypt.hash(senha);
+
     const insertData: Record<string, unknown> = {
       nome:          nome.trim(),
       username:      username.trim().toLowerCase(),
       role:          'cliente',
       ativo:         true,
-      password_hash: senha,
+      password_hash: hashedPassword,
     };
     if (meta_account_id) insertData.meta_account_id = meta_account_id.trim();
     if (fotoUrl) insertData.foto_url = fotoUrl;
@@ -110,19 +103,13 @@ Deno.serve(async (req) => {
 
     if (error) {
       console.error('[add-cliente] insert error:', JSON.stringify(error));
-      return new Response(JSON.stringify({ error: errMsg(error) }), {
-        status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
+      return json(req, { error: errMsg(error) }, 500);
     }
 
-    return new Response(JSON.stringify({ ok: true }), {
-      status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
-    });
+    return json(req, { ok: true });
 
   } catch (e) {
     console.error('[add-cliente] catch:', e);
-    return new Response(JSON.stringify({ error: errMsg(e) }), {
-      status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
-    });
+    return json(req, { error: errMsg(e) }, 500);
   }
 });

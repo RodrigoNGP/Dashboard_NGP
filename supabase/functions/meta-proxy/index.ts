@@ -1,23 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'content-type, apikey, authorization',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
+import { handleCors, json } from "../_shared/cors.ts"
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { status: 200, headers: CORS })
+  const cors = handleCors(req)
+  if (cors) return cors
 
   try {
     const body = await req.json()
     const { session_token, endpoint, params = {}, account_id } = body
 
     if (!session_token || !endpoint) {
-      return new Response(JSON.stringify({ error: 'Parâmetros inválidos.' }), {
-        status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+      return json(req, { error: 'Parâmetros inválidos.' }, 400)
     }
 
     const SURL = Deno.env.get('SUPABASE_URL')!
@@ -33,9 +27,7 @@ serve(async (req) => {
       .limit(1)
 
     if (!sessions?.length) {
-      return new Response(JSON.stringify({ error: 'Sessão inválida ou expirada.' }), {
-        status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+      return json(req, { error: 'Sessão inválida ou expirada.' }, 401)
     }
 
     // 2. Buscar usuário
@@ -46,17 +38,13 @@ serve(async (req) => {
       .single()
 
     if (!usuario || !usuario.ativo) {
-      return new Response(JSON.stringify({ error: 'Usuário inativo.' }), {
-        status: 403, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+      return json(req, { error: 'Usuário inativo.' }, 403)
     }
 
     // 3. Determinar account_id autorizado
     let accountId = account_id || usuario.meta_account_id
     if (!accountId) {
-      return new Response(JSON.stringify({ error: 'Conta de anúncio não configurada.' }), {
-        status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+      return json(req, { error: 'Conta de anúncio não configurada.' }, 400)
     }
 
     accountId = String(accountId).replace(/^act_/, '')
@@ -82,9 +70,7 @@ serve(async (req) => {
       metaToken = selfUser?.meta_token || Deno.env.get('META_ACCESS_TOKEN')
     }
     if (!metaToken) {
-      return new Response(JSON.stringify({ error: 'Meta token não configurado.' }), {
-        status: 503, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+      return json(req, { error: 'Meta token não configurado.' }, 503)
     }
 
     // 5. Construir URL
@@ -114,19 +100,13 @@ serve(async (req) => {
 
     if (metaData?.error) {
       console.error('[meta-proxy] Meta error:', metaData.error)
-      return new Response(JSON.stringify({ error: 'Erro ao consultar Meta API.' }), {
-        status: 502, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+      return json(req, { error: 'Erro ao consultar Meta API.' }, 502)
     }
 
-    return new Response(JSON.stringify(metaData), {
-      status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
-    })
+    return json(req, metaData)
 
   } catch (e) {
     console.error('[meta-proxy] Error:', e)
-    return new Response(JSON.stringify({ error: 'Erro interno.' }), {
-      status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
-    })
+    return json(req, { error: 'Erro interno.' }, 500)
   }
 })

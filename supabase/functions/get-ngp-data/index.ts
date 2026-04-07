@@ -1,22 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'content-type, apikey, authorization',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
+import { handleCors, json } from "../_shared/cors.ts"
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { status: 200, headers: CORS })
+  const cors = handleCors(req)
+  if (cors) return cors
 
   try {
     const { session_token } = await req.json()
 
     if (!session_token) {
-      return new Response(JSON.stringify({ error: 'Sessão inválida.' }), {
-        status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+      return json(req, { error: 'Sessão inválida.' }, 401)
     }
 
     const SURL = Deno.env.get('SUPABASE_URL')!
@@ -32,9 +26,7 @@ serve(async (req) => {
       .single()
 
     if (!sessao) {
-      return new Response(JSON.stringify({ error: 'Sessão expirada.' }), {
-        status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+      return json(req, { error: 'Sessão expirada.' }, 401)
     }
 
     // Verifica se é NGP
@@ -45,9 +37,7 @@ serve(async (req) => {
       .single()
 
     if (!usuario || usuario.role !== 'ngp') {
-      return new Response(JSON.stringify({ error: 'Acesso negado.' }), {
-        status: 403, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+      return json(req, { error: 'Acesso negado.' }, 403)
     }
 
     // Busca todos os clientes
@@ -56,14 +46,10 @@ serve(async (req) => {
       .select('id, username, nome, meta_account_id, foto_url')
       .eq('role', 'cliente')
 
-    return new Response(JSON.stringify({ clientes: clientes || [] }), {
-      status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
-    })
+    return json(req, { clientes: clientes || [] })
 
   } catch (e) {
     console.error('[get-ngp-data] Error:', e)
-    return new Response(JSON.stringify({ error: 'Erro interno.' }), {
-      status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
-    })
+    return json(req, { error: 'Erro interno.' }, 500)
   }
 })

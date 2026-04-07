@@ -1,22 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'content-type, apikey, authorization',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
+import { handleCors, json } from "../_shared/cors.ts"
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { status: 200, headers: CORS })
+  const cors = handleCors(req)
+  if (cors) return cors
 
   try {
     const { token } = await req.json()
 
     if (!token) {
-      return new Response(JSON.stringify({ ok: true }), {
-        status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+      return json(req, { ok: true })
     }
 
     const SURL = Deno.env.get('SUPABASE_URL')!
@@ -26,14 +20,10 @@ serve(async (req) => {
     // Deleta sessão
     await sb.from('sessions').delete().eq('token', token)
 
-    return new Response(JSON.stringify({ ok: true }), {
-      status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
-    })
+    return json(req, { ok: true })
 
   } catch (e) {
     console.error('[logout] error:', e)
-    return new Response(JSON.stringify({ ok: true }), {
-      status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
-    })
+    return json(req, { ok: true })
   }
 })

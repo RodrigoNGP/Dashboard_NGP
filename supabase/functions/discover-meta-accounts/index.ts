@@ -1,27 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'content-type, apikey, authorization',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
-const json = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data), {
-    status,
-    headers: { ...CORS, 'Content-Type': 'application/json' }
-  })
+import { handleCors, json } from "../_shared/cors.ts"
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { status: 200, headers: CORS })
-  if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
+  const cors = handleCors(req)
+  if (cors) return cors
+
+  if (req.method !== 'POST') return json(req, { error: 'Method not allowed' }, 405)
 
   try {
     const { session_token } = await req.json()
 
     if (!session_token) {
-      return json({ error: 'Sessão inválida.' }, 401)
+      return json(req, { error: 'Sessão inválida.' }, 401)
     }
 
     const SURL = Deno.env.get('SUPABASE_URL')!
@@ -37,7 +28,7 @@ serve(async (req) => {
       .single()
 
     if (!sessao) {
-      return json({ error: 'Sessão expirada.' }, 401)
+      return json(req, { error: 'Sessão expirada.' }, 401)
     }
 
     const { data: usuario } = await sb
@@ -48,7 +39,7 @@ serve(async (req) => {
       .single()
 
     if (!usuario?.meta_token) {
-      return json({ error: 'Token Meta não configurado.' }, 403)
+      return json(req, { error: 'Token Meta não configurado.' }, 403)
     }
 
     // Descobrir todas as contas de anúncio
@@ -63,15 +54,13 @@ serve(async (req) => {
 
     if (accountsData?.error) {
       console.error('[discover-meta-accounts] Meta API error:', accountsData.error)
-      return json({ error: 'Erro ao consultar contas Meta.' }, 502)
+      return json(req, { error: 'Erro ao consultar contas Meta.' }, 502)
     }
 
-    return json({
-      accounts: accountsData.data || []
-    })
+    return json(req, { accounts: accountsData.data || [] })
 
   } catch (e) {
     console.error('[discover-meta-accounts] Error:', e)
-    return json({ error: 'Erro interno.' }, 500)
+    return json(req, { error: 'Erro interno.' }, 500)
   }
 })

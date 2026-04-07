@@ -1,16 +1,46 @@
-export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+// ─── CORS Dinâmico ───────────────────────────────────────────────────────────
+// Configure ALLOWED_ORIGINS no Supabase Dashboard > Edge Functions > Secrets.
+// Exemplo: "https://meusite.vercel.app,https://www.meusite.com"
+// Se não configurado, aceita qualquer origem (modo desenvolvimento).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ALLOWED_ORIGINS = (Deno.env.get('ALLOWED_ORIGINS') || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean)
+
+export function corsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('origin') || ''
+
+  if (ALLOWED_ORIGINS.length > 0) {
+    const allowed = ALLOWED_ORIGINS.includes(origin)
+    return {
+      'Access-Control-Allow-Origin': allowed ? origin : '',
+      'Access-Control-Allow-Headers': 'content-type, apikey, authorization',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Vary': 'Origin',
+    }
+  }
+
+  // Fallback: sem whitelist configurada → aceita qualquer (dev mode)
+  return {
+    'Access-Control-Allow-Origin': origin || '*',
+    'Access-Control-Allow-Headers': 'content-type, apikey, authorization',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Vary': 'Origin',
+  }
 }
 
-export function getCorsHeaders(req: Request): HeadersInit {
-  return corsHeaders
-}
-
-export function handleOptions(req: Request): Response | null {
+export function handleCors(req: Request): Response | null {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders })
+    return new Response(null, { status: 204, headers: corsHeaders(req) })
   }
   return null
+}
+
+export function json(req: Request, data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
+  })
 }

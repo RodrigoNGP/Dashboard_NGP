@@ -1,27 +1,19 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'content-type, apikey, authorization',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+import { handleCors, json } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
+  const cors = handleCors(req);
+  if (cors) return cors;
 
   try {
     const { session_token, id } = await req.json();
 
     if (!session_token) {
-      return new Response(JSON.stringify({ error: 'Sessão inválida.' }), {
-        status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
+      return json(req, { error: 'Sessão inválida.' }, 401);
     }
 
     if (!id) {
-      return new Response(JSON.stringify({ error: 'ID da conta é obrigatório.' }), {
-        status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
+      return json(req, { error: 'ID da conta é obrigatório.' }, 400);
     }
 
     const SURL    = Deno.env.get('SUPABASE_URL')!;
@@ -37,9 +29,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (!sessao) {
-      return new Response(JSON.stringify({ error: 'Sessão expirada.' }), {
-        status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
+      return json(req, { error: 'Sessão expirada.' }, 401);
     }
 
     // Apenas NGP pode excluir contas
@@ -50,9 +40,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (!usuario || usuario.role !== 'ngp') {
-      return new Response(JSON.stringify({ error: 'Acesso negado.' }), {
-        status: 403, headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
+      return json(req, { error: 'Acesso negado.' }, 403);
     }
 
     // Garante que o alvo é role=cliente (nunca deixa deletar NGP)
@@ -64,13 +52,9 @@ Deno.serve(async (req) => {
 
     if (error) throw error;
 
-    return new Response(JSON.stringify({ ok: true }), {
-      status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
-    });
+    return json(req, { ok: true });
 
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), {
-      status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
-    });
+    return json(req, { error: String(e) }, 500);
   }
 });
