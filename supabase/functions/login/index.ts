@@ -1,22 +1,50 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import * as bcrypt from "https://deno.land/x/bcrypt@v0.4.1/mod.ts"
+import { handleCors, json } from "../_shared/cors.ts"
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'content-type, apikey, authorization',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+// ── Rate limiting: máx 5 tentativas por IP a cada 5 minutos ──────────────────
+const attempts = new Map<string, { count: number; resetAt: number }>()
+const MAX_ATTEMPTS = 5
+const WINDOW_MS = 5 * 60 * 1000
+
+function checkRate(ip: string): boolean {
+  const now = Date.now()
+  const e = attempts.get(ip)
+  if (!e || now > e.resetAt) {
+    attempts.set(ip, { count: 1, resetAt: now + WINDOW_MS })
+    return true
+  }
+  e.count++
+  return e.count <= MAX_ATTEMPTS
 }
 
+// Limpa entradas expiradas a cada 10 min para evitar memory leak
+setInterval(() => {
+  const now = Date.now()
+  for (const [ip, e] of attempts) {
+    if (now > e.resetAt) attempts.delete(ip)
+  }
+}, 10 * 60 * 1000)
+
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { status: 200, headers: CORS })
+  const cors = handleCors(req)
+  if (cors) return cors
 
   try {
+    // Rate limiting por IP
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || req.headers.get('cf-connecting-ip')
+      || 'unknown'
+
+    if (!checkRate(ip)) {
+      return json(req, { error: 'Muitas tentativas. Aguarde 5 minutos.' }, 429)
+    }
+
     const { username, password, role } = await req.json()
 
     if (!username || !password || !role) {
-      return new Response(JSON.stringify({ error: 'Parâmetros inválidos.' }), {
-        status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+      return json(req, { error: 'Parâmetros inválidos.' }, 400)
     }
 
     const SURL = Deno.env.get('SUPABASE_URL')!
@@ -32,17 +60,33 @@ serve(async (req) => {
       .single()
 
     if (usuarioError || !usuario || !usuario.ativo) {
-      return new Response(JSON.stringify({ error: 'Usuário ou senha incorretos.' }), {
-        status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+      return json(req, { error: 'Usuário ou senha incorretos.' }, 401)
     }
 
-    // Validar senha (comparação simples para agora)
-    if (usuario.password_hash !== password) {
-      return new Response(JSON.stringify({ error: 'Usuário ou senha incorretos.' }), {
-        status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+    // ── Validar senha ────────────────────────────────────────────────────────
+    // Suporta bcrypt (seguro) e plain text (legado) com migração automática
+    let passwordValid = false
+    const storedHash = usuario.password_hash || ''
+
+    if (storedHash.startsWith('$2')) {
+      // Hash bcrypt → comparação segura
+      passwordValid = await bcrypt.compare(password, storedHash)
+    } else {
+      // Senha legada (plain text) → compara e migra para bcrypt
+      passwordValid = storedHash === password
+      if (passwordValid) {
+        const newHash = await bcrypt.hash(password)
+        await sb.from('usuarios').update({ password_hash: newHash }).eq('id', usuario.id)
+        console.log(`[login] Password migrated to bcrypt: ${usuario.username}`)
+      }
     }
+
+    if (!passwordValid) {
+      return json(req, { error: 'Usuário ou senha incorretos.' }, 401)
+    }
+
+    // Login OK → limpar rate limit desse IP
+    attempts.delete(ip)
 
     // Gerar token de sessão
     const sessionToken = crypto.getRandomValues(new Uint8Array(32))
@@ -61,12 +105,10 @@ serve(async (req) => {
 
     if (sessionError) {
       console.error('[login] Session error:', sessionError)
-      return new Response(JSON.stringify({ error: 'Erro ao criar sessão.' }), {
-        status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+      return json(req, { error: 'Erro ao criar sessão.' }, 500)
     }
 
-    return new Response(JSON.stringify({
+    return json(req, {
       session_token: sessionToken,
       user: {
         nome: usuario.nome,
@@ -76,14 +118,10 @@ serve(async (req) => {
         foto_url: usuario.foto_url || undefined,
       },
       expires_at: expiresAt,
-    }), {
-      status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
     })
 
   } catch (e) {
     console.error('[login] Error:', e)
-    return new Response(JSON.stringify({ error: 'Erro interno.' }), {
-      status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
-    })
+    return json(req, { error: 'Erro interno.' }, 500)
   }
 })

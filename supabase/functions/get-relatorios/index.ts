@@ -1,21 +1,15 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'content-type, apikey, authorization',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+import { handleCors, json } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
+  const cors = handleCors(req);
+  if (cors) return cors;
 
   try {
     const { session_token, cliente_id, cliente_username } = await req.json();
 
     if (!session_token) {
-      return new Response(JSON.stringify({ error: 'Sessão inválida.' }), {
-        status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
+      return json(req, { error: 'Sessão inválida.' }, 401);
     }
 
     const SURL    = Deno.env.get('SUPABASE_URL')!;
@@ -31,9 +25,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (!sessao) {
-      return new Response(JSON.stringify({ error: 'Sessão expirada.' }), {
-        status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
+      return json(req, { error: 'Sessão expirada.' }, 401);
     }
 
     // Busca relatórios pelo cliente_id ou cliente_username
@@ -54,13 +46,9 @@ Deno.serve(async (req) => {
 
     if (error) throw error;
 
-    return new Response(JSON.stringify({ relatorios: data || [] }), {
-      status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
-    });
+    return json(req, { relatorios: data || [] });
 
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), {
-      status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
-    });
+    return json(req, { error: String(e) }, 500);
   }
 });
