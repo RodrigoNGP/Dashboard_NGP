@@ -50,24 +50,26 @@ serve(async (req) => {
     accountId = String(accountId).replace(/^act_/, '')
 
     // 4. Buscar meta_token
-    // Se NGP está visualizando a conta de um cliente, usa o token do cliente dono do account_id
-    let metaToken: string | undefined
-    if (usuario.role === 'ngp' && account_id) {
-      const cleanAccountId = String(account_id).replace(/^act_/, '')
+    // NGP usa o próprio token (Business Manager com acesso a todas as contas)
+    // Cliente usa o próprio token ou fallback para env var
+    const { data: tokenUser } = await sb
+      .from('usuarios')
+      .select('meta_token')
+      .eq('id', sessions[0].usuario_id)
+      .single()
+
+    let metaToken = tokenUser?.meta_token || Deno.env.get('META_ACCESS_TOKEN')
+
+    // Se NGP não tem token, tenta buscar do cliente dono da conta
+    if (!metaToken && usuario.role === 'ngp' && account_id) {
+      const cleanId = String(account_id).replace(/^act_/, '')
       const { data: clienteOwner } = await sb
         .from('usuarios')
         .select('meta_token')
-        .eq('meta_account_id', cleanAccountId)
+        .eq('meta_account_id', cleanId)
         .eq('role', 'cliente')
         .single()
-      metaToken = clienteOwner?.meta_token || Deno.env.get('META_ACCESS_TOKEN')
-    } else {
-      const { data: selfUser } = await sb
-        .from('usuarios')
-        .select('meta_token')
-        .eq('id', sessions[0].usuario_id)
-        .single()
-      metaToken = selfUser?.meta_token || Deno.env.get('META_ACCESS_TOKEN')
+      metaToken = clienteOwner?.meta_token
     }
     if (!metaToken) {
       return json(req, { error: 'Meta token não configurado.' }, 503)
