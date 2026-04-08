@@ -1,0 +1,123 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 15, 20, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: backdropFade 0.2s ease;
+  font-family: 'Sora', sans-serif;
+}
+
+@keyframes backdropFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.modal {
+  position: relative;
+  background: #fff;
+  border-radius: 24px;
+  padding: 44px 40px 36px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  animation: modalIn 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  font-size: 26px;
+  line-height: 1;
+  color: #8E8E93;
+  cursor: pointer;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.close:hover {
+  background: #F2F2F7;
+  color: #1C1C1E;
+}
+
+.icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 22px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #dc2626, #f97316);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(220, 38, 38, 0.28);
+}
+
+.icon svg {
+  width: 34px;
+  height: 34px;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1C1C1E;
+  margin: 0 0 10px;
+  letter-spacing: -0.01em;
+}
+
+.desc {
+  font-size: 15px;
+  color: #6B7280;
+  line-height: 1.55;
+  margin: 0 0 28px;
+}
+
+.desc strong {
+  color: #1C1C1E;
+  font-weight: 600;
+}
+
+.btn {
+  background: #1C1C1E;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 13px 32px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+  min-width: 140px;
+}
+
+.btn:hover {
+  background: #2C2C2E;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
