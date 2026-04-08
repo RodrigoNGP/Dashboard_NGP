@@ -20,7 +20,7 @@ function LoginContent() {
   useEffect(() => {
     const sess = getSession()
     if (sess?.auth === '1') {
-      router.replace(sess.role === 'ngp' ? '/dashboard' : '/cliente')
+      router.replace(sess.role === 'ngp' ? '/setores' : '/cliente')
       return
     }
     setMounted(true)
@@ -72,7 +72,7 @@ function LoginContent() {
 
       setLoadingMsg(`Bem-vindo, ${data.user.nome}!`)
       const returnUrl = params.get('returnUrl')
-      const redirectTo = returnUrl ? decodeURIComponent(returnUrl) : data.user.role === 'ngp' ? '/dashboard' : '/cliente'
+      const redirectTo = returnUrl ? decodeURIComponent(returnUrl) : data.user.role === 'ngp' ? '/setores' : '/cliente'
       console.log('[login] Redirecting to:', redirectTo)
 
       setTimeout(() => {

@@ -1,0 +1,145 @@
+'use client'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { getSession } from '@/lib/auth'
+import Sidebar from '@/components/Sidebar'
+import ComingSoonModal from '@/components/ComingSoonModal'
+import styles from './setores.module.css'
+
+// ════════════════════════════════════════════════════════════════════════════
+// SETORES — edite as URLs externas abaixo conforme os sistemas reais
+// ════════════════════════════════════════════════════════════════════════════
+const SETORES = [
+  {
+    id: 'anuncios',
+    title: 'Relatórios e Dados',
+    desc: 'Acompanhe campanhas, métricas e relatórios das contas dos clientes.',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+        <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+      </svg>
+    ),
+    href: '/dashboard',
+    external: false,
+    gradient: 'linear-gradient(135deg,#dc2626,#f97316)',
+  },
+  {
+    id: 'financeiro',
+    title: 'Financeiro',
+    desc: 'Controle de receitas, despesas, DRE e gestão financeira da NGP.',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="12" y1="1" x2="12" y2="23"/>
+        <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+      </svg>
+    ),
+    href: 'https://financeiro.grupongp.com.br',
+    external: true,
+    gradient: 'linear-gradient(135deg,#059669,#14b8a6)',
+  },
+  {
+    id: 'comercial',
+    title: 'Comercial',
+    desc: 'CRM, pipeline de vendas, propostas e gestão de oportunidades.',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+        <line x1="12" y1="22.08" x2="12" y2="12"/>
+      </svg>
+    ),
+    href: '#', // TODO: trocar pela URL do Comercial
+    external: true,
+    gradient: 'linear-gradient(135deg,#3b82f6,#7c3aed)',
+  },
+  {
+    id: 'trackeamento',
+    title: 'Trackeamento',
+    desc: 'UTMs, pixels, eventos e análise de jornada de conversão.',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <circle cx="12" cy="12" r="6"/>
+        <circle cx="12" cy="12" r="2"/>
+      </svg>
+    ),
+    href: '#', // TODO: trocar pela URL do Trackeamento
+    external: true,
+    gradient: 'linear-gradient(135deg,#7c3aed,#ec4899)',
+  },
+] as const
+
+export default function SetoresPage() {
+  const router = useRouter()
+  const [sess, setSess] = useState<ReturnType<typeof getSession> | null>(null)
+  const [comingSoon, setComingSoon] = useState<string | null>(null)
+
+  useEffect(() => {
+    const s = getSession()
+    if (!s || s.auth !== '1') { router.replace('/login'); return }
+    if (s.role !== 'ngp') { router.replace('/cliente'); return }
+    setSess(s)
+  }, [router])
+
+  if (!sess) return null
+
+  function openSetor(setor: typeof SETORES[number]) {
+    if (setor.href === '#') {
+      setComingSoon(setor.title)
+      return
+    }
+    if (setor.external) {
+      window.open(setor.href, '_blank', 'noopener,noreferrer')
+    } else {
+      router.push(setor.href)
+    }
+  }
+
+  return (
+    <div className={styles.layout}>
+      <Sidebar showDashboardNav={false} />
+
+      <main className={styles.main}>
+        <div className={styles.content}>
+          <header className={styles.header}>
+            <div className={styles.eyebrow}>Bem-vindo de volta</div>
+            <h1 className={styles.title}>Olá, {sess.user?.split(' ')[0] || 'NGP'} 👋</h1>
+            <p className={styles.subtitle}>Selecione o setor da NGP que você quer acessar.</p>
+          </header>
+
+          <section className={styles.grid}>
+            {SETORES.map(setor => (
+              <button
+                key={setor.id}
+                className={styles.card}
+                onClick={() => openSetor(setor)}
+              >
+                <div className={styles.cardIcon} style={{ background: setor.gradient }}>
+                  {setor.icon}
+                </div>
+                <div className={styles.cardBody}>
+                  <div className={styles.cardTitleRow}>
+                    <h3 className={styles.cardTitle}>{setor.title}</h3>
+                    {setor.external && (
+                      <span className={styles.externalTag} title="Abre em nova aba">↗</span>
+                    )}
+                  </div>
+                  <p className={styles.cardDesc}>{setor.desc}</p>
+                </div>
+                <div className={styles.cardArrow}>→</div>
+              </button>
+            ))}
+          </section>
+
+          <footer className={styles.footer}>
+            <span className={styles.footerDot} />
+            Conectado ao Supabase · {sess.user}
+          </footer>
+        </div>
+      </main>
+
+      <ComingSoonModal setor={comingSoon} onClose={() => setComingSoon(null)} />
+    </div>
+  )
+}
