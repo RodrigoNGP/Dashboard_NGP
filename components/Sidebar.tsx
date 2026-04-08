@@ -111,8 +111,8 @@ export default function Sidebar({ activeTab, onTabChange, onLogout, showDashboar
       <button className={styles.logoBtn} onClick={() => router.push('/setores')}>
         <div className={styles.logoMark}><LogoIcon /></div>
         <div>
-          <div className={styles.logoText}>NGP <span>Dashboard</span></div>
-          <div className={styles.roleLabel}>NGP Admin</div>
+          <div className={styles.logoText}>NGP <span>Space</span></div>
+          <div className={styles.roleLabel}>Sistema Geral</div>
         </div>
       </button>
 
