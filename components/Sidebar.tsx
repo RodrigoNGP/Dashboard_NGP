@@ -1,5 +1,5 @@
 'use client'
-import React from 'react'
+import React, { useState } from 'react'
 import styles from './Sidebar.module.css'
 import { useRouter, usePathname } from 'next/navigation'
 import { clearSession, getSession } from '@/lib/auth'
@@ -17,6 +17,8 @@ interface Props {
   onTabChange?: (tab: string) => void
   /** Override do logout (ex: dashboard usa sua própria lógica) */
   onLogout?: () => void
+  /** Oculta a seção de navegação do dashboard (usado na página de setores) */
+  showDashboardNav?: boolean
 }
 
 interface NavItem { icon: React.ReactNode; label: string; href: string; tab?: string; badge?: string }
@@ -47,10 +49,18 @@ const adminNav: NavItem[] = [
   { icon: <Ico><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></Ico>, label: 'Vincular Contas', href: '/admin/link-accounts' },
 ]
 
-export default function Sidebar({ activeTab, onTabChange, onLogout }: Props) {
+const setoresNav: NavItem[] = [
+  { icon: <Ico><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></Ico>, label: 'Relatórios e Dados', href: '/dashboard' },
+  { icon: <Ico><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></Ico>, label: 'Financeiro', href: 'https://financeiro.grupongp.com.br' },
+  { icon: <Ico><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></Ico>, label: 'Comercial', href: '#' },
+  { icon: <Ico><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></Ico>, label: 'Trackeamento', href: '#' },
+]
+
+export default function Sidebar({ activeTab, onTabChange, onLogout, showDashboardNav = true }: Props) {
   const router   = useRouter()
   const pathname = usePathname()
   const sess     = getSession()
+  const [setoresOpen, setSetoresOpen] = useState(!showDashboardNav)
 
   async function doLogout() {
     if (onLogout) { onLogout(); return }
@@ -70,7 +80,6 @@ export default function Sidebar({ activeTab, onTabChange, onLogout }: Props) {
   const initials = (sess?.user || 'NG').slice(0, 2).toUpperCase()
 
   const renderNav = (nav: NavItem[]) => nav.map(item => {
-    // Se temos tabs de estado e o item tem um tab, usar tab logic
     const isTabItem = !!onTabChange && !!item.tab
     const isActive  = isTabItem
       ? activeTab === item.tab
@@ -78,6 +87,7 @@ export default function Sidebar({ activeTab, onTabChange, onLogout }: Props) {
 
     function handleClick() {
       if (item.href === '#') return
+      if (item.href.startsWith('http')) { window.open(item.href, '_blank', 'noopener,noreferrer'); return }
       if (isTabItem && item.tab) { onTabChange(item.tab); return }
       router.push(item.href)
     }
@@ -98,17 +108,31 @@ export default function Sidebar({ activeTab, onTabChange, onLogout }: Props) {
 
   return (
     <aside className={styles.sidebar}>
-      <div className={styles.logo}>
+      <button className={styles.logoBtn} onClick={() => router.push('/setores')}>
         <div className={styles.logoMark}><LogoIcon /></div>
         <div>
           <div className={styles.logoText}>NGP <span>Dashboard</span></div>
           <div className={styles.roleLabel}>NGP Admin</div>
         </div>
-      </div>
+      </button>
 
       <nav className={styles.nav}>
-        <div className={styles.navLabel}>VISÃO GERAL</div>
-        {renderNav(ngpNav)}
+        {showDashboardNav && (
+          <>
+            <div className={styles.navLabel}>VISÃO GERAL</div>
+            {renderNav(ngpNav)}
+          </>
+        )}
+
+        <button
+          className={styles.navLabelBtn}
+          style={{ marginTop: showDashboardNav ? 12 : 0 }}
+          onClick={() => setSetoresOpen(o => !o)}
+        >
+          <span>SETORES</span>
+          <span className={`${styles.chevron} ${setoresOpen ? styles.chevronOpen : ''}`}>›</span>
+        </button>
+        {setoresOpen && renderNav(setoresNav)}
 
         <div className={styles.navLabel} style={{ marginTop: 12 }}>SISTEMA</div>
         {renderNav(sistemaNav)}
