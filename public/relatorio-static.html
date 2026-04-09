@@ -1255,7 +1255,7 @@ function renderForm(){
     <div class="topbar no-print">
       <div style="display:flex;align-items:center;gap:12px">
         <button class="btn-back-dash no-print" onclick="voltarDashboard()">← Dashboard</button>
-        <span class="ngp-badge">NGP</span><span class="topbar-sub">Relatório Semanal</span>
+        <span class="ngp-badge">NGP</span><span class="topbar-sub">Relatório ${getTipoRelatorio(D.periodo)}</span>
       </div>
       <div class="topbar-actions">
         <span id="stag" class="saved-tag" style="opacity:0">✓ salvo</span>
@@ -1438,7 +1438,7 @@ function renderPreview(){
     <div class="preview-bg"><div class="preview-page">
       <div class="preview-header">
         <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px">
-          <div><div class="preview-ngp">NGP · NOVA GESTÃO DE PERFORMANCE</div><div class="preview-title">Relatório<br>Semanal</div></div>
+          <div><div class="preview-ngp">NGP · NOVA GESTÃO DE PERFORMANCE</div><div class="preview-title">Relatório<br>${getTipoRelatorio(d.periodo)}</div></div>
           ${d.periodo?`<div class="preview-period-badge">${esc(d.periodo)}</div>`:''}
         </div>
       </div>
@@ -1545,6 +1545,29 @@ function renderPreview(){
       </div>
     </div></div>
   </div>`;
+}
+
+// ── TIPO DE RELATÓRIO (baseado no intervalo de dias do período) ───────────────
+function getTipoRelatorio(periodo){
+  if(!periodo) return 'Semanal';
+  // suporta "DD/MM a DD/MM" ou "DD/MM/AAAA a DD/MM/AAAA"
+  const partes = periodo.split(/\s+a\s+/i);
+  if(partes.length < 2) return 'Semanal';
+  function parseData(s){
+    const p = s.trim().split('/');
+    if(p.length < 2) return null;
+    const dia = parseInt(p[0],10);
+    const mes = parseInt(p[1],10) - 1;
+    const ano = p[2] ? parseInt(p[2],10) : new Date().getFullYear();
+    return new Date(ano, mes, dia);
+  }
+  const d1 = parseData(partes[0]);
+  const d2 = parseData(partes[1]);
+  if(!d1 || !d2 || isNaN(d1) || isNaN(d2)) return 'Semanal';
+  const dias = Math.round(Math.abs(d2 - d1) / (1000*60*60*24));
+  if(dias > 25) return 'Mensal';
+  if(dias >= 8) return 'Quinzenal';
+  return 'Semanal';
 }
 
 // ── RENDER ────────────────────────────────────────────────────────────────────
