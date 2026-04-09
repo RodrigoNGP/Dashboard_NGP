@@ -6,7 +6,18 @@ import Sidebar from '@/components/Sidebar'
 import ComingSoonModal from '@/components/ComingSoonModal'
 import styles from './setores.module.css'
 
-const SETORES = [
+interface Setor {
+  id: string
+  title: string
+  desc: string
+  icon: React.ReactNode
+  href: string
+  external: boolean
+  embed: boolean
+  gradient: string
+}
+
+const SETORES: Setor[] = [
   {
     id: 'anuncios',
     title: 'Relatórios e Dados',
@@ -69,7 +80,7 @@ const SETORES = [
     embed: false,
     gradient: 'linear-gradient(135deg,#7c3aed,#ec4899)',
   },
-] as const
+]
 
 export default function SetoresPage() {
   const router = useRouter()
@@ -88,7 +99,7 @@ export default function SetoresPage() {
 
   if (!sess) return null
 
-  function openSetor(setor: typeof SETORES[number]) {
+  function openSetor(setor: Setor) {
     if (setor.href === '#') { setComingSoon(setor.title); return }
     if (setor.embed)        { setEmbedUrl(setor.href); setEmbedTitle(setor.title); setIframeLoads(0); return }
     if (setor.external)     { window.open(setor.href, '_blank', 'noopener,noreferrer'); return }
