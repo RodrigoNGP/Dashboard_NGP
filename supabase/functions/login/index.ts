@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import * as bcrypt from "https://deno.land/x/bcrypt@v0.4.1/mod.ts"
 import { handleCors, json } from "../_shared/cors.ts"
 
 const loginRolesFor = (tab: string): string[] => tab === 'ngp' ? ['ngp', 'admin'] : [tab]
@@ -22,6 +21,40 @@ setInterval(() => {
   for (const [ip, e] of attempts) if (now > e.resetAt) attempts.delete(ip)
 }, 10 * 60 * 1000)
 
+// ── PBKDF2 seguro (nativo do Web Crypto, com salt) ──────────────────────────
+const PBKDF2_ITERATIONS = 100_000
+
+async function hashPassword(password: string, salt?: Uint8Array): Promise<string> {
+  if (!salt) {
+    salt = crypto.getRandomValues(new Uint8Array(16))
+  }
+  const key = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']
+  )
+  const derived = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    key, 256
+  )
+  const hashHex = Array.from(new Uint8Array(derived)).map(b => b.toString(16).padStart(2, '0')).join('')
+  const saltHex = Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join('')
+  return `pbkdf2:${saltHex}:${hashHex}`
+}
+
+async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  const [, saltHex, expectedHash] = stored.split(':')
+  if (!saltHex || !expectedHash) return false
+  const salt = new Uint8Array(saltHex.match(/.{2}/g)!.map(b => parseInt(b, 16)))
+  const key = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']
+  )
+  const derived = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    key, 256
+  )
+  const hashHex = Array.from(new Uint8Array(derived)).map(b => b.toString(16).padStart(2, '0')).join('')
+  return hashHex === expectedHash
+}
+
 serve(async (req) => {
   const cors = handleCors(req)
   if (cors) return cors
@@ -38,7 +71,6 @@ serve(async (req) => {
     const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
     const allowedRoles = loginRolesFor(role)
-    console.log(`[login] Tentativa: username="${username}" role="${role}" allowedRoles=${JSON.stringify(allowedRoles)}`)
 
     const { data: usuario, error: usuarioError } = await sb
       .from('usuarios')
@@ -47,40 +79,40 @@ serve(async (req) => {
       .in('role', allowedRoles)
       .maybeSingle()
 
-    console.log(`[login] DB result: found=${!!usuario} error=${JSON.stringify(usuarioError)} ativo=${usuario?.ativo}`)
-
     if (usuarioError) {
       console.error('[login] DB error:', usuarioError)
-      return json(req, { error: 'Erro interno ao buscar usuário.' }, 500)
+      return json(req, { error: 'Erro interno.' }, 500)
     }
 
-    if (!usuario) {
-      console.log(`[login] Usuário não encontrado: username="${username}" roles=${JSON.stringify(allowedRoles)}`)
-      return json(req, { error: 'Usuário ou senha incorretos.' }, 401)
-    }
+    if (!usuario) return json(req, { error: 'Usuário ou senha incorretos.' }, 401)
+    if (usuario.ativo === false) return json(req, { error: 'Usuário desativado.' }, 401)
 
-    if (usuario.ativo === false) {
-      console.log(`[login] Usuário inativo: ${username}`)
-      return json(req, { error: 'Usuário desativado.' }, 401)
-    }
-
-    // Validar senha
-    let passwordValid = false
     const storedHash = usuario.password_hash || ''
-    console.log(`[login] Hash tipo: starts_with_$2=${storedHash.startsWith('$2')} hash_length=${storedHash.length}`)
+    let passwordValid = false
 
-    if (storedHash.startsWith('$2')) {
-      passwordValid = await bcrypt.compare(password, storedHash)
+    if (storedHash.startsWith('pbkdf2:')) {
+      // Senha segura com PBKDF2 + salt
+      passwordValid = await verifyPassword(password, storedHash)
+    } else if (storedHash.startsWith('sha256:')) {
+      // Legado SHA-256 (sem salt) — verifica e migra para PBKDF2
+      const data = new TextEncoder().encode(password)
+      const digest = await crypto.subtle.digest('SHA-256', data)
+      const hashed = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('')
+      passwordValid = storedHash === `sha256:${hashed}`
+      if (passwordValid) {
+        const newHash = await hashPassword(password)
+        await sb.from('usuarios').update({ password_hash: newHash }).eq('id', usuario.id)
+        console.log(`[login] Senha migrada de sha256 para PBKDF2: ${username}`)
+      }
     } else {
+      // Legado: plain text — compara e migra para PBKDF2
       passwordValid = storedHash === password
       if (passwordValid) {
-        const newHash = await bcrypt.hash(password)
+        const newHash = await hashPassword(password)
         await sb.from('usuarios').update({ password_hash: newHash }).eq('id', usuario.id)
-        console.log(`[login] Senha migrada para bcrypt: ${username}`)
+        console.log(`[login] Senha migrada para PBKDF2: ${username}`)
       }
     }
-
-    console.log(`[login] Senha válida: ${passwordValid}`)
 
     if (!passwordValid) return json(req, { error: 'Usuário ou senha incorretos.' }, 401)
 
@@ -100,8 +132,6 @@ serve(async (req) => {
       console.error('[login] Session error:', sessionError)
       return json(req, { error: 'Erro ao criar sessão.' }, 500)
     }
-
-    console.log(`[login] Login OK: ${username} (${usuario.role})`)
 
     return json(req, {
       session_token: sessionToken,
