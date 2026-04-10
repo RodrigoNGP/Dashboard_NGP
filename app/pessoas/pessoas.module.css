@@ -17,16 +17,15 @@
 
 .content {
   width: 100%;
-  max-width: 900px;
+  max-width: 940px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  flex: 1;
+  gap: 28px;
 }
 
-.header {
-  margin-bottom: 48px;
-}
+/* ── Header ── */
+.header { margin-bottom: 4px; }
 
 .btnBack {
   background: none;
@@ -68,54 +67,293 @@
   margin: 0;
 }
 
-/* ── COMING SOON ── */
-.comingSoon {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 80px 24px;
+/* ── Ponto Widget ── */
+.pontoWidget {
   background: #fff;
   border: 1px solid #E5E5EA;
   border-radius: 20px;
+  padding: 32px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  gap: 24px 40px;
+  align-items: start;
 }
 
-.comingSoonIcon {
-  width: 72px;
-  height: 72px;
-  background: linear-gradient(135deg, #7c3aed, #a855f7);
-  border-radius: 20px;
+/* Relógio */
+.clockSection {
+  grid-row: 1 / 2;
+  grid-column: 1 / 2;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   justify-content: center;
-  margin-bottom: 24px;
-  color: #fff;
+  padding-right: 40px;
+  border-right: 1px solid #F2F2F7;
+  min-width: 180px;
 }
 
-.comingSoonIcon svg {
-  width: 36px;
-  height: 36px;
-}
-
-.comingSoonTitle {
-  font-size: 22px;
+.clockTime {
+  font-size: 42px;
   font-weight: 700;
   color: #1C1C1E;
-  margin: 0 0 12px;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.clockLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #8E8E93;
+  margin-top: 6px;
+}
+
+/* Grid horários do dia */
+.todayGrid {
+  grid-row: 1 / 2;
+  grid-column: 2 / 3;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.todayItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.todayLabel {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #8E8E93;
+}
+
+.todayValue {
+  font-size: 20px;
+  font-weight: 600;
+  color: #C7C7CC;
+  font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
 
-.comingSoonDesc {
-  font-size: 14px;
-  color: #6B7280;
-  line-height: 1.6;
-  margin: 0;
-  max-width: 400px;
+.todayValueSet {
+  color: #1C1C1E;
 }
 
-@media (max-width: 768px) {
+/* Área da ação */
+.pontoActionArea {
+  grid-row: 2 / 3;
+  grid-column: 1 / 3;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.todayTotal {
+  font-size: 13px;
+  color: #6B7280;
+  white-space: nowrap;
+}
+.todayTotal strong {
+  color: #1C1C1E;
+  font-weight: 700;
+}
+
+.pontoMsg {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 8px;
+}
+.pontoOk  { color: #059669; background: #d1fae5; }
+.pontoErr { color: #dc2626; background: #fee2e2; }
+
+.btnPonto {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: 'Sora', sans-serif;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  letter-spacing: -0.01em;
+}
+.btnPonto:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+.btnPonto:active:not(:disabled) { transform: translateY(0); }
+.btnPonto:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.pontoComplete {
+  font-size: 14px;
+  font-weight: 700;
+  color: #059669;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Seção Mensal ── */
+.mesSection {
+  background: #fff;
+  border: 1px solid #E5E5EA;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.mesHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #F2F2F7;
+}
+
+.mesTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1C1C1E;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.mesFilter {
+  display: flex;
+  gap: 8px;
+}
+
+.mesSelect {
+  padding: 6px 10px;
+  border: 1px solid #E5E5EA;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1C1C1E;
+  background: #F5F5F7;
+  font-family: 'Sora', sans-serif;
+  cursor: pointer;
+  outline: none;
+}
+.mesSelect:focus { border-color: #7c3aed; }
+
+.mesLoading,
+.mesEmpty {
+  padding: 48px 24px;
+  text-align: center;
+  font-size: 14px;
+  color: #8E8E93;
+}
+
+/* ── Tabela ── */
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table thead tr {
+  background: #FAFAFA;
+}
+
+.table th {
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8E8E93;
+  border-bottom: 1px solid #F2F2F7;
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 12px 16px;
+  color: #1C1C1E;
+  font-weight: 500;
+  border-bottom: 1px solid #F7F7F8;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.table tbody tr:last-child td { border-bottom: none; }
+.table tbody tr:hover { background: #FAFAFA; }
+
+.tdDate {
+  font-weight: 600;
+  color: #3B3B3E;
+  min-width: 130px;
+}
+
+.tdTotal {
+  font-weight: 700;
+  color: #1C1C1E;
+}
+
+.tdEmpty {
+  color: #C7C7CC;
+}
+
+.statusBadge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
   .main { padding: 32px 24px; }
   .title { font-size: 26px; }
+
+  .pontoWidget {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+  }
+  .clockSection {
+    grid-row: 1;
+    grid-column: 1;
+    border-right: none;
+    border-bottom: 1px solid #F2F2F7;
+    padding-right: 0;
+    padding-bottom: 20px;
+    min-width: unset;
+  }
+  .todayGrid {
+    grid-row: 2;
+    grid-column: 1;
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .pontoActionArea {
+    grid-row: 3;
+    grid-column: 1;
+  }
+  .clockTime { font-size: 36px; }
 }
