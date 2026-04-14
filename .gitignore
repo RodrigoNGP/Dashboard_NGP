@@ -5,3 +5,6 @@ node_modules/
 .claude/
 .DS_Store
 tsconfig.tsbuildinfo
+.temp-ngp-finance/
+fix_icons.js
+.temp-ngp-finance
