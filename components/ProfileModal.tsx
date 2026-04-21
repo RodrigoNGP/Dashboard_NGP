@@ -96,7 +96,7 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
       const saveRes = await fetch(`${SURL}/functions/v1/update-profile`, {
         method: 'POST',
         headers: efHeaders(),
-        body: JSON.stringify({ foto_url: publicUrl }),
+        body: JSON.stringify({ session_token: sess.session, foto_url: publicUrl }),
       })
       setProgress(100)
       const saveData = await saveRes.json()
@@ -123,7 +123,7 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
       const res = await fetch(`${SURL}/functions/v1/update-profile`, {
         method: 'POST',
         headers: efHeaders(),
-        body: JSON.stringify({ nome: novoNome }),
+        body: JSON.stringify({ session_token: sess.session, nome: novoNome }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erro')
@@ -146,7 +146,11 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
       const res = await fetch(`${SURL}/functions/v1/update-profile`, {
         method: 'POST',
         headers: efHeaders(),
-        body: JSON.stringify({ senha_atual: senhaAtual, senha_nova: senhaNova }),
+        body: JSON.stringify({
+          session_token: sess.session,
+          password_current: senhaAtual,
+          password_new: senhaNova,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erro')
