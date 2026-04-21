@@ -127,6 +127,17 @@ const IcoLixeira = () => (
   </svg>
 )
 
+const IcoCarreira = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+    strokeLinecap="round" strokeLinejoin="round" width={15} height={15}>
+    <path d="M12 20h9"/>
+    <path d="M12 4h9"/>
+    <path d="M4 9h16"/>
+    <path d="M4 15h16"/>
+    <path d="M8 4v16"/>
+  </svg>
+)
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function LixeiraPage() {
@@ -219,8 +230,10 @@ export default function LixeiraPage() {
   if (!sess) return null
 
   const sectorNav = [
-    { icon: <IcoRelogio />, label: 'Ponto Eletrônico', href: '/pessoas' },
+    { icon: <IcoRelogio />, label: 'Dashboard', href: '/pessoas' },
     { icon: <IcoTabela />,  label: 'Registros de Ponto', href: '/pessoas/registros' },
+    { icon: <IcoCarreira />, label: 'Colaboradores', href: '/pessoas/carreira' },
+    ...(isAdmin ? [{ icon: <IcoTabela />, label: 'Cadastros', href: '/pessoas/cadastros' }] : []),
     ...(isAdmin ? [{ icon: <IcoLixeira />, label: 'Lixeira', href: '/pessoas/lixeira' }] : []),
   ]
 
@@ -233,7 +246,7 @@ export default function LixeiraPage() {
 
           <header className={styles.header}>
             <button className={styles.btnBack} onClick={() => router.push('/pessoas')}>
-              ← Ponto Eletrônico
+              ← Dashboard
             </button>
             <div className={styles.eyebrow}>Setor · Pessoas · Admin</div>
             <h1 className={styles.title}>Lixeira</h1>

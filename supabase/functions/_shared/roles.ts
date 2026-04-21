@@ -36,6 +36,7 @@ export const loginRolesFor = (tabRole: string): string[] =>
 export interface SessionUser {
   usuario_id: string
   role: string
+  username: string
 }
 
 // deno-lint-ignore no-explicit-any
@@ -51,11 +52,11 @@ export async function validateSession(sb: any, session_token: string): Promise<S
 
   const { data: usuario } = await sb
     .from('usuarios')
-    .select('role')
+    .select('role, username')
     .eq('id', sessao.usuario_id)
     .single()
 
   if (!usuario) return null
 
-  return { usuario_id: sessao.usuario_id, role: usuario.role }
+  return { usuario_id: sessao.usuario_id, role: usuario.role, username: usuario.username }
 }

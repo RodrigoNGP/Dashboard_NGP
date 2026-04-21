@@ -187,7 +187,9 @@
 /* ── Desktop: sidebar fixa, sem overlay, sem hamburguer ── */
 @media (min-width: 768px) {
   .sidebar {
-    position: relative;
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
     transform: none !important;
     transition: none;
   }

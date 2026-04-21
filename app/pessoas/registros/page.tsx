@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSession } from '@/lib/auth'
 import { SURL } from '@/lib/constants'
@@ -32,6 +32,12 @@ interface DayRow {
   totalMins: number
   extrasMins: number
   status: 'complete' | 'overtime' | 'below' | 'incomplete' | 'empty'
+}
+
+interface NextAction {
+  tipo: string
+  label: string
+  color: string
 }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
@@ -83,10 +89,8 @@ function calcBalance(records: PontoRecord[]): { totalMins: number; status: DayRo
     TARGET = 8 * 60 
   }
 
-  // Tolerance Rule (Art. 58 CLT): variations of up to 10 min total/day are ignored.
-  // If surplus is <= 10, extra = 0. If > 10, extra = total surplus.
   const diffMins = totalMins - TARGET
-  const extrasMins = diffMins > 10 ? diffMins : 0
+  const extrasMins = diffMins > 0 ? diffMins : 0
   
   const hasEntrada = records.some(r => r.tipo_registro === 'entrada')
   const hasSaida   = records.some(r => r.tipo_registro === 'saida')
@@ -94,8 +98,8 @@ function calcBalance(records: PontoRecord[]): { totalMins: number; status: DayRo
   if (!hasEntrada) return { totalMins: 0, status: 'empty', extrasMins: 0 }
 
   const status: DayRow['status'] = !hasSaida ? 'incomplete'
-    : totalMins > TARGET + 10 ? 'overtime'
-    : totalMins >= TARGET - 10 ? 'complete'
+    : diffMins > 0 ? 'overtime'
+    : diffMins >= -5 ? 'complete'
     : 'below'
   return { totalMins, status, extrasMins }
 }
@@ -151,6 +155,31 @@ const STATUS_COLOR: Record<string, string> = {
   below: '#dc2626', incomplete: '#f59e0b', empty: '#8E8E93',
 }
 
+const TIPO_LABEL: Record<string, string> = {
+  entrada: 'Entrada',
+  saida_almoco: 'Saída Almoço',
+  retorno_almoco: 'Retorno Almoço',
+  saida: 'Saída',
+  extra_entrada: 'Entrada Extra',
+  extra_saida: 'Saída Extra',
+  extra: 'Extra',
+}
+
+function getNextAction(records: PontoRecord[]): NextAction | null {
+  if (records.length === 0) return { tipo: 'entrada', label: 'Registrar Entrada', color: '#059669' }
+  const last = records[records.length - 1].tipo_registro
+  const map: Record<string, NextAction> = {
+    entrada: { tipo: 'saida_almoco', label: 'Saída para Almoço', color: '#f59e0b' },
+    saida_almoco: { tipo: 'retorno_almoco', label: 'Retorno do Almoço', color: '#3b82f6' },
+    retorno_almoco: { tipo: 'saida', label: 'Registrar Saída', color: '#9B1540' },
+    saida: { tipo: 'extra_entrada', label: 'Entrada Extra', color: '#7c3aed' },
+    extra_entrada: { tipo: 'extra_saida', label: 'Saída Extra', color: '#6d28d9' },
+    extra_saida: { tipo: 'extra_entrada', label: 'Entrada Extra', color: '#7c3aed' },
+    extra: { tipo: 'extra_entrada', label: 'Entrada Extra', color: '#7c3aed' },
+  }
+  return map[last] ?? null
+}
+
 
 // ── Ícones ────────────────────────────────────────────────────────────────────
 
@@ -175,6 +204,16 @@ const IcoLixeira = () => (
     <path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
   </svg>
 )
+const IcoCarreira = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+    strokeLinecap="round" strokeLinejoin="round" width={15} height={15}>
+    <path d="M12 20h9"/>
+    <path d="M12 4h9"/>
+    <path d="M4 9h16"/>
+    <path d="M4 15h16"/>
+    <path d="M8 4v16"/>
+  </svg>
+)
 const IcoDownload = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
     strokeLinecap="round" strokeLinejoin="round" width={15} height={15}>
@@ -195,6 +234,11 @@ export default function RegistrosPage() {
   const router = useRouter()
   const [sess, setSess] = useState<ReturnType<typeof getSession> | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const offsetRef = useRef<number>(0)
+  const [clockDisplay, setClockDisplay] = useState('--:--:--')
+  const [todayRecords, setTodayRecords] = useState<PontoRecord[]>([])
+  const [loadingPonto, setLoadingPonto] = useState(false)
+  const [pontoMsg, setPontoMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
   const nowDate = new Date()
   const [selMes, setSelMes]   = useState(nowDate.getMonth() + 1)
@@ -231,10 +275,87 @@ export default function RegistrosPage() {
     }
   }, [])
 
+  const fetchToday = useCallback(async () => {
+    const s = getSession()
+    if (!s) return
+    try {
+      const res = await fetch(`${SURL}/functions/v1/get-ponto-now`, {
+        method: 'POST',
+        headers: efHeaders(),
+        body: JSON.stringify({ session_token: s.session }),
+      })
+      const data = await res.json()
+      if (data.error) return
+      const serverDate = new Date(data.server_now)
+      if (!isNaN(serverDate.getTime())) {
+        offsetRef.current = serverDate.getTime() - Date.now()
+      }
+      setTodayRecords(data.today_records || [])
+    } catch {
+      // silencioso
+    }
+  }, [])
+
   useEffect(() => {
     if (!sess) return
+    fetchToday()
     fetchRegistros(selMes, selAno)
-  }, [sess, selMes, selAno]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sess, selMes, selAno, fetchToday]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const nowMs = Date.now() + offsetRef.current
+      const brtMs = nowMs + BRT_OFFSET
+      const brt = new Date(brtMs)
+      const h = brt.getUTCHours().toString().padStart(2, '0')
+      const m = brt.getUTCMinutes().toString().padStart(2, '0')
+      const sc = brt.getUTCSeconds().toString().padStart(2, '0')
+      setClockDisplay(`${h}:${m}:${sc}`)
+    }, 1000)
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchToday()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [fetchToday])
+
+  const registrarPonto = async () => {
+    const s = getSession()
+    if (!s || loadingPonto) return
+    setLoadingPonto(true)
+    setPontoMsg(null)
+    try {
+      const res = await fetch(`${SURL}/functions/v1/registrar-ponto`, {
+        method: 'POST',
+        headers: efHeaders(),
+        body: JSON.stringify({ session_token: s.session }),
+      })
+      const data = await res.json()
+      if (data.error) {
+        setPontoMsg({ type: 'err', text: data.error })
+      } else {
+        setTodayRecords(data.today_records || [])
+        const rec = data.record
+        const label = TIPO_LABEL[rec.tipo_registro] || rec.tipo_registro
+        setPontoMsg({ type: 'ok', text: `${label} registrado às ${toLocalTime(rec.created_at)}` })
+        window.setTimeout(() => setPontoMsg(null), 4000)
+        const d = new Date()
+        if (selMes === d.getMonth() + 1 && selAno === d.getFullYear()) {
+          fetchRegistros(selMes, selAno)
+        }
+      }
+    } catch {
+      setPontoMsg({ type: 'err', text: 'Erro de conexão. Tente novamente.' })
+    } finally {
+      setLoadingPonto(false)
+    }
+  }
 
   // Filtros aplicados
   const usuariosUnicos = Array.from(new Set(allRows.map(r => r.usuarioNome))).sort()
@@ -275,9 +396,15 @@ export default function RegistrosPage() {
 
   if (!sess) return null
 
+  const nextAction = getNextAction(todayRecords)
+  const { totalMins: todayMins } = calcBalance(todayRecords)
+  const findToday = (tipo: string) => todayRecords.find((r) => r.tipo_registro === tipo)
+
   const sectorNav = [
-    { icon: <IcoRelogio />, label: 'Ponto Eletrônico', href: '/pessoas' },
+    { icon: <IcoRelogio />, label: 'Dashboard', href: '/pessoas' },
     { icon: <IcoTabela />,  label: 'Registros de Ponto', href: '/pessoas/registros' },
+    { icon: <IcoCarreira />, label: 'Colaboradores', href: '/pessoas/carreira' },
+    ...(isAdmin ? [{ icon: <IcoTabela />, label: 'Cadastros', href: '/pessoas/cadastros' }] : []),
     ...(isAdmin ? [{ icon: <IcoLixeira />, label: 'Lixeira', href: '/pessoas/lixeira' }] : []),
   ]
 
@@ -297,6 +424,70 @@ export default function RegistrosPage() {
             <h1 className={styles.title}>Registros de Ponto</h1>
             <p className={styles.subtitle}>Auditoria e histórico completo de jornadas.</p>
           </header>
+
+          <section className={styles.pontoWidget}>
+            <div className={styles.clockSection}>
+              <div className={styles.clockTime}>{clockDisplay}</div>
+              <div className={styles.clockLabel}>Horário de Brasília</div>
+            </div>
+
+            <div className={styles.todayGrid}>
+              {(['entrada', 'saida_almoco', 'retorno_almoco', 'saida'] as const).map((tipo) => {
+                const rec = findToday(tipo)
+                return (
+                  <div key={tipo} className={styles.todayItem}>
+                    <span className={styles.todayLabel}>{TIPO_LABEL[tipo]}</span>
+                    <span className={`${styles.todayValue} ${rec ? styles.todayValueSet : ''}`}>
+                      {rec ? toLocalTime(rec.created_at) : '--:--'}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className={styles.pontoActionArea}>
+              <div className={styles.widgetHeader}>
+                <h2 className={styles.widgetTitle}>Meu ponto hoje</h2>
+                <span className={styles.sectionHint}>Registro rápido</span>
+              </div>
+
+              {todayMins > 0 && (
+                <div className={styles.todayTotal}>
+                  Total acumulado: <strong>{fmtMins(todayMins)}</strong>
+                </div>
+              )}
+
+              {pontoMsg && (
+                <div className={`${styles.pontoMsg} ${pontoMsg.type === 'ok' ? styles.pontoOk : styles.pontoErr}`}>
+                  {pontoMsg.type === 'ok' ? '✓ ' : '✕ '}{pontoMsg.text}
+                </div>
+              )}
+
+              {nextAction ? (
+                <button
+                  className={styles.btnPonto}
+                  style={{ background: nextAction.color }}
+                  onClick={registrarPonto}
+                  disabled={loadingPonto}
+                >
+                  {loadingPonto ? (
+                    <span className={styles.spinner} />
+                  ) : (
+                    <>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width={18} height={18}>
+                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                      </svg>
+                      {nextAction.label}
+                    </>
+                  )}
+                </button>
+              ) : (
+                <div className={styles.pontoComplete}>
+                  ✓ Jornada encerrada · {fmtMins(todayMins)}
+                </div>
+              )}
+            </div>
+          </section>
 
           {/* Filtros + Export */}
           <div className={styles.toolbar}>

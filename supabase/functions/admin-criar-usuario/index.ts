@@ -3,12 +3,44 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { handleCors, json } from "../_shared/cors.ts"
 import { validateSession, isAdmin } from "../_shared/roles.ts"
 
+const PBKDF2_ITERATIONS = 100_000
+
+async function hashPassword(password: string, salt?: Uint8Array): Promise<string> {
+  if (!salt) {
+    salt = crypto.getRandomValues(new Uint8Array(16))
+  }
+  const key = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']
+  )
+  const derived = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    key, 256
+  )
+  const hashHex = Array.from(new Uint8Array(derived)).map((b) => b.toString(16).padStart(2, '0')).join('')
+  const saltHex = Array.from(salt).map((b) => b.toString(16).padStart(2, '0')).join('')
+  return `pbkdf2:${saltHex}:${hashHex}`
+}
+
 serve(async (req) => {
   const cors = handleCors(req)
   if (cors) return cors
 
   try {
-    const { session_token, nome, username, email, password, role, meta_account_id } = await req.json()
+    const {
+      session_token,
+      nome,
+      username,
+      email,
+      password,
+      role,
+      meta_account_id,
+      foto_url,
+      cargo,
+      funcao,
+      senioridade,
+      setor,
+      data_entrada,
+    } = await req.json()
 
     if (!session_token) return json(req, { error: 'Sessão inválida.' }, 401)
     if (!nome || !username || !email || !password || !role) {
@@ -25,6 +57,7 @@ serve(async (req) => {
 
     const usernameClean = username.toLowerCase().trim()
     const emailClean    = email.toLowerCase().trim()
+    const passwordHash = await hashPassword(password)
 
     // Verifica duplicidade de username
     const { data: existingUsername } = await sb
@@ -65,8 +98,15 @@ serve(async (req) => {
         ativo: true,
         auth_user_id: authData.user.id,
         meta_account_id: meta_account_id || null,
+        foto_url: foto_url?.trim() || null,
+        cargo: cargo?.trim() || null,
+        funcao: funcao?.trim() || null,
+        senioridade: senioridade?.trim() || null,
+        setor: setor?.trim() || null,
+        data_entrada: data_entrada || null,
+        password_hash: passwordHash,
       })
-      .select('id, nome, username, email, role, ativo, created_at')
+      .select('id, nome, username, email, role, ativo, created_at, foto_url, cargo, funcao, senioridade, setor, data_entrada')
       .single()
 
     if (insertError) {

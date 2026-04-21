@@ -69,11 +69,11 @@ const cadastrarNav: NavItem[] = [
 
 function getSetoresNavItems(): NavItem[] {
   return [
-    { icon: <Ico><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></Ico>, label: 'Relatórios e Dados', href: '/dashboard' },
-    { icon: <Ico><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></Ico>, label: 'Financeiro', href: 'https://financeiro.grupongp.com.br' },
-    { icon: <Ico><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></Ico>, label: 'Pessoas', href: '/pessoas' },
-    { icon: <Ico><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></Ico>, label: 'Comercial', href: '/comercial' },
-    { icon: <Ico><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></Ico>, label: 'Trackeamento', href: '#', badge: 'breve' },
+    { icon: <Ico><path d="M4 19h16"/><path d="M7 16V9"/><path d="M12 16V5"/><path d="M17 16v-3"/><circle cx="7" cy="9" r="1.5"/><circle cx="12" cy="5" r="1.5"/><circle cx="17" cy="13" r="1.5"/></Ico>, label: 'Análise de Dados e Relatórios', href: '/dashboard' },
+    { icon: <Ico><path d="M12 2v20"/><path d="M17 6.5c0-1.9-2.2-3.5-5-3.5s-5 1.6-5 3.5 2.2 3.5 5 3.5 5 1.6 5 3.5-2.2 3.5-5 3.5-5-1.6-5-3.5"/></Ico>, label: 'Financeiro', href: 'https://financeiro.grupongp.com.br' },
+    { icon: <Ico><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="18" cy="9" r="2.5"/><path d="M15.5 19c.3-2.1 2.1-3.8 4.3-4.1"/></Ico>, label: 'Pessoas', href: '/pessoas' },
+    { icon: <Ico><path d="M4 6h10"/><path d="M4 12h7"/><path d="M4 18h4"/><path d="M16 5l4 4-4 4"/><path d="M13 9h7"/></Ico>, label: 'Comercial', href: '/comercial' },
+    { icon: <Ico><path d="M12 3v3"/><path d="M21 12h-3"/><path d="M12 21v-3"/><path d="M3 12h3"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.5"/></Ico>, label: 'Trackeamento', href: '#', badge: 'breve' },
   ]
 }
 
@@ -111,8 +111,10 @@ function getAutoSectorNav(pathname: string, role?: string): { title: string; nav
     return {
       title: 'PESSOAS',
       nav: [
-        { icon: <Ico><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></Ico>, label: 'Ponto Eletrônico', href: '/pessoas' },
+        { icon: <Ico><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></Ico>, label: 'Dashboard', href: '/pessoas' },
         { icon: <Ico><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></Ico>, label: 'Registros de Ponto', href: '/pessoas/registros' },
+        { icon: <Ico><path d="M12 20h9"/><path d="M12 4h9"/><path d="M4 9h16"/><path d="M4 15h16"/><path d="M8 4v16"/></Ico>, label: 'Colaboradores', href: '/pessoas/carreira' },
+        ...(role === 'admin' ? [{ icon: <Ico><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></Ico>, label: 'Cadastros', href: '/pessoas/cadastros' }] : []),
         ...(role === 'admin' ? [{ icon: <Ico><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></Ico>, label: 'Lixeira', href: '/pessoas/lixeira' }] : []),
       ],
     }
@@ -162,8 +164,15 @@ function SidebarInner({ activeTab, onTabChange, onLogout, showDashboardNav = tru
       let changed = false
       allNavs.forEach(item => {
         if (item.subItems) {
+          if (item.label === 'Setores') {
+            if (next[item.label] === undefined) {
+              next[item.label] = false
+              changed = true
+            }
+            return
+          }
           const isMatch = pathname === item.href.split('?')[0] || item.subItems.some(sub => pathname === sub.href.split('?')[0])
-          if (isMatch && !next[item.label]) {
+          if (isMatch && next[item.label] === undefined) {
             next[item.label] = true
             changed = true
           }
@@ -171,7 +180,7 @@ function SidebarInner({ activeTab, onTabChange, onLogout, showDashboardNav = tru
       })
       return changed ? next : prev
     })
-  }, [pathname, resolvedSectorNav])
+  }, [pathname, resolvedSectorNav, autoSector])
 
   // Fecha sidebar ao navegar
   const handleNav = (fn: () => void) => { fn(); setMobileOpen(false) }

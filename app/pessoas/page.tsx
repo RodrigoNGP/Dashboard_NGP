@@ -46,6 +46,25 @@ interface NextAction {
   color: string
 }
 
+interface DashboardDistribution {
+  label: string
+  count: number
+}
+
+interface PeopleDashboardData {
+  cards: {
+    total_colaboradores: number
+    total_horas_semana_mins: number
+    total_horas_mes_mins: number
+    total_funcoes: number
+  }
+  distribuicoes: {
+    por_funcao: DashboardDistribution[]
+    por_cargo: DashboardDistribution[]
+    por_senioridade: DashboardDistribution[]
+  }
+}
+
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
 const BRT_OFFSET = -3 * 60 * 60 * 1000
@@ -107,10 +126,8 @@ function calcBalance(records: PontoRecord[]): { totalMins: number; status: DayRo
     TARGET = 8 * 60 
   }
 
-  // Tolerance Rule (Art. 58 CLT): variations of up to 10 min total/day are ignored.
-  // If surplus is <= 10, extra = 0. If > 10, extra = total surplus.
   const diffMins = totalMins - TARGET
-  const extrasMins = diffMins > 10 ? diffMins : 0
+  const extrasMins = diffMins > 0 ? diffMins : 0
 
   const hasEntrada = records.some(r => r.tipo_registro === 'entrada')
   const hasSaida   = records.some(r => r.tipo_registro === 'saida')
@@ -119,9 +136,8 @@ function calcBalance(records: PontoRecord[]): { totalMins: number; status: DayRo
 
   let status: DayRow['status']
   if (!hasSaida) status = 'incomplete'
-  // Status with 10-minute tolerance
-  else if (totalMins > TARGET + 10)  status = 'overtime'
-  else if (totalMins >= TARGET - 10) status = 'complete'
+  else if (diffMins > 0)             status = 'overtime'
+  else if (diffMins >= -5)           status = 'complete'
   else                               status = 'below'
 
   return { totalMins, status, extrasMins }
@@ -252,6 +268,17 @@ const IcoLixeira = () => (
   </svg>
 )
 
+const IcoCarreira = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+    strokeLinecap="round" strokeLinejoin="round" width={15} height={15}>
+    <path d="M12 20h9"/>
+    <path d="M12 4h9"/>
+    <path d="M4 9h16"/>
+    <path d="M4 15h16"/>
+    <path d="M8 4v16"/>
+  </svg>
+)
+
 const IcoTrash = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
     strokeLinecap="round" strokeLinejoin="round" width={14} height={14}>
@@ -292,6 +319,8 @@ export default function PessoasPage() {
 
   // Admin: visualizar todos os usuários
   const [viewAll, setViewAll] = useState(true)
+  const [dashboardData, setDashboardData] = useState<PeopleDashboardData | null>(null)
+  const [loadingDashboard, setLoadingDashboard] = useState(false)
 
   // Auth
   useEffect(() => {
@@ -330,6 +359,25 @@ export default function PessoasPage() {
     } catch { /* silencioso */ }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const fetchDashboard = useCallback(async () => {
+    const s = getSession()
+    if (!s || s.role !== 'admin') return
+    setLoadingDashboard(true)
+    try {
+      const res = await fetch(`${SURL}/functions/v1/admin-carreira-dashboard`, {
+        method: 'POST',
+        headers: efHeaders(),
+        body: JSON.stringify({ session_token: s.session }),
+      })
+      const data = await res.json()
+      if (!data.error) setDashboardData(data)
+    } catch {
+      // silencioso
+    } finally {
+      setLoadingDashboard(false)
+    }
+  }, [])
+
   const fetchMes = useCallback(async (mes: number, ano: number, adminMode?: boolean) => {
     const s = getSession()
     if (!s) return
@@ -351,6 +399,10 @@ export default function PessoasPage() {
     fetchToday()
     checkAdmin().then((admin) => fetchMes(selMes, selAno, admin && viewAll))
   }, [sess]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (sess?.role === 'admin') fetchDashboard()
+  }, [sess, fetchDashboard])
 
   useEffect(() => {
     if (!sess) return
@@ -468,8 +520,10 @@ export default function PessoasPage() {
   )
 
   const sectorNav = [
-    { icon: <IcoRelogio />, label: 'Ponto Eletrônico', href: '/pessoas' },
+    { icon: <IcoRelogio />, label: 'Dashboard', href: '/pessoas' },
     { icon: <IcoTabela />,  label: 'Registros de Ponto', href: '/pessoas/registros' },
+    { icon: <IcoCarreira />, label: 'Colaboradores', href: '/pessoas/carreira' },
+    ...(isAdmin ? [{ icon: <IcoTabela />, label: 'Cadastros', href: '/pessoas/cadastros' }] : []),
     ...(isAdmin ? [{ icon: <IcoLixeira />, label: 'Lixeira', href: '/pessoas/lixeira' }] : []),
   ]
 
@@ -487,106 +541,95 @@ export default function PessoasPage() {
               ← Setores
             </button>
             <div className={styles.eyebrow}>Setor · Pessoas</div>
-            <h1 className={styles.title}>Ponto Eletrônico</h1>
-            <p className={styles.subtitle}>Registro de jornada de trabalho NGP.</p>
+            <h1 className={styles.title}>Dashboard</h1>
+            <p className={styles.subtitle}>Visão geral do setor de Pessoas com jornada, cadastros e desenvolvimento da equipe.</p>
           </header>
 
-          {/* ── Widget ─────────────────────────────────────────────────── */}
-          <div className={styles.pontoWidget}>
-
-            <div className={styles.clockSection}>
-              <div className={styles.clockTime}>{clockDisplay}</div>
-              <div className={styles.clockLabel}>Horário de Brasília</div>
-            </div>
-
-            <div className={styles.todayGrid}>
-              {(['entrada','saida_almoco','retorno_almoco','saida'] as const).map(tipo => {
-                const rec = findToday(tipo)
-                return (
-                  <div key={tipo} className={styles.todayItem}>
-                    <span className={styles.todayLabel}>{TIPO_LABEL[tipo]}</span>
-                    <span className={`${styles.todayValue} ${rec ? styles.todayValueSet : ''}`}>
-                      {rec ? toLocalTime(rec.created_at) : '--:--'}
-                    </span>
+          {isAdmin && (
+            <>
+              <section className={styles.hero}>
+                <div>
+                  <div className={styles.heroLabel}>Dashboard</div>
+                  <h2 className={styles.heroTitle}>Visão de desenvolvimento da equipe NGP</h2>
+                  <p className={styles.heroText}>
+                    Acompanhe cargos, funções, senioridades e horas trabalhadas da equipe sem entrar em cada colaborador.
+                  </p>
+                </div>
+                <div className={styles.heroStats}>
+                  <div className={styles.statCard}>
+                    <span className={styles.statValue}>{dashboardData?.cards.total_colaboradores || 0}</span>
+                    <span className={styles.statLabel}>Colaboradores ativos</span>
                   </div>
-                )
-              })}
-              {/* Pontos Extras em pares (Entrada → Saída) */}
-              {(() => {
-                const extraEntradas = todayRecords.filter(r => r.tipo_registro === 'extra_entrada')
-                const extraSaidas   = todayRecords.filter(r => r.tipo_registro === 'extra_saida')
-                const maxPairs = Math.max(extraEntradas.length, extraSaidas.length)
-                const pairs = []
-                for (let i = 0; i < maxPairs; i++) {
-                  pairs.push(
-                    <div key={`extra-e-${i}`} className={styles.todayItem}>
-                      <span className={styles.todayLabel}>Extra {i + 1} (E)</span>
-                      <span className={`${styles.todayValue} ${extraEntradas[i] ? styles.todayValueSet : ''}`}>
-                        {extraEntradas[i] ? toLocalTime(extraEntradas[i].created_at) : '--:--'}
-                      </span>
-                    </div>,
-                    <div key={`extra-s-${i}`} className={styles.todayItem}>
-                      <span className={styles.todayLabel}>Extra {i + 1} (S)</span>
-                      <span className={`${styles.todayValue} ${extraSaidas[i] ? styles.todayValueSet : ''}`}>
-                        {extraSaidas[i] ? toLocalTime(extraSaidas[i].created_at) : '--:--'}
-                      </span>
+                  <div className={styles.statCard}>
+                    <span className={styles.statValue}>{fmtMins(dashboardData?.cards.total_horas_semana_mins || 0)}</span>
+                    <span className={styles.statLabel}>Horas da semana</span>
+                  </div>
+                  <div className={styles.statCard}>
+                    <span className={styles.statValue}>{fmtMins(dashboardData?.cards.total_horas_mes_mins || 0)}</span>
+                    <span className={styles.statLabel}>Horas do mês</span>
+                  </div>
+                  <div className={styles.statCard}>
+                    <span className={styles.statValue}>{dashboardData?.cards.total_funcoes || 0}</span>
+                    <span className={styles.statLabel}>Funções cadastradas</span>
+                  </div>
+                </div>
+              </section>
+
+              <section className={styles.dashboardGrid}>
+                <div className={styles.mesSection}>
+                  <div className={styles.mesHeader}>
+                    <h2 className={styles.mesTitle}>Distribuição por função</h2>
+                    <span className={styles.sectionHint}>Equipe atual</span>
+                  </div>
+                  <div className={styles.distributionList}>
+                    {loadingDashboard ? (
+                      <div className={styles.mesLoading}>Carregando dashboard...</div>
+                    ) : dashboardData?.distribuicoes.por_funcao.length ? (
+                      dashboardData.distribuicoes.por_funcao.map((item) => (
+                        <div key={item.label} className={styles.distributionItem}>
+                          <span>{item.label}</span>
+                          <strong>{item.count}</strong>
+                        </div>
+                      ))
+                    ) : (
+                      <div className={styles.mesEmpty}>Nenhuma função cadastrada ainda.</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className={styles.mesSection}>
+                  <div className={styles.mesHeader}>
+                    <h2 className={styles.mesTitle}>Cargo e senioridade</h2>
+                    <span className={styles.sectionHint}>Base do setor</span>
+                  </div>
+                  <div className={styles.dualDistribution}>
+                    <div className={styles.distributionBlock}>
+                      <div className={styles.distributionTitle}>Cargos</div>
+                      <div className={styles.distributionList}>
+                        {dashboardData?.distribuicoes.por_cargo.length ? dashboardData.distribuicoes.por_cargo.map((item) => (
+                          <div key={item.label} className={styles.distributionItem}>
+                            <span>{item.label}</span>
+                            <strong>{item.count}</strong>
+                          </div>
+                        )) : <div className={styles.mesEmpty}>Sem cargos.</div>}
+                      </div>
                     </div>
-                  )
-                }
-                return pairs
-              })()}
-            </div>
-
-
-            {loadingPonto && (
-              <div className={styles.loadingOverlay}>
-                <div className={styles.lettersContainer}>
-                  <span className={styles.animLetterN}>N</span>
-                  <span className={styles.animLetterG}>G</span>
-                  <span className={styles.animLetterP}>P</span>
+                    <div className={styles.distributionBlock}>
+                      <div className={styles.distributionTitle}>Senioridades</div>
+                      <div className={styles.distributionList}>
+                        {dashboardData?.distribuicoes.por_senioridade.length ? dashboardData.distribuicoes.por_senioridade.map((item) => (
+                          <div key={item.label} className={styles.distributionItem}>
+                            <span>{item.label}</span>
+                            <strong>{item.count}</strong>
+                          </div>
+                        )) : <div className={styles.mesEmpty}>Sem senioridades.</div>}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className={styles.loadingText}>Carregando...</div>
-              </div>
-            )}
-
-            <div className={styles.pontoActionArea}>
-              {todayMins > 0 && (
-                <div className={styles.todayTotal}>
-                  Total acumulado: <strong>{fmtMins(todayMins)}</strong>
-                </div>
-              )}
-
-              {pontoMsg && (
-                <div className={`${styles.pontoMsg} ${pontoMsg.type === 'ok' ? styles.pontoOk : styles.pontoErr}`}>
-                  {pontoMsg.type === 'ok' ? '✓ ' : '✕ '}{pontoMsg.text}
-                </div>
-              )}
-
-              {nextAction ? (
-                <button
-                  className={styles.btnPonto}
-                  style={{ background: nextAction.color }}
-                  onClick={registrarPonto}
-                  disabled={loadingPonto}
-                >
-                  {loadingPonto ? (
-                    <span className={styles.spinner} />
-                  ) : (
-                    <>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width={18} height={18}>
-                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                      </svg>
-                      {nextAction.label}
-                    </>
-                  )}
-                </button>
-              ) : (
-                <div className={styles.pontoComplete}>
-                  ✓ Jornada encerrada · {fmtMins(todayMins)}
-                </div>
-              )}
-            </div>
-          </div>
+              </section>
+            </>
+          )}
 
           {/* ── Registros mensais ──────────────────────────────────────── */}
           <section className={styles.mesSection}>

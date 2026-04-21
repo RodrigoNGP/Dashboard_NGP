@@ -18,7 +18,7 @@
 
 .content {
   width: 100%;
-  max-width: 820px;
+  max-width: 1320px;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -27,6 +27,298 @@
 .header {
   margin-bottom: 48px;
   text-align: center;
+}
+
+.pontoCard {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  margin-bottom: 20px;
+  background: #fff;
+  border: 1px solid #e8dfe5;
+  border-radius: 22px;
+  box-shadow: 0 16px 38px rgba(28, 28, 30, 0.06);
+}
+
+.pontoTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pontoEyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #9b1540;
+  margin-bottom: 4px;
+}
+
+.pontoTitle {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: #1c1c1e;
+}
+
+.pontoLink {
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.pontoLink:hover {
+  color: #1c1c1e;
+}
+
+.dateCarousel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dateArrow {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #f0cfd8;
+  border-radius: 999px;
+  background: #fff5f7;
+  color: #b4536b;
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.dateArrow:hover:not(:disabled) {
+  background: #ffecef;
+  color: #9b1540;
+  border-color: #e7bcc7;
+}
+
+.dateArrow:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.dateTrack {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-bottom: 2px;
+}
+
+.dateTrack::-webkit-scrollbar {
+  display: none;
+}
+
+.dateChip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 74px;
+  min-height: 42px;
+  padding: 6px 10px;
+  border: 1px solid #f3d6de;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fff7f8 0%, #fff1f4 100%);
+  color: #7f6b73;
+  font: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+  scroll-snap-align: center;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dateChip:hover {
+  background: #fff3f6;
+  border-color: #edc3ce;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(155, 21, 64, 0.08);
+}
+
+.dateChipToday {
+  border-color: #edc3ce;
+  color: #9b1540;
+}
+
+.dateChipActive {
+  background: linear-gradient(180deg, #ffe7ee 0%, #ffd6e1 100%);
+  border-color: #efbcc9;
+  color: #9b1540;
+  box-shadow: 0 10px 24px rgba(155, 21, 64, 0.12);
+}
+
+.dateChipWeekday {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dateChipDay {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.pontoBody {
+  display: grid;
+  grid-template-columns: 220px minmax(380px, 1fr) 240px;
+  gap: 12px;
+  align-items: center;
+}
+
+.clockCard {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  min-height: 118px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: #1c1c1e;
+  color: #fff;
+}
+
+.clockTime {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+}
+
+.clockLabel {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.clockTotal {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.batidasGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(84px, 1fr));
+  gap: 8px;
+}
+
+.batidaItem {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 118px;
+  padding: 12px;
+  background: #faf7f8;
+  border: 1px solid #efe1e7;
+  border-radius: 14px;
+  min-width: 0;
+}
+
+.batidaLabel {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  text-transform: uppercase;
+  color: #8e8e93;
+}
+
+.batidaValue {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: #c7c7cc;
+}
+
+.batidaValueSet {
+  color: #1c1c1e;
+}
+
+.pontoAction {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+}
+
+.btnPonto {
+  border: none;
+  border-radius: 14px;
+  min-height: 58px;
+  padding: 14px 16px;
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  white-space: normal;
+  text-align: center;
+}
+
+.btnPonto:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.pontoMsg {
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.pontoOk {
+  background: #e8faf0;
+  color: #177245;
+}
+
+.pontoErr {
+  background: #fff0f0;
+  color: #c23030;
+}
+
+.pontoDone {
+  min-height: 58px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #f3f4f6;
+  color: #1c1c1e;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .eyebrow {
@@ -179,10 +471,212 @@
   box-shadow: 0 0 0 3px rgba(52, 199, 89, 0.15);
 }
 
+@media (max-width: 1200px) {
+  .content {
+    max-width: 1040px;
+  }
+
+  .pontoBody {
+    grid-template-columns: 190px minmax(300px, 1fr) 200px;
+  }
+
+  .batidasGrid {
+    grid-template-columns: repeat(2, minmax(110px, 1fr));
+  }
+
+  .batidaItem {
+    min-height: 96px;
+  }
+}
+
 @media (max-width: 768px) {
-  .main { padding: 32px 24px; }
-  .title { font-size: 26px; }
-  .grid { grid-template-columns: 1fr; }
+  .main {
+    padding: 18px 14px 24px;
+    align-items: stretch;
+  }
+
+  .content {
+    max-width: 100%;
+  }
+
+  .header {
+    margin-bottom: 22px;
+    padding-top: 28px;
+    text-align: left;
+  }
+
+  .eyebrow {
+    font-size: 10px;
+  }
+
+  .title {
+    font-size: 22px;
+    line-height: 1.05;
+  }
+
+  .subtitle {
+    font-size: 13px;
+    line-height: 1.45;
+    max-width: 320px;
+  }
+
+  .pontoCard {
+    padding: 14px;
+    border-radius: 18px;
+    gap: 12px;
+  }
+
+  .pontoTop {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .pontoTitle {
+    font-size: 18px;
+  }
+
+  .pontoLink {
+    padding: 0;
+    text-align: left;
+    font-size: 11px;
+  }
+
+  .dateCarousel {
+    gap: 6px;
+  }
+
+  .dateArrow {
+    width: 28px;
+    height: 28px;
+    font-size: 16px;
+  }
+
+  .dateTrack {
+    gap: 6px;
+  }
+
+  .dateChip {
+    min-width: 58px;
+    min-height: 38px;
+    padding: 5px 8px;
+    border-radius: 12px;
+  }
+
+  .dateChipWeekday {
+    font-size: 8px;
+  }
+
+  .dateChipDay {
+    font-size: 13px;
+  }
+
+  .pontoBody {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .clockCard {
+    grid-column: 1 / -1;
+    min-height: 0;
+    padding: 14px 16px;
+    border-radius: 16px;
+  }
+
+  .clockTime {
+    font-size: 24px;
+  }
+
+  .clockLabel {
+    font-size: 9px;
+  }
+
+  .batidasGrid {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .batidaItem {
+    min-height: 82px;
+    padding: 10px;
+    border-radius: 14px;
+  }
+
+  .batidaLabel {
+    font-size: 8px;
+  }
+
+  .batidaValue {
+    font-size: 15px;
+  }
+
+  .pontoAction {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
+  .btnPonto {
+    width: 100%;
+    min-height: 52px;
+    font-size: 14px;
+    border-radius: 14px;
+  }
+
+  .pontoDone {
+    min-height: 52px;
+    border-radius: 14px;
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  .card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+    border-radius: 18px;
+    min-height: 168px;
+  }
+
+  .cardIcon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+  }
+
+  .cardIcon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .cardTitle {
+    font-size: 14px;
+    line-height: 1.15;
+  }
+
+  .cardDesc {
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .cardArrow {
+    position: absolute;
+    right: 14px;
+    bottom: 14px;
+    font-size: 18px;
+  }
+
+  .footer {
+    padding-top: 8px;
+    padding-bottom: 10px;
+    font-size: 11px;
+  }
 }
 
 /* ── EMBED MODAL ── */
@@ -300,5 +794,3 @@
   border: none;
   background: #f5f5f7;
 }
-
-
