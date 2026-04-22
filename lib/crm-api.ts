@@ -37,6 +37,11 @@ export interface CrmLead {
   notes: string | null
   source: string | null
   custom_data?: Record<string, any>
+  // AI / smart features
+  temperature?: 'hot' | 'warm' | 'cold'
+  last_activity_at?: string | null
+  stage_changed_at?: string | null
+  stage_notes?: Record<string, any> // string (legado) ou StageNoteEntry[] por stage_id
   created_at: string
   updated_at: string
 }

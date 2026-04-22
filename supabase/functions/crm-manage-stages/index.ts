@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { createClient } from 'supabase'
 import { handleCors, json } from '../_shared/cors.ts'
+import { getScopedPipeline, getScopedStage, resolveCrmScope } from '../_shared/crm.ts'
 
 Deno.serve(async (req) => {
   const cors = handleCors(req)
@@ -17,26 +18,10 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // Valida sessão
-    const { data: sessao } = await sb
-      .from('sessions')
-      .select('usuario_id')
-      .eq('token', session_token)
-      .gt('expires_at', new Date().toISOString())
-      .single()
+    const scope = await resolveCrmScope(sb, session_token, params.cliente_id)
+    if (!scope) return json(req, { error: 'Sessão expirada.' }, 401)
 
-    if (!sessao) return json(req, { error: 'Sessão expirada.' }, 401)
-
-    // Valida role
-    const { data: usuario } = await sb
-      .from('usuarios')
-      .select('role')
-      .eq('id', sessao.usuario_id)
-      .single()
-
-    if (!usuario || !['ngp', 'admin'].includes(usuario.role)) {
-      return json(req, { error: 'Acesso negado.' }, 403)
-    }
+    const { clienteId } = scope
 
     // ── ACTIONS ──────────────────────────────────────────────────────────────
 
@@ -44,6 +29,9 @@ Deno.serve(async (req) => {
     if (action === 'list') {
       const { pipeline_id } = params
       if (!pipeline_id) return json(req, { error: 'pipeline_id obrigatório.' }, 400)
+
+      const pipeline = await getScopedPipeline(sb, pipeline_id, clienteId)
+      if (!pipeline) return json(req, { error: 'Pipeline não encontrado.' }, 404)
 
       const { data, error } = await sb
         .from('crm_pipeline_stages')
@@ -60,6 +48,9 @@ Deno.serve(async (req) => {
       const { pipeline_id, name, color } = params
       if (!pipeline_id) return json(req, { error: 'pipeline_id obrigatório.' }, 400)
       if (!name?.trim()) return json(req, { error: 'Nome obrigatório.' }, 400)
+
+      const pipeline = await getScopedPipeline(sb, pipeline_id, clienteId)
+      if (!pipeline) return json(req, { error: 'Pipeline não encontrado.' }, 404)
 
       // Descobre a próxima posição
       const { data: existing } = await sb
@@ -92,6 +83,9 @@ Deno.serve(async (req) => {
       if (!stage_id)    return json(req, { error: 'stage_id obrigatório.' }, 400)
       if (!name?.trim()) return json(req, { error: 'Nome obrigatório.' }, 400)
 
+      const stage = await getScopedStage(sb, stage_id, clienteId)
+      if (!stage) return json(req, { error: 'Etapa não encontrada.' }, 404)
+
       const { data, error } = await sb
         .from('crm_pipeline_stages')
         .update({ name: name.trim() })
@@ -108,6 +102,9 @@ Deno.serve(async (req) => {
       const { stage_id, color } = params
       if (!stage_id) return json(req, { error: 'stage_id obrigatório.' }, 400)
       if (!color)    return json(req, { error: 'color obrigatório.' }, 400)
+
+      const stage = await getScopedStage(sb, stage_id, clienteId)
+      if (!stage) return json(req, { error: 'Etapa não encontrada.' }, 404)
 
       const { data, error } = await sb
         .from('crm_pipeline_stages')
@@ -126,6 +123,9 @@ Deno.serve(async (req) => {
       if (!pipeline_id)                return json(req, { error: 'pipeline_id obrigatório.' }, 400)
       if (!Array.isArray(ordered_ids)) return json(req, { error: 'ordered_ids deve ser um array.' }, 400)
 
+      const pipeline = await getScopedPipeline(sb, pipeline_id, clienteId)
+      if (!pipeline) return json(req, { error: 'Pipeline não encontrado.' }, 404)
+
       // Atualiza position de cada stage conforme índice no array
       const updates = ordered_ids.map((id: string, index: number) =>
         sb.from('crm_pipeline_stages')
@@ -143,6 +143,9 @@ Deno.serve(async (req) => {
       const { stage_id } = params
       if (!stage_id) return json(req, { error: 'stage_id obrigatório.' }, 400)
 
+      const scopedStage = await getScopedStage(sb, stage_id, clienteId)
+      if (!scopedStage) return json(req, { error: 'Etapa não encontrada.' }, 404)
+
       const { count } = await sb
         .from('crm_leads')
         .select('*', { count: 'exact', head: true })
@@ -156,11 +159,7 @@ Deno.serve(async (req) => {
       }
 
       // Busca info da stage antes de deletar para reordenar as demais
-      const { data: stage } = await sb
-        .from('crm_pipeline_stages')
-        .select('pipeline_id, position')
-        .eq('id', stage_id)
-        .single()
+      const stage = scopedStage
 
       const { error } = await sb
         .from('crm_pipeline_stages')

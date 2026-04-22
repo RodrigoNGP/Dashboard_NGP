@@ -9,6 +9,7 @@ import { comercialNav } from '../comercial-nav'
 import styles from './pipeline.module.css'
 import { Suspense } from 'react'
 import LeadDetailPanel from './LeadDetailPanel'
+import { CnpjLookupCard, CnpjImportField, formatCnpj } from './CnpjLookup'
 import {
   DndContext, DragEndEvent, DragOverEvent, DragStartEvent,
   DragOverlay, PointerSensor, useSensor, useSensors,
@@ -22,37 +23,54 @@ import { CSS } from '@dnd-kit/utilities'
 
 const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 
+// ── Temperatura dot no card ────────────────────────────────────────────────────
+const TEMP_DOT: Record<string, { color: string; emoji: string; label: string }> = {
+  hot:  { color: '#dc2626', emoji: '🔥', label: 'Quente'  },
+  warm: { color: '#d97706', emoji: '🌡️', label: 'Morno'   },
+  cold: { color: '#2563eb', emoji: '❄️', label: 'Frio'    },
+}
+
 // ─── Lead Card (sortable) ─────────────────────────────────────────────────────
 const LeadCard = React.memo(function LeadCard({ lead, tasks, onEdit, overlay }: { lead: CrmLead; tasks?: CrmTask[]; onEdit: (l: CrmLead, targetTab?: 'dados'|'timeline'|'tarefas') => void; overlay?: boolean }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: lead.id })
   const style = { transform: CSS.Transform.toString(transform), transition }
-  
+
   const pendingTasks = tasks?.filter(t => t.status === 'pendente') || []
   const today = new Date().toDateString()
   const overdueCount = pendingTasks.filter(t => new Date(t.due_date) < new Date(today)).length
   const pendingCount = pendingTasks.length - overdueCount
+
+  const tempInfo = lead.temperature ? TEMP_DOT[lead.temperature] : null
 
   return (
     <div
       ref={setNodeRef} style={style} {...attributes} {...listeners}
       className={`${styles.leadCard} ${isDragging ? styles.leadCardDragging : ''} ${overlay ? styles.leadCardOverlay : ''}`}
       onClick={(e) => {
-        // Only trigger edit if it wasn't a drag event (dnd-kit usually cancels click on drag)
         if (!isDragging) onEdit(lead)
       }}
     >
       <div className={styles.leadHeader}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', overflow: 'hidden' }}>
-          <div className={styles.leadCompany} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lead.company_name}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', overflow: 'hidden', flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {tempInfo && (
+              <span
+                className={styles.leadTempDot}
+                style={{ background: tempInfo.color }}
+                title={`Lead ${tempInfo.label}`}
+              />
+            )}
+            <div className={styles.leadCompany} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lead.company_name}</div>
+          </div>
           <div className={styles.leadBadges}>
             {overdueCount > 0 && <span className={styles.leadBadgeOverdue} title={`${overdueCount} tarefa(s) precisando de atenção`} />}
             {overdueCount === 0 && pendingCount > 0 && <span className={styles.leadBadgePending} title={`${pendingCount} tarefa(s) em dia`} />}
           </div>
         </div>
-        
-        <button 
-          className={styles.leadTaskBtn} 
-          onPointerDown={e => e.stopPropagation()} 
+
+        <button
+          className={styles.leadTaskBtn}
+          onPointerDown={e => e.stopPropagation()}
           onClick={e => { e.stopPropagation(); onEdit(lead, 'tarefas') }}
           title="Nova tarefa"
         >
@@ -61,9 +79,8 @@ const LeadCard = React.memo(function LeadCard({ lead, tasks, onEdit, overlay }: 
       </div>
       {lead.contact_name && <div className={styles.leadContact}>{lead.contact_name}</div>}
       <div className={styles.leadValue}>{fmt(lead.estimated_value)}</div>
-      
+
       <div className={styles.leadFooter}>
-        {/* Helper "editar" that appears when hovering the card */}
         <span className={styles.leadEditLabel}>editar ✎</span>
       </div>
     </div>
@@ -71,7 +88,7 @@ const LeadCard = React.memo(function LeadCard({ lead, tasks, onEdit, overlay }: 
 })
 
 // ─── Droppable Column ─────────────────────────────────────────────────────────
-const KanbanColumn = React.memo(function KanbanColumn({ stage, leads, allTasks, onEdit }: { stage: CrmStage; leads: CrmLead[]; allTasks: CrmTask[]; onEdit: (l: CrmLead, targetTab?: 'dados'|'timeline'|'tarefas') => void }) {
+const KanbanColumn = React.memo(function KanbanColumn({ stage, leads, allTasks, onEdit, onAddLead }: { stage: CrmStage; leads: CrmLead[]; allTasks: CrmTask[]; onEdit: (l: CrmLead, targetTab?: 'dados'|'timeline'|'tarefas') => void; onAddLead: (stageId: string) => void }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id })
   return (
     <div className={`${styles.column} ${isOver ? styles.columnOver : ''}`}>
@@ -84,7 +101,11 @@ const KanbanColumn = React.memo(function KanbanColumn({ stage, leads, allTasks, 
         <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
           {leads.map(lead => <LeadCard key={lead.id} lead={lead} tasks={allTasks.filter(t => t.lead_id === lead.id)} onEdit={onEdit} />)}
         </SortableContext>
-        {leads.length === 0 && <div className={styles.emptyColumn}>Nenhum lead</div>}
+        {leads.length === 0 && (
+          <button className={styles.emptyColumn} onClick={() => onAddLead(stage.id)}>
+            + Adicionar lead
+          </button>
+        )}
       </div>
     </div>
   )
@@ -329,7 +350,7 @@ function PipelineContent() {
   // Data
   const [pipelines, setPipelines]               = useState<CrmPipeline[]>([])
   const [activePipelineId, setActivePipelineId] = useState<string | null>(null)
-  const [viewMode, setViewMode]                 = useState<'kanban' | 'fields'>('kanban')
+  const [viewMode, setViewMode]                 = useState<'kanban' | 'funil' | 'fields'>('kanban')
   const [stages, setStages]                     = useState<CrmStage[]>([])
   const [leads, setLeads]                       = useState<CrmLead[]>([])
   const [pipelineFields, setPipelineFields]     = useState<CrmPipelineField[]>([])
@@ -382,14 +403,23 @@ function PipelineContent() {
     return data.pipelines || []
   }, [])
 
+  // ── Warmup periódico da Edge Function (evita cold start) ─────────────────
+  useEffect(() => {
+    // Aquece imediatamente ao montar e repete a cada 50s (antes do timeout de 60s do Deno)
+    const warm = () => fetch('/api/crm-warmup').catch(() => {})
+    warm()
+    const interval = setInterval(warm, 50_000)
+    return () => clearInterval(interval)
+  }, [])
+
   // ── Load ALL pipeline data in a single consolidated call ──────────────────
   const loadInitialData = useCallback(async (pipelineId?: string) => {
     setLoading(true)
     setError('')
     try {
-      const data = await crmCall('crm-manage-pipeline', { 
-        action: 'get_full_data', 
-        pipeline_id: pipelineId || null 
+      const data = await crmCall('crm-manage-pipeline', {
+        action: 'get_full_data',
+        pipeline_id: pipelineId || null
       })
       
       if (data.error) {
@@ -811,6 +841,8 @@ function PipelineContent() {
         onTabChange={(tab) => {
           if (tab === 'new_pipeline') setShowNewPipeline(true)
           else if (tab === 'fields') openManageFields()
+          else if (tab === 'funil') setViewMode('funil')
+          else if (tab === 'kanban') setViewMode('kanban')
           else setViewMode(tab as any)
         }}
       />
@@ -824,13 +856,18 @@ function PipelineContent() {
             <div className={styles.headerLeft}>
               <div>
                 <span className={styles.eyebrow}>SETOR COMERCIAL</span>
-                <h1 className={styles.title}>Pipeline de Vendas</h1>
+                <h1 className={styles.title}>
+                  {viewMode === 'kanban' ? 'Meus Pipers' : viewMode === 'funil' ? 'Funil' : viewMode === 'fields' ? 'Cadastrar Campos' : 'Pipeline'}
+                </h1>
               </div>
-              {viewMode === 'kanban' && activePipeline && pipelines.length > 0 && (
+              {(viewMode === 'kanban' || viewMode === 'funil') && activePipeline && pipelines.length > 0 && (
                 <select
                   className={styles.pipelineSelect}
                   value={activePipelineId || ''}
-                  onChange={e => setActivePipelineId(e.target.value)}
+                  onChange={e => {
+                    setActivePipelineId(e.target.value)
+                    loadInitialData(e.target.value)
+                  }}
                 >
                   {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
@@ -844,7 +881,7 @@ function PipelineContent() {
                   <button className={`${styles.btn} ${styles.btnGhost} ${styles.btnIcon}`} title="Excluir funil" onClick={() => setShowDeletePipeline(true)}>🗑</button>
                 </>
               )}
-              {activePipeline && viewMode === 'kanban' && (
+              {activePipeline && (viewMode === 'kanban' || viewMode === 'funil') && (
                 <button
                   className={`${styles.btn} ${styles.btnPrimary}`}
                   onClick={() => { setFLead({ company_name: '', contact_name: '', email: '', phone: '', estimated_value: '', stage_id: stages[0]?.id || '', notes: '', source: '', custom_data: {} }); setShowNewLead(true) }}
@@ -852,6 +889,7 @@ function PipelineContent() {
                   + Novo Lead
                 </button>
               )}
+
             </div>
           </header>
 
@@ -866,6 +904,77 @@ function PipelineContent() {
               <div style={{ textAlign: 'center' }}>
                 <div className={styles.loadingText} style={{ marginBottom: 16 }}>Nenhum funil criado ainda.</div>
                 <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => setShowNewPipeline(true)}>+ Criar primeiro funil</button>
+              </div>
+            </div>
+          ) : viewMode === 'funil' ? (
+            <div className={styles.funnelWrap}>
+              {/* Totalizador */}
+              <div className={styles.funnelHeader}>
+                <div className={styles.funnelHeaderStat}>
+                  <span className={styles.funnelHeaderLabel}>Total de leads</span>
+                  <span className={styles.funnelHeaderValue}>{leads.length}</span>
+                </div>
+                <div className={styles.funnelHeaderDivider} />
+                <div className={styles.funnelHeaderStat}>
+                  <span className={styles.funnelHeaderLabel}>Valor total</span>
+                  <span className={styles.funnelHeaderValue}>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(leads.reduce((s, l) => s + (l.estimated_value || 0), 0))}</span>
+                </div>
+                <div className={styles.funnelHeaderDivider} />
+                <div className={styles.funnelHeaderStat}>
+                  <span className={styles.funnelHeaderLabel}>Etapas</span>
+                  <span className={styles.funnelHeaderValue}>{stages.length}</span>
+                </div>
+              </div>
+
+              {/* Barras do funil */}
+              <div className={styles.funnelBody}>
+                {stages.map((stage, idx) => {
+                  const stageLeads  = leads.filter(l => l.stage_id === stage.id)
+                  const maxLeads    = Math.max(...stages.map(s => leads.filter(l => l.stage_id === s.id).length), 1)
+                  const pct         = Math.max(18, Math.round((stageLeads.length / maxLeads) * 100))
+                  const valor       = stageLeads.reduce((s, l) => s + (l.estimated_value || 0), 0)
+                  const nextLeads   = leads.filter(l => l.stage_id === stages[idx + 1]?.id)
+                  const convPct     = idx < stages.length - 1 && stageLeads.length > 0
+                    ? Math.round((nextLeads.length / stageLeads.length) * 100)
+                    : null
+
+                  return (
+                    <div key={stage.id} className={styles.funnelRow}>
+                      {/* Barra */}
+                      <div className={styles.funnelBarWrap}>
+                        <div
+                          className={styles.funnelBarFill}
+                          style={{ width: `${pct}%`, background: stage.color, opacity: stageLeads.length === 0 ? 0.15 : 0.85 }}
+                        >
+                          {stageLeads.length > 0 && (
+                            <span className={styles.funnelBarLabel}>{stageLeads.length}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Info à direita */}
+                      <div className={styles.funnelRowInfo}>
+                        <div className={styles.funnelRowLeft}>
+                          <span className={styles.funnelColorDot} style={{ background: stage.color }} />
+                          <div>
+                            <div className={styles.funnelStageName}>{stage.name}</div>
+                            <div className={styles.funnelStageCount}>{stageLeads.length} lead{stageLeads.length !== 1 ? 's' : ''}</div>
+                          </div>
+                        </div>
+                        <div className={styles.funnelRowRight}>
+                          <span className={styles.funnelStageValue}>
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor)}
+                          </span>
+                          {convPct !== null && (
+                            <span className={`${styles.funnelConvBadge} ${convPct >= 50 ? styles.funnelConvGood : convPct >= 20 ? styles.funnelConvMid : styles.funnelConvLow}`}>
+                              ↓ {convPct}%
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           ) : viewMode === 'fields' ? (
@@ -988,6 +1097,10 @@ function PipelineContent() {
                     allTasks={pipelineTasks}
                     leads={leads.filter(l => l.stage_id === stage.id).sort((a, b) => a.position - b.position)}
                     onEdit={openEditLead}
+                    onAddLead={(stageId) => {
+                      setFLead({ company_name: '', contact_name: '', email: '', phone: '', estimated_value: '', stage_id: stageId, notes: '', source: '', custom_data: {} })
+                      setShowNewLead(true)
+                    }}
                   />
                 ))}
               </div>
@@ -1064,6 +1177,43 @@ function PipelineContent() {
                   }
                 }
 
+                // ── Campo CNPJ: input formatado + card de consulta ──
+                if (bType === 'cnpj') {
+                  const cnpjVal = (fLead.custom_data[field.name] || '') as string
+                  const handleCnpjFill = (selected: CnpjImportField[]) => {
+                    const updates: Record<string, string> = {}
+                    for (const f of selected) {
+                      if (f.fieldName === '_company_name') setFLead(fl => ({ ...fl, company_name: f.value }))
+                      else if (f.fieldName) updates[f.fieldName] = f.value
+                    }
+                    if (Object.keys(updates).length) {
+                      setFLead(fl => ({ ...fl, custom_data: { ...fl.custom_data, ...updates } }))
+                    }
+                  }
+                  return (
+                    <React.Fragment key={field.id}>
+                      <div className={styles.field} style={{ flex: '0 0 calc(50% - 6px)' }}>
+                        <label>{field.name}</label>
+                        <input
+                          type="text"
+                          value={cnpjVal}
+                          placeholder="00.000.000/0000-00"
+                          maxLength={18}
+                          onChange={e => setFLead(fl => ({ ...fl, custom_data: { ...fl.custom_data, [field.name]: formatCnpj(e.target.value) } }))}
+                        />
+                      </div>
+                      <div style={{ flex: '0 0 100%' }}>
+                        <CnpjLookupCard
+                          cnpj={cnpjVal}
+                          pipelineFields={pipelineFields}
+                          customFields={fLead.custom_data}
+                          onFill={handleCnpjFill}
+                        />
+                      </div>
+                    </React.Fragment>
+                  )
+                }
+
                 return (
                   <div key={field.id} className={styles.field} style={{ flex: isHalf ? '0 0 calc(50% - 6px)' : '0 0 100%' }}>
                     <label>{field.name}</label>
@@ -1077,10 +1227,10 @@ function PipelineContent() {
                     ) : bType === 'currency' || bType === 'system_estimated_value' ? (
                       <CurrencyInput value={val} onChange={setVal} />
                     ) : (
-                      <input 
-                        type={bType === 'number' ? 'number' : bType === 'date' ? 'date' : bType === 'email' ? 'email' : 'text'} 
-                        value={val || ''} 
-                        onChange={e => setVal(e.target.value)} 
+                      <input
+                        type={bType === 'number' ? 'number' : bType === 'date' ? 'date' : bType === 'email' ? 'email' : 'text'}
+                        value={val || ''}
+                        onChange={e => setVal(e.target.value)}
                       />
                     )}
                   </div>
@@ -1106,12 +1256,20 @@ function PipelineContent() {
           pipelineFields={pipelineFields}
           initialTab={initialTab}
           open={showEditLead}
-          onClose={() => { 
+          onClose={() => {
             setShowEditLead(false); setEditLead(null);
-            // Refresh tasks on close silently to update badges
-            crmCall('crm-manage-tasks', { action: 'list_team', status: 'pendente' }).then(res => {
-              if (!res.error && res.tasks) setPipelineTasks(res.tasks)
-            })
+            // Atualiza somente as tarefas do lead que foi fechado (evita recarregar tudo do time)
+            const closedLeadId = editLead?.id
+            if (closedLeadId) {
+              crmCall('crm-manage-tasks', { action: 'list', lead_id: closedLeadId }).then(res => {
+                if (!res.error && res.tasks) {
+                  setPipelineTasks(prev => {
+                    const others = prev.filter(t => t.lead_id !== closedLeadId)
+                    return [...others, ...(res.tasks as CrmTask[]).filter(t => t.status === 'pendente')]
+                  })
+                }
+              })
+            }
           }}
           onUpdate={(updated) => {
             setLeads(prev => prev.map(l => l.id === updated.id ? updated : l))

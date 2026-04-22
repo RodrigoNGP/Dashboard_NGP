@@ -1,6 +1,34 @@
 // @ts-nocheck
 import { createClient } from 'supabase'
 import { handleCors, json } from '../_shared/cors.ts'
+import { applyPipelineScope, getScopedPipeline, resolveCrmScope } from '../_shared/crm.ts'
+
+// ── Temperatura do lead (calculada server-side) ──────────────────────────────
+// Retorna 'hot' | 'warm' | 'cold' baseado em:
+//   - dias desde última atividade (last_activity_at)
+//   - dias na etapa atual (stage_changed_at)
+//   - se nunca teve atividade, usa created_at como fallback
+function calcTemperature(lead: any): 'hot' | 'warm' | 'cold' {
+  const now = Date.now()
+  const MS_PER_DAY = 86_400_000
+
+  const lastActRef = lead.last_activity_at
+    ? new Date(lead.last_activity_at).getTime()
+    : new Date(lead.created_at).getTime()
+  const stageRef = lead.stage_changed_at
+    ? new Date(lead.stage_changed_at).getTime()
+    : new Date(lead.created_at).getTime()
+
+  const daysSinceActivity = (now - lastActRef) / MS_PER_DAY
+  const daysInStage       = (now - stageRef) / MS_PER_DAY
+
+  // 🔴 Cold: sem atividade há mais de 7 dias OU preso na etapa há mais de 14 dias
+  if (daysSinceActivity > 7 || daysInStage > 14) return 'cold'
+  // 🟢 Hot: atividade recente (< 2 dias) E na etapa há menos de 7 dias
+  if (daysSinceActivity < 2 && daysInStage < 7)  return 'hot'
+  // 🟡 Warm: entre os dois
+  return 'warm'
+}
 
 Deno.serve(async (req) => {
   const cors = handleCors(req)
@@ -17,26 +45,10 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // Valida sessão
-    const { data: sessao } = await sb
-      .from('sessions')
-      .select('usuario_id')
-      .eq('token', session_token)
-      .gt('expires_at', new Date().toISOString())
-      .single()
+    const scope = await resolveCrmScope(sb, session_token, params.cliente_id)
+    if (!scope) return json(req, { error: 'Sessão expirada.' }, 401)
 
-    if (!sessao) return json(req, { error: 'Sessão expirada.' }, 401)
-
-    // Valida role
-    const { data: usuario } = await sb
-      .from('usuarios')
-      .select('role')
-      .eq('id', sessao.usuario_id)
-      .single()
-
-    if (!usuario || !['ngp', 'admin'].includes(usuario.role)) {
-      return json(req, { error: 'Acesso negado.' }, 403)
-    }
+    const { user, clienteId } = scope
 
     // ── ACTIONS ──────────────────────────────────────────────────────────────
 
@@ -45,11 +57,15 @@ Deno.serve(async (req) => {
       const { pipeline_id } = params
 
       // 1. Busca todas as pipelines ativas
-      const { data: pipelines, error: errPip } = await sb
+      let pipelinesQuery = sb
         .from('crm_pipelines')
         .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: true })
+
+      pipelinesQuery = applyPipelineScope(pipelinesQuery, clienteId)
+
+      const { data: pipelines, error: errPip } = await pipelinesQuery
 
       if (errPip) throw errPip
 
@@ -57,28 +73,48 @@ Deno.serve(async (req) => {
       const targetId = pipeline_id || (pipelines.length > 0 ? pipelines[0].id : null)
 
       let stagesList = []
-      let leadsList = []
+      let leadsList  = []
       let fieldsList = []
-      let tasksList = []
+      let tasksList  = []
+
+      const timings: Record<string, number> = {}
 
       if (targetId) {
-        // 3. Busca paralela de dados vinculados
+        const allowedPipeline = await getScopedPipeline(sb, targetId, clienteId)
+        if (!allowedPipeline) return json(req, { error: 'Pipeline não encontrado.' }, 404)
+
+        // 3. Busca paralela de dados vinculados — tasks escopadas ao pipeline ativo via inner join
+        const t0 = Date.now()
         const [resStages, resLeads, resFields, resTasks] = await Promise.all([
-          sb.from('crm_pipeline_stages').select('*').eq('pipeline_id', targetId).order('position', { ascending: true }),
-          sb.from('crm_leads').select('*').eq('pipeline_id', targetId).order('position', { ascending: true }),
-          sb.from('crm_pipeline_fields').select('*').eq('pipeline_id', targetId).order('position', { ascending: true }),
-          sb.from('crm_tasks')
-            .select('*, lead:crm_leads(company_name, stage_id)')
-            .eq('status', 'pendente')
-            .order('due_date', { ascending: true })
+          (async () => { const s = Date.now(); const r = await sb.from('crm_pipeline_stages').select('*').eq('pipeline_id', targetId).order('position', { ascending: true }); timings.stages_ms = Date.now() - s; return r })(),
+          (async () => { const s = Date.now(); const r = await sb.from('crm_leads').select('*').eq('pipeline_id', targetId).order('position', { ascending: true }); timings.leads_ms = Date.now() - s; return r })(),
+          (async () => { const s = Date.now(); const r = await sb.from('crm_pipeline_fields').select('*').eq('pipeline_id', targetId).order('position', { ascending: true }); timings.fields_ms = Date.now() - s; return r })(),
+          (async () => {
+            const s = Date.now()
+            const r = await sb.from('crm_tasks')
+              .select('*, lead:crm_leads!inner(company_name, stage_id, pipeline_id)')
+              .eq('status', 'pendente')
+              .eq('lead.pipeline_id', targetId)
+              .order('due_date', { ascending: true })
+              .limit(500)
+            timings.tasks_ms = Date.now() - s
+            return r
+          })(),
         ])
+        timings.parallel_total_ms = Date.now() - t0
 
         if (resStages.error) throw resStages.error
-        if (resLeads.error) throw resLeads.error
+        if (resLeads.error)  throw resLeads.error
         if (resFields.error) throw resFields.error
 
         stagesList = resStages.data || []
-        leadsList  = resLeads.data || []
+
+        // Calcula temperatura para cada lead server-side (sem custo de AI)
+        leadsList = (resLeads.data || []).map(lead => ({
+          ...lead,
+          temperature: calcTemperature(lead),
+        }))
+
         fieldsList = resFields.data || []
         tasksList  = (resTasks.data || []).map(t => ({
           ...t,
@@ -93,11 +129,24 @@ Deno.serve(async (req) => {
         stages: stagesList,
         leads: leadsList,
         fields: fieldsList,
-        tasks: tasksList
+        tasks: tasksList,
+        _timings: timings,
       })
     }
 
-    // LIST — listar todos os funis ativos
+    if (action === 'list') {
+      let query = sb
+        .from('crm_pipelines')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: true })
+
+      query = applyPipelineScope(query, clienteId)
+
+      const { data, error } = await query
+      if (error) throw error
+      return json(req, { pipelines: data || [] })
+    }
 
     // CREATE — criar novo funil com etapas default
     if (action === 'create') {
@@ -106,7 +155,11 @@ Deno.serve(async (req) => {
 
       const { data: pipeline, error: errP } = await sb
         .from('crm_pipelines')
-        .insert({ name: name.trim(), description: description?.trim() || null })
+        .insert({
+          name: name.trim(),
+          description: description?.trim() || null,
+          cliente_id: clienteId,
+        })
         .select()
         .single()
 
@@ -135,6 +188,9 @@ Deno.serve(async (req) => {
       if (!pipeline_id) return json(req, { error: 'pipeline_id obrigatório.' }, 400)
       if (!name?.trim()) return json(req, { error: 'Nome obrigatório.' }, 400)
 
+      const allowedPipeline = await getScopedPipeline(sb, pipeline_id, clienteId)
+      if (!allowedPipeline) return json(req, { error: 'Pipeline não encontrado.' }, 404)
+
       const { data, error } = await sb
         .from('crm_pipelines')
         .update({ name: name.trim() })
@@ -150,6 +206,9 @@ Deno.serve(async (req) => {
     if (action === 'delete') {
       const { pipeline_id } = params
       if (!pipeline_id) return json(req, { error: 'pipeline_id obrigatório.' }, 400)
+
+      const allowedPipeline = await getScopedPipeline(sb, pipeline_id, clienteId)
+      if (!allowedPipeline) return json(req, { error: 'Pipeline não encontrado.' }, 404)
 
       const { count } = await sb
         .from('crm_leads')

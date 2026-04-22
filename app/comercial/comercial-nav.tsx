@@ -13,9 +13,10 @@ export const comercialNav = [
     label: 'Pipeline',    
     href: '/comercial/pipeline',
     subItems: [
-      { icon: <div style={{width: 14}}/>, label: 'Meus Funis', href: '/comercial/pipeline', tab: 'kanban' },
+      { icon: <div style={{width: 14}}/>, label: 'Meus Pipers',      href: '/comercial/pipeline', tab: 'kanban' },
+      { icon: <div style={{width: 14}}/>, label: 'Funil',            href: '/comercial/pipeline', tab: 'funil' },
       { icon: <div style={{width: 14}}/>, label: 'Cadastrar Campos', href: '/comercial/pipeline', tab: 'fields' },
-      { icon: <div style={{width: 14}}/>, label: 'Novo Funil', href: '/comercial/pipeline', tab: 'new_pipeline' },
+      { icon: <div style={{width: 14}}/>, label: 'Novo Funil',       href: '/comercial/pipeline', tab: 'new_pipeline' },
     ]
   },
   { icon: <IcoDoc  />, label: 'Propostas',   href: '/comercial/propostas' },

@@ -2,6 +2,7 @@
 import { serve } from 'std/http/server'
 import { createClient } from 'supabase'
 import { handleCors, json } from '../_shared/cors.ts'
+import { getScopedLead, getScopedPipeline, getScopedStage, resolveCrmScope } from '../_shared/crm.ts'
 
 serve(async (req) => {
   const cors = handleCors(req)
@@ -34,26 +35,11 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // Valida sessão
-    const { data: sessao } = await sb
-      .from('sessions')
-      .select('usuario_id')
-      .eq('token', session_token)
-      .gt('expires_at', new Date().toISOString())
-      .single()
+    const scope = await resolveCrmScope(sb, session_token, params.cliente_id)
+    if (!scope) return json(req, { error: 'Sessão expirada.' }, 401)
 
-    if (!sessao) return json(req, { error: 'Sessão expirada.' }, 401)
-
-    // Valida role
-    const { data: usuario } = await sb
-      .from('usuarios')
-      .select('id, role, nome')
-      .eq('id', sessao.usuario_id)
-      .single()
-
-    if (!usuario || !['ngp', 'admin'].includes(usuario.role)) {
-      return json(req, { error: 'Acesso negado.' }, 403)
-    }
+    const { user: usuario, clienteId } = scope
+    const sessao = { usuario_id: usuario.id }
 
     // ── ACTIONS ──────────────────────────────────────────────────────────────
 
@@ -61,6 +47,9 @@ serve(async (req) => {
     if (action === 'list') {
       const { pipeline_id } = params
       if (!pipeline_id) return json(req, { error: 'pipeline_id obrigatório.' }, 400)
+
+      const pipeline = await getScopedPipeline(sb, pipeline_id, clienteId)
+      if (!pipeline) return json(req, { error: 'Pipeline não encontrado.' }, 404)
 
       const { data, error } = await sb
         .from('crm_leads')
@@ -80,20 +69,18 @@ serve(async (req) => {
       if (!stage_id)       return json(req, { error: 'stage_id obrigatório.' }, 400)
       if (!company_name?.trim()) return json(req, { error: 'company_name obrigatório.' }, 400)
 
-      // Abre espaço no topo (posição 0)
-      const { data: stageLeads } = await sb
-        .from('crm_leads')
-        .select('id, position')
-        .eq('stage_id', stage_id)
-        .order('position', { ascending: true })
+      const pipeline = await getScopedPipeline(sb, pipeline_id, clienteId)
+      if (!pipeline) return json(req, { error: 'Pipeline não encontrado.' }, 404)
 
-      if (stageLeads && stageLeads.length > 0) {
-        await Promise.all(
-          stageLeads.map((l: any) =>
-            sb.from('crm_leads').update({ position: l.position + 1 }).eq('id', l.id)
-          )
-        )
-      }
+      const stage = await getScopedStage(sb, stage_id, clienteId)
+      if (!stage || stage.pipeline_id !== pipeline_id) return json(req, { error: 'Etapa inválida para este pipeline.' }, 400)
+
+      // Abre espaço no topo (posição 0) em uma única query
+      await sb.rpc('crm_shift_stage_positions', {
+        p_stage_id: stage_id,
+        p_threshold: 0,
+        p_exclude_lead_id: null,
+      })
 
       const { data, error } = await sb
         .from('crm_leads')
@@ -109,6 +96,7 @@ serve(async (req) => {
           source: source?.trim() || null,
           position: 0,
           custom_data: custom_data || {},
+          stage_changed_at: new Date().toISOString(),
         })
         .select()
         .single()
@@ -119,8 +107,11 @@ serve(async (req) => {
 
     // UPDATE — editar campos do lead
     if (action === 'update') {
-      const { lead_id, company_name, contact_name, email, phone, estimated_value, notes, source, status, custom_data } = params
+      const { lead_id, company_name, contact_name, email, phone, estimated_value, notes, source, status, custom_data, stage_notes } = params
       if (!lead_id) return json(req, { error: 'lead_id obrigatório.' }, 400)
+
+      const lead = await getScopedLead(sb, lead_id, clienteId)
+      if (!lead) return json(req, { error: 'Lead não encontrado.' }, 404)
 
       const updates: Record<string, unknown> = {}
       if (company_name  !== undefined) updates.company_name    = company_name?.trim() || null
@@ -132,6 +123,7 @@ serve(async (req) => {
       if (source        !== undefined) updates.source          = source?.trim() || null
       if (status        !== undefined) updates.status          = status
       if (custom_data   !== undefined) updates.custom_data     = custom_data
+      if (stage_notes   !== undefined) updates.stage_notes     = stage_notes
 
       const { data, error } = await sb
         .from('crm_leads')
@@ -151,74 +143,65 @@ serve(async (req) => {
       if (!new_stage_id) return json(req, { error: 'new_stage_id obrigatório.' }, 400)
       if (new_position === undefined) return json(req, { error: 'new_position obrigatório.' }, 400)
 
+      const scopedLead = await getScopedLead(sb, lead_id, clienteId)
+      if (!scopedLead) return json(req, { error: 'Lead não encontrado.' }, 404)
+
+      const scopedStage = await getScopedStage(sb, new_stage_id, clienteId)
+      if (!scopedStage) return json(req, { error: 'Etapa de destino não encontrada.' }, 404)
+      if (scopedStage.pipeline_id !== scopedLead.pipeline_id) {
+        return json(req, { error: 'A etapa de destino precisa pertencer ao mesmo pipeline.' }, 400)
+      }
+
       // Busca stage atual do lead
-      const { data: lead } = await sb
-        .from('crm_leads')
-        .select('stage_id, position')
-        .eq('id', lead_id)
-        .single()
+      const lead = {
+        stage_id: scopedLead.stage_id,
+        position: scopedLead.position,
+      }
 
       if (!lead) return json(req, { error: 'Lead não encontrado.' }, 404)
 
       const oldStageId  = lead.stage_id
       const oldPosition = lead.position
 
-      // Se mudou de stage: reordena o stage de origem (fecha o gap)
+      // Reposicionamento em batch via RPC (elimina N+1)
       if (oldStageId !== new_stage_id) {
-        const { data: oldStageLeads } = await sb
-          .from('crm_leads')
-          .select('id, position')
-          .eq('stage_id', oldStageId)
-          .neq('id', lead_id)
-          .order('position', { ascending: true })
-
-        if (oldStageLeads) {
-          await Promise.all(
-            oldStageLeads.map((l: any, index: number) =>
-              sb.from('crm_leads').update({ position: index }).eq('id', l.id)
-            )
-          )
-        }
-
-        // Abre espaço no stage de destino
-        const { data: newStageLeads } = await sb
-          .from('crm_leads')
-          .select('id, position')
-          .eq('stage_id', new_stage_id)
-          .gte('position', new_position)
-          .order('position', { ascending: true })
-
-        if (newStageLeads) {
-          await Promise.all(
-            newStageLeads.map((l: any) =>
-              sb.from('crm_leads').update({ position: l.position + 1 }).eq('id', l.id)
-            )
-          )
-        }
+        // 1) compacta o stage de origem (fecha o gap deixado pelo lead que saiu)
+        await sb.rpc('crm_compact_stage_positions', {
+          p_stage_id: oldStageId,
+          p_exclude_lead_id: lead_id,
+        })
+        // 2) abre espaço no stage de destino a partir de new_position
+        await sb.rpc('crm_shift_stage_positions', {
+          p_stage_id: new_stage_id,
+          p_threshold: new_position,
+          p_exclude_lead_id: lead_id,
+        })
       } else {
-        // Mesmo stage — reordena internamente
-        const { data: stageLeads } = await sb
-          .from('crm_leads')
-          .select('id, position')
-          .eq('stage_id', oldStageId)
-          .neq('id', lead_id)
-          .order('position', { ascending: true })
+        // Mesmo stage: compacta e depois abre espaço no destino
+        await sb.rpc('crm_compact_stage_positions', {
+          p_stage_id: oldStageId,
+          p_exclude_lead_id: lead_id,
+        })
+        await sb.rpc('crm_shift_stage_positions', {
+          p_stage_id: oldStageId,
+          p_threshold: new_position,
+          p_exclude_lead_id: lead_id,
+        })
+      }
 
-        if (stageLeads) {
-          const reordered = [...stageLeads]
-          reordered.splice(new_position, 0, { id: lead_id, position: new_position })
-          await Promise.all(
-            reordered.map((l: any, index: number) =>
-              sb.from('crm_leads').update({ position: index }).eq('id', l.id)
-            )
-          )
-        }
+      // Prepara updates — stage_changed_at só muda se trocou de etapa
+      const moveUpdates: Record<string, unknown> = {
+        stage_id: new_stage_id,
+        position: new_position,
+      }
+      if (oldStageId !== new_stage_id) {
+        moveUpdates.stage_changed_at = new Date().toISOString()
       }
 
       // Atualiza o lead com novo stage e posição
       const { data, error } = await sb
         .from('crm_leads')
-        .update({ stage_id: new_stage_id, position: new_position })
+        .update(moveUpdates)
         .eq('id', lead_id)
         .select()
         .single()
@@ -249,12 +232,14 @@ serve(async (req) => {
       const { lead_id } = params
       if (!lead_id) return json(req, { error: 'lead_id obrigatório.' }, 400)
 
+      const scopedLead = await getScopedLead(sb, lead_id, clienteId)
+      if (!scopedLead) return json(req, { error: 'Lead não encontrado.' }, 404)
+
       // Busca stage para reordenar após delete
-      const { data: lead } = await sb
-        .from('crm_leads')
-        .select('stage_id, position')
-        .eq('id', lead_id)
-        .single()
+      const lead = {
+        stage_id: scopedLead.stage_id,
+        position: scopedLead.position,
+      }
 
       const { error } = await sb
         .from('crm_leads')
@@ -263,21 +248,12 @@ serve(async (req) => {
 
       if (error) throw error
 
-      // Reordena posições no stage
+      // Compacta posições no stage em uma única query
       if (lead) {
-        const { data: remaining } = await sb
-          .from('crm_leads')
-          .select('id')
-          .eq('stage_id', lead.stage_id)
-          .order('position', { ascending: true })
-
-        if (remaining) {
-          await Promise.all(
-            remaining.map((l: any, index: number) =>
-              sb.from('crm_leads').update({ position: index }).eq('id', l.id)
-            )
-          )
-        }
+        await sb.rpc('crm_compact_stage_positions', {
+          p_stage_id: lead.stage_id,
+          p_exclude_lead_id: null,
+        })
       }
 
       return json(req, { ok: true })

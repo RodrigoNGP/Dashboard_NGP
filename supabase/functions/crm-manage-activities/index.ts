@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { createClient } from 'supabase'
 import { handleCors, json } from '../_shared/cors.ts'
+import { getScopedLead, resolveCrmScope } from '../_shared/crm.ts'
 
 Deno.serve(async (req) => {
   const cors = handleCors(req)
@@ -17,26 +18,10 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // Valida sessão
-    const { data: sessao } = await sb
-      .from('sessions')
-      .select('usuario_id')
-      .eq('token', session_token)
-      .gt('expires_at', new Date().toISOString())
-      .single()
+    const scope = await resolveCrmScope(sb, session_token, params.cliente_id)
+    if (!scope) return json(req, { error: 'Sessão expirada.' }, 401)
 
-    if (!sessao) return json(req, { error: 'Sessão expirada.' }, 401)
-
-    // Busca dados do usuário
-    const { data: usuario } = await sb
-      .from('usuarios')
-      .select('id, role, nome')
-      .eq('id', sessao.usuario_id)
-      .single()
-
-    if (!usuario || !['ngp', 'admin'].includes(usuario.role)) {
-      return json(req, { error: 'Acesso negado.' }, 403)
-    }
+    const { user: usuario, clienteId } = scope
 
     // ── ACTIONS ──────────────────────────────────────────────────────────────
 
@@ -44,6 +29,9 @@ Deno.serve(async (req) => {
     if (action === 'list') {
       const { lead_id, limit: rawLimit } = params
       if (!lead_id) return json(req, { error: 'lead_id obrigatório.' }, 400)
+
+      const lead = await getScopedLead(sb, lead_id, clienteId)
+      if (!lead) return json(req, { error: 'Lead não encontrado.' }, 404)
 
       const queryLimit = Math.min(parseInt(rawLimit) || 50, 200)
 
@@ -64,6 +52,9 @@ Deno.serve(async (req) => {
       if (!lead_id)       return json(req, { error: 'lead_id obrigatório.' }, 400)
       if (!activity_type) return json(req, { error: 'activity_type obrigatório.' }, 400)
       if (!title?.trim())  return json(req, { error: 'title obrigatório.' }, 400)
+
+      const lead = await getScopedLead(sb, lead_id, clienteId)
+      if (!lead) return json(req, { error: 'Lead não encontrado.' }, 404)
 
       const allowedTypes = ['ligacao', 'email', 'reuniao', 'whatsapp', 'visita', 'nota_interna']
       if (!allowedTypes.includes(activity_type)) {
@@ -95,6 +86,9 @@ Deno.serve(async (req) => {
       if (!lead_id)       return json(req, { error: 'lead_id obrigatório.' }, 400)
       if (!activity_type) return json(req, { error: 'activity_type obrigatório.' }, 400)
       if (!title?.trim())  return json(req, { error: 'title obrigatório.' }, 400)
+
+      const lead = await getScopedLead(sb, lead_id, clienteId)
+      if (!lead) return json(req, { error: 'Lead não encontrado.' }, 404)
 
       const { data, error } = await sb
         .from('crm_activities')

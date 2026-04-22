@@ -7,8 +7,8 @@
 .header      { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; flex-shrink: 0; }
 .headerLeft  { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .headerRight { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.eyebrow     { font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .07em; }
-.title       { font-size: 22px; font-weight: 700; color: #0f172a; margin: 2px 0 0; }
+.eyebrow     { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .12em; }
+.title       { font-size: 32px; font-weight: 800; color: #0f172a; margin: 3px 0 0; letter-spacing: -0.02em; line-height: 1.1; }
 
 /* ── Pipeline Selector ──────────────────────────────────────────────────── */
 .pipelineSelect {
@@ -83,7 +83,13 @@
 .emptyColumn {
   border: 2px dashed #cbd5e1; border-radius: 10px;
   padding: 24px 12px; text-align: center;
-  font-size: 12px; color: #64748b; flex: 1;
+  font-size: 12px; color: #94a3b8; flex: 1;
+  background: transparent; width: 100%;
+  cursor: pointer; transition: border-color .15s, color .15s, background .15s;
+}
+.emptyColumn:hover {
+  border-color: #6366f1; color: #6366f1;
+  background: #f5f3ff;
 }
 
 /* ── Lead Card ──────────────────────────────────────────────────────────── */
@@ -212,7 +218,7 @@
 @media (max-width: 768px) {
   .content   { padding: 16px 12px 0; gap: 12px; }
   .header    { gap: 8px; }
-  .title     { font-size: 18px; }
+  .title     { font-size: 24px; }
   .board     { gap: 10px; padding-bottom: 16px; }
   .column    { min-width: 240px; width: 240px; }
   .modal     { padding: 20px; }
@@ -529,4 +535,435 @@
   width: 8px; height: 8px; border-radius: 50%;
   background: #22c55e; flex-shrink: 0; /* Verde */
   box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+}
+
+/* ── View Toggle (Kanban / Funil) ───────────────────────────────────────── */
+.viewToggle {
+  display: flex; align-items: center; gap: 2px;
+  background: #f1f5f9; border-radius: 8px; padding: 3px;
+}
+.viewToggleBtn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px; border-radius: 6px; border: none;
+  background: transparent; color: #64748b;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  font-family: 'Sora', sans-serif; transition: all .15s;
+}
+.viewToggleBtn:hover { color: #0f172a; }
+.viewToggleActive {
+  background: #ffffff; color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* ── Funil View ─────────────────────────────────────────────────────────── */
+.funnelWrap {
+  flex: 1; display: flex; flex-direction: column;
+  gap: 0; padding: 16px 32px 32px; overflow-y: auto;
+}
+
+/* Totalizador topo */
+.funnelHeader {
+  display: flex; align-items: center; gap: 0;
+  background: #f8fafc; border: 1px solid #e2e8f0;
+  border-radius: 12px; padding: 16px 24px;
+  margin-bottom: 28px;
+}
+.funnelHeaderStat {
+  display: flex; flex-direction: column; gap: 2px; flex: 1; align-items: center;
+}
+.funnelHeaderLabel {
+  font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em;
+}
+.funnelHeaderValue {
+  font-size: 20px; font-weight: 700; color: #0f172a;
+}
+.funnelHeaderDivider {
+  width: 1px; height: 36px; background: #e2e8f0; flex-shrink: 0;
+}
+
+/* Corpo do funil */
+.funnelBody {
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+.funnelRow {
+  display: grid; grid-template-columns: 1fr 320px;
+  align-items: center; gap: 20px;
+}
+
+.funnelBarWrap {
+  background: #f1f5f9; border-radius: 8px;
+  height: 44px; overflow: hidden; position: relative;
+}
+
+.funnelBarFill {
+  height: 100%; border-radius: 8px;
+  transition: width .6s cubic-bezier(.4,0,.2,1);
+  display: flex; align-items: center; justify-content: flex-end;
+  padding-right: 12px; min-width: 44px;
+}
+
+.funnelBarLabel {
+  font-size: 13px; font-weight: 700; color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,.2);
+}
+
+/* Info lateral */
+.funnelRowInfo {
+  display: flex; align-items: center;
+  justify-content: space-between; gap: 8px;
+  background: #fff; border: 1px solid #e2e8f0;
+  border-radius: 10px; padding: 10px 14px;
+}
+
+.funnelRowLeft {
+  display: flex; align-items: center; gap: 10px;
+}
+
+.funnelColorDot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+}
+
+.funnelStageName {
+  font-size: 13px; font-weight: 600; color: #0f172a;
+}
+
+.funnelStageCount {
+  font-size: 11px; color: #94a3b8; margin-top: 1px;
+}
+
+.funnelRowRight {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+}
+
+.funnelStageValue {
+  font-size: 13px; font-weight: 700; color: #0f172a;
+}
+
+.funnelConvBadge {
+  font-size: 10px; font-weight: 700;
+  border-radius: 20px; padding: 2px 7px;
+}
+.funnelConvGood  { color: #16a34a; background: #f0fdf4; border: 1px solid #bbf7d0; }
+.funnelConvMid   { color: #d97706; background: #fffbeb; border: 1px solid #fde68a; }
+.funnelConvLow   { color: #dc2626; background: #fef2f2; border: 1px solid #fecaca; }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   CNPJ LOOKUP CARD (inside LeadDetailPanel > Dados tab)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.cnpjCard {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 10px;
+  animation: fadeIn .2s ease;
+}
+
+.cnpjCardError {
+  background: #fef2f2; border-color: #fecaca; color: #dc2626;
+  font-size: 13px;
+}
+
+.cnpjCardLoading {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px; color: #0ea5e9;
+}
+
+.cnpjSpinner {
+  width: 16px; height: 16px; flex-shrink: 0;
+  border: 2px solid #bae6fd; border-top-color: #0ea5e9;
+  border-radius: 50%; animation: spin .7s linear infinite;
+}
+
+.cnpjCardHeader {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
+}
+
+.cnpjCardTitle {
+  font-size: 13px; font-weight: 700; color: #0f172a; line-height: 1.3;
+}
+
+.cnpjCardSub {
+  font-size: 11px; color: #64748b; margin-top: -6px;
+}
+
+.cnpjSitBadge {
+  flex-shrink: 0; font-size: 10px; font-weight: 700;
+  padding: 2px 8px; border-radius: 20px; border: 1px solid;
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.cnpjSitAtivo  { color: #16a34a; background: #f0fdf4; border-color: #bbf7d0; }
+.cnpjSitInativo { color: #dc2626; background: #fef2f2; border-color: #fecaca; }
+
+.cnpjCardGrid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px;
+}
+
+.cnpjCardItem {
+  display: flex; flex-direction: column; gap: 1px;
+}
+.cnpjCardItemLabel {
+  font-size: 10px; font-weight: 700; color: #94a3b8;
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.cnpjCardItemVal {
+  font-size: 12px; color: #0f172a; font-weight: 500; word-break: break-word;
+}
+
+.cnpjApplyBtn {
+  width: 100%; padding: 9px 12px;
+  background: #0ea5e9; color: #fff;
+  border: none; border-radius: 8px;
+  font-family: 'Sora', sans-serif; font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: all .15s;
+}
+.cnpjApplyBtn:hover { background: #0284c7; }
+
+/* ── CNPJ Import Modal ──────────────────────────────────────────────────────── */
+.cnpjModalBackdrop {
+  position: fixed; inset: 0;
+  background: rgba(15,23,42,0.55);
+  z-index: 9998;
+  backdrop-filter: blur(2px);
+}
+
+.cnpjModal {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.22);
+  width: min(480px, calc(100vw - 32px));
+  max-height: 80vh;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  animation: modalPop .18s cubic-bezier(.34,1.56,.64,1);
+}
+
+@keyframes modalPop {
+  from { opacity: 0; transform: translate(-50%, -48%) scale(.95); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+.cnpjModalHeader {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 20px 20px 14px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.cnpjModalTitle {
+  font-size: 15px; font-weight: 700; color: #0f172a; margin-bottom: 3px;
+}
+
+.cnpjModalSub {
+  font-size: 12px; color: #0f172a;
+}
+
+.cnpjModalSelectAll {
+  padding: 10px 20px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #f8fafc;
+}
+
+.cnpjModalFields {
+  flex: 1; overflow-y: auto;
+  padding: 8px 12px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+
+.cnpjModalEmpty {
+  padding: 20px; text-align: center; color: #94a3b8; font-size: 13px;
+}
+
+.cnpjCheckRow {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 8px; border-radius: 8px;
+  cursor: pointer; transition: background .1s;
+}
+.cnpjCheckRow:hover { background: #f8fafc; }
+.cnpjCheckRow input[type="checkbox"] {
+  margin-top: 2px; flex-shrink: 0;
+  width: 15px; height: 15px; accent-color: #3b82f6; cursor: pointer;
+}
+.cnpjCheckRowOff { opacity: .45; }
+
+.cnpjCheckInfo {
+  display: flex; flex-direction: column; gap: 2px; min-width: 0;
+}
+.cnpjCheckLabel {
+  font-size: 11px; font-weight: 700; color: #64748b;
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.cnpjCheckValue {
+  font-size: 13px; color: #0f172a; font-weight: 500; word-break: break-word;
+}
+
+.cnpjModalActions {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid #f1f5f9;
+  background: #fff;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   LEAD TEMPERATURE DOT (kanban card)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.leadTempDot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.8), 0 0 6px currentColor;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   STAGE NOTES SECTION (inside LeadDetailPanel > Dados tab)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.stageNotesWrap {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 14px 16px;
+  background: #f8fafc; border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin-top: 4px;
+}
+
+.stageNotesHeader {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+
+.stageNotesLabel {
+  font-size: 11px; font-weight: 700; color: #64748b;
+  text-transform: uppercase; letter-spacing: .05em;
+}
+
+.stageNotesSaving {
+  font-size: 11px; color: #94a3b8; font-style: italic;
+}
+
+.stageNotesSaved {
+  font-size: 11px; color: #16a34a; font-weight: 600;
+}
+
+.stageNotesList {
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 200px; overflow-y: auto;
+  padding-right: 2px;
+}
+.stageNotesList::-webkit-scrollbar { width: 3px; }
+.stageNotesList::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+
+.stageNoteEntry {
+  background: #fff; border: 1px solid #e2e8f0;
+  border-radius: 8px; padding: 8px 11px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+
+.stageNoteEntryText {
+  font-size: 13px; color: #0f172a; line-height: 1.5;
+  margin: 0; white-space: pre-wrap; word-break: break-word;
+}
+
+.stageNoteEntryDate {
+  font-size: 10px; color: #94a3b8; font-weight: 500;
+  align-self: flex-end;
+}
+
+.stageNotesInputWrap {
+  display: flex; gap: 8px; align-items: flex-end;
+}
+
+.stageNotesTextarea {
+  flex: 1; box-sizing: border-box;
+  background: #fff; border: 1px solid #e2e8f0;
+  border-radius: 8px; padding: 9px 12px;
+  font-family: 'Sora', sans-serif; font-size: 12px;
+  color: #0f172a; resize: none; outline: none;
+  line-height: 1.5;
+  transition: border-color .15s;
+}
+.stageNotesTextarea:focus { border-color: #3b82f6; }
+.stageNotesTextarea::placeholder { color: #94a3b8; }
+
+.stageNotesSendBtn {
+  flex-shrink: 0;
+  width: 34px; height: 34px;
+  background: #3b82f6; color: #fff;
+  border: none; border-radius: 8px;
+  font-size: 16px; font-weight: 700;
+  cursor: pointer; transition: background .15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.stageNotesSendBtn:hover { background: #2563eb; }
+.stageNotesSendBtn:disabled { background: #cbd5e1; cursor: default; }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   AI ADVISOR TAB (inside LeadDetailPanel)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.aiAdvisorWrap {
+  padding: 20px 24px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+
+.aiAdvisorHeader {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+}
+
+.aiAdvisorTitle {
+  font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 4px;
+}
+
+.aiAdvisorSubtitle {
+  font-size: 12px; color: #64748b; line-height: 1.4;
+}
+
+.aiCacheBadge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; color: #64748b;
+  background: #f1f5f9; border: 1px solid #e2e8f0;
+  padding: 4px 10px; border-radius: 20px;
+}
+
+.aiError {
+  background: #fef2f2; border: 1px solid #fecaca;
+  color: #dc2626; border-radius: 8px; padding: 12px 14px;
+  font-size: 13px; line-height: 1.5;
+}
+
+.aiEmptyState {
+  text-align: center; color: #94a3b8; font-size: 13px;
+  padding: 40px 20px; line-height: 1.6;
+}
+
+.aiLoading {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 12px; padding: 40px 20px; color: #64748b; font-size: 13px;
+}
+
+.aiLoadingSpinner {
+  width: 28px; height: 28px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+.aiAdviceBox {
+  background: linear-gradient(135deg, #f0f4ff 0%, #fafafa 100%);
+  border: 1px solid #c7d7fe;
+  border-radius: 12px; padding: 18px 20px;
+  font-size: 13px; color: #1e293b; line-height: 1.65;
+  position: relative;
+}
+
+.aiAdviceBox::before {
+  content: '✦';
+  position: absolute; top: -10px; left: 16px;
+  background: #6366f1; color: #fff;
+  width: 20px; height: 20px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; line-height: 20px; text-align: center;
 }

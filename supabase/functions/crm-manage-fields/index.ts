@@ -2,6 +2,7 @@
 import { serve } from 'std/http/server'
 import { createClient } from 'supabase'
 import { handleCors, json } from '../_shared/cors.ts'
+import { getScopedPipeline, resolveCrmScope } from '../_shared/crm.ts'
 
 serve(async (req) => {
   const cors = handleCors(req)
@@ -18,25 +19,10 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // Valida sessão e role
-    const { data: sessao } = await sb
-      .from('sessions')
-      .select('usuario_id')
-      .eq('token', session_token)
-      .gt('expires_at', new Date().toISOString())
-      .single()
+    const scope = await resolveCrmScope(sb, session_token, params.cliente_id)
+    if (!scope) return json(req, { error: 'Sessão expirada.' }, 401)
 
-    if (!sessao) return json(req, { error: 'Sessão expirada.' }, 401)
-
-    const { data: usuario } = await sb
-      .from('usuarios')
-      .select('role')
-      .eq('id', sessao.usuario_id)
-      .single()
-
-    if (!usuario || !['ngp', 'admin'].includes(usuario.role)) {
-      return json(req, { error: 'Acesso negado.' }, 403)
-    }
+    const { clienteId } = scope
 
     // ── ACTIONS ──────────────────────────────────────────────────────────────
 
@@ -44,6 +30,9 @@ serve(async (req) => {
     if (action === 'list') {
       const { pipeline_id } = params
       if (!pipeline_id) return json(req, { error: 'pipeline_id obrigatório.' }, 400)
+
+      const pipeline = await getScopedPipeline(sb, pipeline_id, clienteId)
+      if (!pipeline) return json(req, { error: 'Pipeline não encontrado.' }, 404)
 
       const { data, error } = await sb
         .from('crm_pipeline_fields')
@@ -61,6 +50,9 @@ serve(async (req) => {
       if (!pipeline_id) return json(req, { error: 'pipeline_id obrigatório.' }, 400)
       if (!name) return json(req, { error: 'name obrigatório.' }, 400)
       if (!type) return json(req, { error: 'type obrigatório.' }, 400)
+
+      const pipeline = await getScopedPipeline(sb, pipeline_id, clienteId)
+      if (!pipeline) return json(req, { error: 'Pipeline não encontrado.' }, 404)
 
       const { data: existing } = await sb
         .from('crm_pipeline_fields')
@@ -86,6 +78,17 @@ serve(async (req) => {
       const { field_id, name, type, options } = params
       if (!field_id) return json(req, { error: 'field_id obrigatório.' }, 400)
 
+      const { data: field } = await sb
+        .from('crm_pipeline_fields')
+        .select('id, pipeline_id')
+        .eq('id', field_id)
+        .single()
+
+      if (!field) return json(req, { error: 'Campo não encontrado.' }, 404)
+
+      const pipeline = await getScopedPipeline(sb, field.pipeline_id, clienteId)
+      if (!pipeline) return json(req, { error: 'Campo não encontrado.' }, 404)
+
       const { data, error } = await sb
         .from('crm_pipeline_fields')
         .update({ name: name?.trim(), type, options })
@@ -102,6 +105,17 @@ serve(async (req) => {
       const { field_id } = params
       if (!field_id) return json(req, { error: 'field_id obrigatório.' }, 400)
 
+      const { data: field } = await sb
+        .from('crm_pipeline_fields')
+        .select('id, pipeline_id')
+        .eq('id', field_id)
+        .single()
+
+      if (!field) return json(req, { error: 'Campo não encontrado.' }, 404)
+
+      const pipeline = await getScopedPipeline(sb, field.pipeline_id, clienteId)
+      if (!pipeline) return json(req, { error: 'Campo não encontrado.' }, 404)
+
       const { error } = await sb
         .from('crm_pipeline_fields')
         .delete()
@@ -117,6 +131,9 @@ serve(async (req) => {
       if (!pipeline_id || !ordered_ids || !Array.isArray(ordered_ids)) {
         return json(req, { error: 'pipeline_id e ordered_ids obrigatórios.' }, 400)
       }
+
+      const pipeline = await getScopedPipeline(sb, pipeline_id, clienteId)
+      if (!pipeline) return json(req, { error: 'Pipeline não encontrado.' }, 404)
 
       await Promise.all(
         ordered_ids.map((id: string, index: number) =>
