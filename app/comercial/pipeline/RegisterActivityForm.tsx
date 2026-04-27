@@ -3,14 +3,17 @@ import React, { useState } from 'react'
 import { crmCall, ACTIVITY_TYPE_LABELS } from '@/lib/crm-api'
 import styles from './pipeline.module.css'
 
+type CrmRequest = (fn: string, body: Record<string, unknown>) => Promise<any>
+
 interface Props {
   leadId: string
+  crmRequest?: CrmRequest
   onCreated: () => void
 }
 
 const MANUAL_TYPES = ['ligacao', 'email', 'reuniao', 'whatsapp', 'visita', 'nota_interna'] as const
 
-export default function RegisterActivityForm({ leadId, onCreated }: Props) {
+export default function RegisterActivityForm({ leadId, crmRequest = crmCall, onCreated }: Props) {
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
@@ -23,7 +26,7 @@ export default function RegisterActivityForm({ leadId, onCreated }: Props) {
   const create = async () => {
     if (!form.title.trim() || saving) return
     setSaving(true)
-    const res = await crmCall('crm-manage-activities', {
+    const res = await crmRequest('crm-manage-activities', {
       action: 'create',
       lead_id: leadId,
       activity_type: form.activity_type,

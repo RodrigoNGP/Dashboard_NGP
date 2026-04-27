@@ -1,0 +1,23 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../.tmp-tests",
+    "rootDir": "..",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "target": "ES2020",
+    "noEmit": false,
+    "declaration": false,
+    "emitDeclarationOnly": false,
+    "isolatedModules": false,
+    "incremental": false
+  },
+  "include": [
+    "../tests/*.test.ts",
+    "../lib/analytics-contract.ts",
+    "../lib/analytics-snapshot.ts",
+    "../lib/meta-analysis.ts",
+    "../lib/utils.ts",
+    "../types/index.ts"
+  ]
+}

@@ -49,6 +49,7 @@ export function buildClientPortalNav({ analyticsEnabled, reportsEnabled, crmEnab
       label: 'Comercial Digital',
       href: '/comercial-digital',
       subItems: [
+        { icon: <div style={{ width: 14 }} />, label: 'Dashboard', href: '/comercial-digital', tab: 'dashboard' },
         { icon: <div style={{ width: 14 }} />, label: 'Meu CRM', href: '/comercial-digital/pipeline', tab: 'kanban' },
         { icon: <div style={{ width: 14 }} />, label: 'Funil', href: '/comercial-digital/pipeline', tab: 'funil' },
         { icon: <div style={{ width: 14 }} />, label: 'Campos', href: '/comercial-digital/pipeline', tab: 'fields' },

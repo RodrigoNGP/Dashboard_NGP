@@ -3,6 +3,8 @@
 import React, { useState, useRef } from 'react';
 import { Target, FileText, Download, Calculator, Package, User, CreditCard, ChevronRight, Briefcase, BarChart4, ClipboardList, Plus, Trash2, LayoutDashboard, Save } from 'lucide-react';
 import { crmCall } from '@/lib/crm-api';
+import CustomSelect from '@/components/CustomSelect';
+import CustomDatePicker from '@/components/CustomDatePicker';
 import s from './propostas.module.css';
 
 export default function PropostasForm() {
@@ -185,16 +187,11 @@ export default function PropostasForm() {
                 <input type="text" value={formData.numeroProposta} onChange={e => setFormData({...formData, numeroProposta: e.target.value})} className={`${s.input} ${s.inputMono}`} />
               </div>
               <div className={s.inputGroup}>
-                <label className={s.label}>Data Emissão</label>
-                <div className="ngp-date-field ngp-date-field--full">
-                  <input type="date" value={formData.dataEmissao} onChange={e => setFormData({...formData, dataEmissao: e.target.value})} className="ngp-date-input" />
-                  <svg className="ngp-date-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <rect x="3" y="4" width="18" height="17" rx="2" />
-                    <line x1="16" y1="2" x2="16" y2="6" />
-                    <line x1="8" y1="2" x2="8" y2="6" />
-                    <line x1="3" y1="10" x2="21" y2="10" />
-                  </svg>
-                </div>
+                <CustomDatePicker
+                  caption="Data Emissão"
+                  value={formData.dataEmissao}
+                  onChange={val => setFormData({ ...formData, dataEmissao: val })}
+                />
               </div>
               <div className={s.inputGroup}>
                 <label className={s.label}>Validade (Dias)</label>
@@ -332,8 +329,11 @@ export default function PropostasForm() {
                 <input type="text" value={formData.prazoContrato} onChange={e => setFormData({...formData, prazoContrato: e.target.value})} className={s.input} placeholder="Ex: 12 meses" />
               </div>
               <div className={s.inputGroup}>
-                <label className={s.label}>Início Estimado</label>
-                <input type="text" value={formData.inicioPrevisto} onChange={e => setFormData({...formData, inicioPrevisto: e.target.value})} className={s.input} />
+                <CustomDatePicker
+                  caption="Início Estimado"
+                  value={formData.inicioPrevisto}
+                  onChange={val => setFormData({ ...formData, inicioPrevisto: val })}
+                />
               </div>
               <div className={`${s.inputGroup} ${s.gridColSpan2}`}>
                 <label className={s.label}>Política de Negociação / Pagto</label>

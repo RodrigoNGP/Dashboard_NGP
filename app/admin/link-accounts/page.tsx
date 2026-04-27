@@ -5,6 +5,7 @@ import { getSession } from '@/lib/auth'
 import { SURL } from '@/lib/constants'
 import { efHeaders } from '@/lib/api'
 import Sidebar from '@/components/Sidebar'
+import CustomSelect from '@/components/CustomSelect'
 import styles from './link-accounts.module.css'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -278,11 +279,16 @@ export default function LinkAccountsPage() {
                     </div>
                     <div className={styles.field}>
                       <label>Role</label>
-                      <select value={fRole} onChange={e => setFRole(e.target.value as typeof fRole)}>
-                        <option value="ngp">NGP (colaborador)</option>
-                        <option value="admin">Admin</option>
-                        <option value="cliente">Cliente</option>
-                      </select>
+                      <CustomSelect
+                        caption="Role"
+                        value={fRole}
+                        options={[
+                          { id: 'ngp', label: 'NGP (colaborador)' },
+                          { id: 'admin', label: 'Admin' },
+                          { id: 'cliente', label: 'Cliente' },
+                        ]}
+                        onChange={val => setFRole(val as any)}
+                      />
                     </div>
                     {fRole === 'cliente' && (
                       <div className={`${styles.field} ${styles.fieldFull}`}>

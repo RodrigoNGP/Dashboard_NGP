@@ -1,18 +1,15 @@
 .layout {
-  display: flex;
-  height: 100vh;
-  overflow: hidden;
-  background: #F5F5F7;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top, rgba(219, 234, 254, 0.74), transparent 42%),
+    linear-gradient(180deg, #f8fbff 0%, #f3f6fb 100%);
   font-family: 'Sora', sans-serif;
 }
 
 .main {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
-  padding: 64px 56px;
-  min-width: 0;
+  padding: 36px 56px 40px;
   align-items: center;
 }
 
@@ -415,6 +412,7 @@
 .cardTitleRow {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 4px;
 }
@@ -425,6 +423,19 @@
   color: #1C1C1E;
   margin: 0;
   letter-spacing: -0.01em;
+}
+
+.cardBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .externalTag {
@@ -463,6 +474,102 @@
   gap: 8px;
 }
 
+.adminPlanCard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 28px;
+  padding: 24px;
+  background: linear-gradient(135deg, #f8fbff 0%, #f1f7ff 100%);
+  border: 1px solid #dbeafe;
+  border-radius: 20px;
+  box-shadow: 0 18px 40px rgba(37, 99, 235, 0.08);
+}
+
+.adminPlanHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.adminPlanEyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #2563eb;
+  margin-bottom: 6px;
+}
+
+.adminPlanTitle {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: #111827;
+}
+
+.adminPlanStatus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.adminPlanDesc {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: #475569;
+  max-width: 880px;
+}
+
+.adminPlanPath {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #bfdbfe;
+  font-size: 12px;
+  color: #475569;
+  overflow-x: auto;
+}
+
+.adminPlanPath code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #1d4ed8;
+}
+
+.adminPlanGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.adminPlanPoint {
+  min-height: 94px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #dbeafe;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #334155;
+}
+
 .footerDot {
   width: 8px;
   height: 8px;
@@ -491,7 +598,7 @@
 
 @media (max-width: 768px) {
   .main {
-    padding: 18px 14px 24px;
+    padding: 22px 14px 24px;
     align-items: stretch;
   }
 
@@ -670,6 +777,24 @@
     right: 14px;
     bottom: 14px;
     font-size: 18px;
+  }
+
+  .adminPlanCard {
+    padding: 18px;
+    border-radius: 18px;
+  }
+
+  .adminPlanHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .adminPlanTitle {
+    font-size: 20px;
+  }
+
+  .adminPlanGrid {
+    grid-template-columns: 1fr;
   }
 
   .footer {

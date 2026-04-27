@@ -77,7 +77,9 @@ export default function ClienteToolsPage() {
       <div className={styles.portalMain}>
         <header className={styles.header}>
           <div className={styles.headerLeft}>
-            <div className={styles.logo}>NGP <span>Dashboard</span></div>
+            <div className={styles.logo}>
+              <img src="/logos/logo-vertical.png" alt="NGP Space" style={{ height: '36px', width: 'auto', objectFit: 'contain' }} />
+            </div>
             <div className={styles.clienteBadge}>👤 Área do Cliente</div>
           </div>
           <div className={styles.headerRight}>

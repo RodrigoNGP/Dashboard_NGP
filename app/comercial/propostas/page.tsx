@@ -21,7 +21,7 @@ export default function PropostasPage() {
     setSess(s)
   }, [router])
 
-  if (!sess) return null
+  if (!sess) return <NGPLoading loading loadingText="Carregando propostas..." />
 
   return (
     <div className={styles.layout}>

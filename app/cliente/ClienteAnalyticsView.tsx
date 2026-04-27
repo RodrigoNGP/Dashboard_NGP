@@ -11,6 +11,7 @@ import { SURL, ANON } from '@/lib/constants'
 import { efHeaders } from '@/lib/api'
 import { Campaign, DateParam, Relatorio } from '@/types'
 import PeriodFilter from '@/components/PeriodFilter'
+import MetaAnalysisPanel from '@/components/MetaAnalysisPanel'
 import { buildClientPortalNav } from './client-nav'
 import styles from './cliente.module.css'
 
@@ -18,13 +19,31 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
+function getDefaultComparisonForLast30() {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const until = new Date(today.getTime() - 31 * 86400000)
+  const since = new Date(until.getTime() - 29 * 86400000)
+  const fmtIso = (date: Date) => date.toISOString().slice(0, 10)
+  const fmtBrDate = (iso: string) => iso.split('-').reverse().join('/')
+  const sinceIso = fmtIso(since)
+  const untilIso = fmtIso(until)
+
+  return {
+    dp: { time_range: JSON.stringify({ since: sinceIso, until: untilIso }) },
+    label: `${fmtBrDate(sinceIso)} – ${fmtBrDate(untilIso)}`,
+  }
+}
+
 export default function ClienteAnalyticsView() {
   const router = useRouter()
   const [sess] = useState(getSession)
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
+  const [prevCampaigns, setPrevCampaigns] = useState<Campaign[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [periodLabel, setPeriodLabel] = useState('Últimos 30 dias')
+  const [comparisonLabel, setComparisonLabel] = useState('')
   const [openCards, setOpenCards] = useState<Set<string>>(new Set())
   const [relatorios, setRelatorios] = useState<Relatorio[]>([])
   const [accessChecked, setAccessChecked] = useState(false)
@@ -60,7 +79,10 @@ export default function ClienteAnalyticsView() {
       setAnalyticsEnabled(analytics)
       setReportsEnabled(reports)
       setCrmEnabled(crm)
-      if (analytics) loadAll({ date_preset: 'last_30d' })
+      if (analytics) {
+        const defaultComparison = getDefaultComparisonForLast30()
+        loadAll({ date_preset: 'last_30d' }, defaultComparison.dp, defaultComparison.label)
+      }
       else setLoading(false)
       if (reports) loadRelatorios()
     } catch {
@@ -71,28 +93,41 @@ export default function ClienteAnalyticsView() {
     }
   }
 
-  const loadAll = useCallback(async (dp: DateParam) => {
+  const loadCampaigns = useCallback(async (dp: DateParam) => {
+    const data = await metaCall('{account_id}/campaigns', {
+      fields: 'id,name,status,objective,insights{spend,impressions,clicks,ctr,cpc,reach,actions,action_values,purchase_roas}',
+      filtering: JSON.stringify([{ field: 'effective_status', operator: 'IN', value: ['ACTIVE'] }]),
+      limit: '100',
+      ...dp,
+    })
+    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error))
+
+    return (data.data || []).map((campaign: { id: string; name: string; status: string; objective: string; insights?: { data?: unknown[] } }) => ({
+      id: campaign.id,
+      name: campaign.name,
+      status: campaign.status,
+      objective: (campaign.objective || '').replace(/_/g, ' ').toLowerCase(),
+      ...parseIns(campaign.insights?.data?.[0] as Record<string, unknown> || {}),
+    })) as Campaign[]
+  }, [])
+
+  const loadAll = useCallback(async (dp: DateParam, cmpDp?: DateParam, cmpLbl?: string) => {
     setLoading(true); setError('')
     try {
-      const d = await metaCall('{account_id}/campaigns', {
-        fields: 'id,name,status,objective,insights{spend,impressions,clicks,ctr,cpc,actions,action_values,purchase_roas}',
-        filtering: JSON.stringify([{ field: 'effective_status', operator: 'IN', value: ['ACTIVE'] }]),
-        limit: '100',
-        ...dp,
-      })
-      if (d.error) throw new Error(d.error.message || JSON.stringify(d.error))
-      setCampaigns(
-        (d.data || []).map((c: { id: string; name: string; status: string; objective: string; insights?: { data?: unknown[] } }) => ({
-          id: c.id, name: c.name, status: c.status,
-          objective: (c.objective || '').replace(/_/g, ' ').toLowerCase(),
-          ...parseIns(c.insights?.data?.[0] as Record<string, unknown> || {}),
-        }))
-      )
+      const [currentCampaigns, previousCampaigns] = await Promise.all([
+        loadCampaigns(dp),
+        cmpDp ? loadCampaigns(cmpDp) : Promise.resolve([] as Campaign[]),
+      ])
+      setCampaigns(currentCampaigns)
+      setPrevCampaigns(previousCampaigns)
+      setComparisonLabel(cmpDp && cmpLbl ? cmpLbl : '')
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Erro ao carregar dados')
+      setPrevCampaigns([])
+      setComparisonLabel('')
     }
     setLoading(false)
-  }, [])
+  }, [loadCampaigns])
 
   async function loadRelatorios() {
     const s = getSession()
@@ -117,9 +152,10 @@ export default function ClienteAnalyticsView() {
     setRelatorios(prev => prev.filter(r => r.id !== id))
   }
 
-  function onPeriodApply(dp: DateParam, label: string) {
+  function onPeriodApply(dp: DateParam, label: string, cmpDp?: DateParam, cmpLbl?: string) {
     if (!analyticsEnabled) return
-    setPeriodLabel(label); loadAll(dp)
+    setPeriodLabel(label)
+    loadAll(dp, cmpDp, cmpLbl)
   }
 
   function toggleCard(id: string) {
@@ -193,6 +229,14 @@ export default function ClienteAnalyticsView() {
               <div className={styles.kpi}><div className={styles.kpiIcon} style={{ background: '#f5f3ff' }}>👁️</div><div className={styles.kpiLabel}>Impressões</div><div className={styles.kpiValue}>{fmtI(tImp)}</div><div className={styles.kpiTip}>Vezes que seu anúncio foi exibido</div></div>
               <div className={styles.kpi}><div className={styles.kpiIcon} style={{ background: '#fffbeb' }}>📈</div><div className={styles.kpiLabel}>CTR médio</div><div className={styles.kpiValue}>{avgCtr.toFixed(2)}%</div><div className={styles.kpiTip}>% de pessoas que clicaram no anúncio</div></div>
             </div>
+
+            <MetaAnalysisPanel
+              campaigns={campaigns}
+              prevCampaigns={prevCampaigns}
+              periodLabel={periodLabel}
+              comparisonLabel={comparisonLabel}
+              title="Leitura estratégica das campanhas"
+            />
 
             <div className={styles.sectionTitle}>📋 Suas Campanhas <span className={styles.count}>{campaigns.length} campanhas</span></div>
 

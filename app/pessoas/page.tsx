@@ -6,6 +6,7 @@ import { SURL } from '@/lib/constants'
 import { efHeaders } from '@/lib/api'
 import Sidebar from '@/components/Sidebar'
 import NGPLoading from '@/components/NGPLoading'
+import CustomSelect from '@/components/CustomSelect'
 import styles from './pessoas.module.css'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -503,7 +504,7 @@ export default function PessoasPage() {
     }
   }
 
-  if (!sess) return null
+  if (!sess) return <NGPLoading loading loadingText="Carregando setor de pessoas..." />
 
   const nextAction               = getNextAction(todayRecords)
   const { totalMins: todayMins } = calcBalance(todayRecords)
@@ -646,24 +647,18 @@ export default function PessoasPage() {
                     Todos os usuários
                   </label>
                 )}
-                <select
-                  className={styles.mesSelect}
-                  value={selMes}
-                  onChange={e => setSelMes(Number(e.target.value))}
-                >
-                  {MONTHS.map((m, i) => (
-                    <option key={i} value={i + 1}>{m}</option>
-                  ))}
-                </select>
-                <select
-                  className={styles.mesSelect}
-                  value={selAno}
-                  onChange={e => setSelAno(Number(e.target.value))}
-                >
-                  {[2025, 2026, 2027].map(a => (
-                    <option key={a} value={a}>{a}</option>
-                  ))}
-                </select>
+                <CustomSelect
+                  caption="Mês"
+                  value={selMes.toString()}
+                  options={MONTHS.map((m, i) => ({ id: (i + 1).toString(), label: m }))}
+                  onChange={next => setSelMes(Number(next))}
+                />
+                <CustomSelect
+                  caption="Ano"
+                  value={selAno.toString()}
+                  options={[2025, 2026, 2027].map(a => ({ id: a.toString(), label: a.toString() }))}
+                  onChange={next => setSelAno(Number(next))}
+                />
               </div>
             </div>
 

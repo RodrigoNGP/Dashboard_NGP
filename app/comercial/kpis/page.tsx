@@ -20,7 +20,7 @@ export default function KpisPage() {
     setSess(s)
   }, [router])
 
-  if (!sess) return null
+  if (!sess) return <NGPLoading loading loadingText="Carregando KPIs..." />
 
   return (
     <div className={styles.layout}>

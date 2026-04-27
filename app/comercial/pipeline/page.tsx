@@ -1,5 +1,7 @@
 'use client'
 import React, { useEffect, useState, useCallback, useRef } from 'react'
+import CustomSelect, { SelectOption } from '@/components/CustomSelect'
+import CustomDatePicker from '@/components/CustomDatePicker'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getSession } from '@/lib/auth'
 import { crmCall, CrmPipeline, CrmStage, CrmLead, CrmPipelineField, CrmTask } from '@/lib/crm-api'
@@ -21,320 +23,11 @@ import { CSS } from '@dnd-kit/utilities'
 // ─── Sidebar nav ─────────────────────────────────────────────────────────────
 // Removida definição local para usar comercial-nav.tsx
 
+import { LeadCard, KanbanColumn } from './components/KanbanComponents'
+import { SortableStageRow, SortableFieldRow, SortablePreviewField, CurrencyInput, getBaseType, getFieldWidth } from './components/FieldComponents'
+
 const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 
-// ── Temperatura dot no card ────────────────────────────────────────────────────
-const TEMP_DOT: Record<string, { color: string; emoji: string; label: string }> = {
-  hot:  { color: '#dc2626', emoji: '🔥', label: 'Quente'  },
-  warm: { color: '#d97706', emoji: '🌡️', label: 'Morno'   },
-  cold: { color: '#2563eb', emoji: '❄️', label: 'Frio'    },
-}
-
-// ─── Lead Card (sortable) ─────────────────────────────────────────────────────
-const LeadCard = React.memo(function LeadCard({ lead, tasks, onEdit, overlay }: { lead: CrmLead; tasks?: CrmTask[]; onEdit: (l: CrmLead, targetTab?: 'dados'|'timeline'|'tarefas') => void; overlay?: boolean }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: lead.id })
-  const style = { transform: CSS.Transform.toString(transform), transition }
-
-  const pendingTasks = tasks?.filter(t => t.status === 'pendente') || []
-  const today = new Date().toDateString()
-  const overdueCount = pendingTasks.filter(t => new Date(t.due_date) < new Date(today)).length
-  const pendingCount = pendingTasks.length - overdueCount
-
-  const tempInfo = lead.temperature ? TEMP_DOT[lead.temperature] : null
-
-  return (
-    <div
-      ref={setNodeRef} style={style} {...attributes} {...listeners}
-      className={`${styles.leadCard} ${isDragging ? styles.leadCardDragging : ''} ${overlay ? styles.leadCardOverlay : ''}`}
-      onClick={(e) => {
-        if (!isDragging) onEdit(lead)
-      }}
-    >
-      <div className={styles.leadHeader}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', overflow: 'hidden', flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {tempInfo && (
-              <span
-                className={styles.leadTempDot}
-                style={{ background: tempInfo.color }}
-                title={`Lead ${tempInfo.label}`}
-              />
-            )}
-            <div className={styles.leadCompany} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lead.company_name}</div>
-          </div>
-          <div className={styles.leadBadges}>
-            {overdueCount > 0 && <span className={styles.leadBadgeOverdue} title={`${overdueCount} tarefa(s) precisando de atenção`} />}
-            {overdueCount === 0 && pendingCount > 0 && <span className={styles.leadBadgePending} title={`${pendingCount} tarefa(s) em dia`} />}
-          </div>
-        </div>
-
-        <button
-          className={styles.leadTaskBtn}
-          onPointerDown={e => e.stopPropagation()}
-          onClick={e => { e.stopPropagation(); onEdit(lead, 'tarefas') }}
-          title="Nova tarefa"
-        >
-          Nova Tarefa
-        </button>
-      </div>
-      {lead.contact_name && <div className={styles.leadContact}>{lead.contact_name}</div>}
-      <div className={styles.leadValue}>{fmt(lead.estimated_value)}</div>
-
-      <div className={styles.leadFooter}>
-        <span className={styles.leadEditLabel}>editar ✎</span>
-      </div>
-    </div>
-  )
-})
-
-// ─── Droppable Column ─────────────────────────────────────────────────────────
-const KanbanColumn = React.memo(function KanbanColumn({ stage, leads, allTasks, onEdit, onAddLead }: { stage: CrmStage; leads: CrmLead[]; allTasks: CrmTask[]; onEdit: (l: CrmLead, targetTab?: 'dados'|'timeline'|'tarefas') => void; onAddLead: (stageId: string) => void }) {
-  const { setNodeRef, isOver } = useDroppable({ id: stage.id })
-  return (
-    <div className={`${styles.column} ${isOver ? styles.columnOver : ''}`}>
-      <div className={styles.columnHeader}>
-        <div className={styles.columnDot} style={{ background: stage.color }} />
-        <span className={styles.columnName}>{stage.name}</span>
-        <span className={styles.columnCount}>{leads.length}</span>
-      </div>
-      <div ref={setNodeRef} className={styles.columnBody}>
-        <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
-          {leads.map(lead => <LeadCard key={lead.id} lead={lead} tasks={allTasks.filter(t => t.lead_id === lead.id)} onEdit={onEdit} />)}
-        </SortableContext>
-        {leads.length === 0 && (
-          <button className={styles.emptyColumn} onClick={() => onAddLead(stage.id)}>
-            + Adicionar lead
-          </button>
-        )}
-      </div>
-    </div>
-  )
-})
-
-// ─── Sortable Stage Row ─────────────────────────────────────────────────────
-function SortableStageRow({ se, leadsCount, onDelete, onChangeName, onChangeColor, saving }: { se: any, leadsCount: number, onDelete: () => void, onChangeName: (v: string) => void, onChangeColor: (v: string) => void, saving: boolean }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: se.id })
-  const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 10 : 1, position: 'relative' as any }
-  return (
-    <div ref={setNodeRef} style={style} className={styles.stageRow}>
-      <button 
-        type="button" 
-        style={{ background: 'transparent', border: 'none', color: '#6B7280', cursor: isDragging ? 'grabbing' : 'grab', padding: '4px', display: 'flex', alignItems: 'center' }} 
-        {...attributes} 
-        {...listeners} 
-        disabled={saving}
-        title="Arraste para reordenar"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width={16} height={16}>
-          <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
-        </svg>
-      </button>
-      <input type="color" className={styles.stageColorInput} value={se.color} onChange={e => onChangeColor(e.target.value)} disabled={saving} />
-      <input className={styles.stageNameInput} value={se.name} onChange={e => onChangeName(e.target.value)} disabled={saving} />
-      <span className={styles.stageLeadCount}>{leadsCount} lead{leadsCount !== 1 ? 's' : ''}</span>
-      <div className={styles.stageActions}>
-        <button className={styles.stageDeleteBtn} onClick={onDelete} disabled={leadsCount > 0 || saving} title={leadsCount > 0 ? 'Mova os leads antes de excluir' : 'Excluir etapa'}>×</button>
-      </div>
-    </div>
-  )
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-const getBaseType = (type: string) => type.split(':')[0]
-const getFieldWidth = (type: string): 'full' | 'half' => type.includes(':half') ? 'half' : 'full'
-
-const CurrencyInput = ({ value, onChange, className }: { value: number | string; onChange: (v: number) => void; className?: string }) => {
-  const displayVal = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0)
-  return (
-    <input 
-      type="text" 
-      className={className}
-      value={displayVal} 
-      onChange={(e) => {
-        const numericStr = e.target.value.replace(/\D/g, '')
-        const floatValue = numericStr ? parseInt(numericStr, 10) / 100 : 0
-        onChange(floatValue)
-      }} 
-    />
-  )
-}
-
-// ─── Sortable Field Row ─────────────────────────────────────────────────────
-function SortableFieldRow({ 
-  field, onDelete, onChangeName, onChangeType, onChangeOptions, saving 
-}: { 
-  field: CrmPipelineField, 
-  onDelete: () => void, 
-  onChangeName: (v: string) => void, 
-  onChangeType: (v: string) => void, 
-  onChangeOptions: (v: string[]) => void, 
-  saving: boolean 
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id })
-  const baseType = getBaseType(field.type)
-  const isHalf = getFieldWidth(field.type) === 'half'
-  
-  const style = { 
-    transform: CSS.Transform.toString(transform), 
-    transition, 
-    zIndex: isDragging ? 20 : 1, 
-    position: 'relative' as any, 
-    display: 'flex', 
-    flexDirection: 'column' as any,
-    gap: 8, 
-    padding: '16px',
-    background: '#ffffff',
-    border: isDragging ? '1px solid #3b82f6' : '1px solid #e2e8f0',
-    borderRadius: 8,
-    marginBottom: 12,
-    boxShadow: isDragging ? '0 10px 20px rgba(59, 130, 246, 0.1)' : 'none'
-  }
-
-  const toggleWidth = () => {
-    const newType = isHalf ? baseType : `${baseType}:half`
-    onChangeType(newType)
-  }
-
-  return (
-    <div ref={setNodeRef} style={style}>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-        <button type="button" style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: isDragging ? 'grabbing' : 'grab', padding: '4px' }} {...attributes} {...listeners} disabled={saving}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width={16} height={16}>
-            <circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/>
-            <circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/>
-          </svg>
-        </button>
-
-        <input 
-          className={styles.stageNameInput} 
-          style={{ flex: 1, fontWeight: 600, border: 'none', paddingLeft: 0, borderBottom: '1px solid transparent' }} 
-          value={field.name} 
-          onChange={e => onChangeName(e.target.value)} 
-          disabled={saving} 
-          placeholder="Nome do campo"
-        />
-
-        <select 
-          className={styles.stageNameInput} 
-          style={{ width: 150, padding: '4px 8px', fontSize: 13, border: '1px solid #e2e8f0' }} 
-          value={baseType} 
-          onChange={e => onChangeType(isHalf ? `${e.target.value}:half` : e.target.value)} 
-          disabled={saving}
-        >
-          <optgroup label="Padrão">
-            <option value="system_stage_id">Etapa</option>
-            <option value="system_contact_name">Contato</option>
-            <option value="system_source">Origem</option>
-            <option value="system_phone">Telefone</option>
-            <option value="system_email">Email</option>
-            <option value="system_estimated_value">Valor</option>
-            <option value="system_notes">Obs</option>
-          </optgroup>
-          <optgroup label="Customizado">
-            <option value="text">Texto Curto</option>
-            <option value="longtext">Texto Longo</option>
-            <option value="number">Número</option>
-            <option value="currency">Moeda</option>
-            <option value="cnpj">CNPJ/CPF</option>
-            <option value="date">Data</option>
-            <option value="select">Múltipla Escolha</option>
-          </optgroup>
-        </select>
-
-        <button 
-          className={styles.btn} 
-          title="Alternar largura entre Pequeno (50%) e Grande (100%)"
-          style={{ width: 85, fontSize: 11, background: isHalf ? '#eff6ff' : '#f8fafc', color: isHalf ? '#2563eb' : '#64748b', border: isHalf ? '1px solid #bfdbfe' : '1px solid #e2e8f0' }}
-          onClick={toggleWidth}
-          disabled={baseType === 'longtext' || baseType === 'system_notes' || saving}
-        >
-          {isHalf ? 'Pequeno' : 'Grande'}
-        </button>
-
-        <button className={styles.stageDeleteBtn} style={{ color: '#ef4444' }} onClick={onDelete} disabled={saving}>×</button>
-      </div>
-
-      {baseType === 'select' && (
-        <div style={{ padding: '8px 12px', background: '#f8fafc', borderRadius: 6, display: 'flex', flexDirection: 'column', gap: 6, marginLeft: 28 }}>
-          <label style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Opções da Lista</label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {(field.options || []).map((opt, idx) => (
-              <div key={idx} style={{ display: 'flex', alignItems: 'center', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 4, padding: '2px 4px' }}>
-                <input 
-                  style={{ border: 'none', background: 'transparent', fontSize: 12, padding: 2, width: 80 }}
-                  value={opt}
-                  onChange={e => {
-                    const newOpts = [...(field.options || [])]
-                    newOpts[idx] = e.target.value
-                    onChangeOptions(newOpts)
-                  }}
-                  disabled={saving}
-                />
-                <button 
-                  style={{ border: 'none', background: 'transparent', color: '#94a3b8', cursor: 'pointer', padding: '0 4px', fontSize: 14 }}
-                  onClick={() => onChangeOptions((field.options || []).filter((_, i) => i !== idx))}
-                  disabled={saving}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-            <button 
-              className={styles.btnSm}
-              style={{ background: '#fff', border: '1px dashed #cbd5e1', color: '#3b82f6', fontSize: 12 }}
-              onClick={() => onChangeOptions([...(field.options || []), 'Nova opção'])}
-              disabled={saving}
-            >
-              + Opção
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function SortablePreviewField({ field }: { field: CrmPipelineField }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id })
-  const baseType = getBaseType(field.type)
-  const isHalf = getFieldWidth(field.type) === 'half' && baseType !== 'longtext' && baseType !== 'system_notes'
-  
-  const style = { 
-    transform: CSS.Transform.toString(transform), 
-    transition, 
-    zIndex: isDragging ? 2 : 1, 
-    opacity: isDragging ? 0.5 : 1,
-    flex: isHalf ? '0 0 calc(50% - 6px)' : '0 0 100%'
-  }
-
-  return (
-    <div ref={setNodeRef} style={style} className={styles.field}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
-        <label style={{ cursor: 'grab', display: 'flex', alignItems: 'center', gap: 6 }} {...attributes} {...listeners}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="#adb5bd" strokeWidth="2" width={12} height={12}>
-            <circle cx="9" cy="9" r="1"/><circle cx="9" cy="15" r="1"/><circle cx="15" cy="9" r="1"/><circle cx="15" cy="15" r="1"/>
-          </svg>
-          {field.name}
-        </label>
-      </div>
-      {baseType === 'longtext' || baseType === 'system_notes' ? (
-        <textarea disabled placeholder="..." style={{ background: '#ffffff', height: 60, border: '1px solid #e2e8f0' }} />
-      ) : (baseType === 'select' || baseType === 'system_stage_id') ? (
-        <select disabled style={{ background: '#ffffff', border: '1px solid #e2e8f0' }}>
-          <option>Selecione...</option>
-          {baseType === 'select' 
-            ? (field.options || []).map(o => <option key={o}>{o}</option>)
-            : <option>Opções do Pipeline</option>
-          }
-        </select>
-      ) : baseType === 'currency' || baseType === 'system_estimated_value' ? (
-        <input disabled placeholder="R$ 0,00" style={{ background: '#ffffff', border: '1px solid #e2e8f0' }} />
-      ) : (
-        <input disabled placeholder="..." style={{ background: '#ffffff', border: '1px solid #e2e8f0' }} />
-      )}
-    </div>
-  )
-}
 
 
 // ─── Page ────────────────────────────────────────────────────────────────────
@@ -384,6 +77,7 @@ function PipelineContent() {
   const [newFieldOptions, setNewFieldOptions] = useState<string[]>([])
   const [initialTab, setInitialTab] = useState<'dados'|'timeline'|'tarefas'>('dados')
   const [saving, setSaving] = useState(false)
+  const [expandedFunnelStages, setExpandedFunnelStages] = useState<Record<string, boolean>>({})
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -497,6 +191,10 @@ function PipelineContent() {
     setNewFieldType('text')
     setNewFieldOptions([])
     setViewMode('fields')
+  }
+
+  function toggleFunnelStage(stageId: string) {
+    setExpandedFunnelStages(prev => ({ ...prev, [stageId]: !prev[stageId] }))
   }
 
   const openEditLead = useCallback((lead: CrmLead, targetTab?: 'dados'|'timeline'|'tarefas') => {
@@ -827,7 +525,7 @@ function PipelineContent() {
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
-  if (!sess) return null
+  if (!sess) return <NGPLoading loading={true} loadingText="Carregando pipeline..." />
 
   const activePipeline = pipelines.find(p => p.id === activePipelineId)
 
@@ -861,16 +559,16 @@ function PipelineContent() {
                 </h1>
               </div>
               {(viewMode === 'kanban' || viewMode === 'funil') && activePipeline && pipelines.length > 0 && (
-                <select
-                  className={styles.pipelineSelect}
+                <CustomSelect
+                  caption="Funil"
                   value={activePipelineId || ''}
-                  onChange={e => {
-                    setActivePipelineId(e.target.value)
-                    loadInitialData(e.target.value)
+                  options={pipelines.map(p => ({ id: p.id, label: p.name }))}
+                  onChange={val => {
+                    setActivePipelineId(val)
+                    loadInitialData(val)
                   }}
-                >
-                  {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
+                  placeholder="Selecionar funil..."
+                />
               )}
             </div>
 
@@ -934,44 +632,87 @@ function PipelineContent() {
                   const pct         = Math.max(18, Math.round((stageLeads.length / maxLeads) * 100))
                   const valor       = stageLeads.reduce((s, l) => s + (l.estimated_value || 0), 0)
                   const nextLeads   = leads.filter(l => l.stage_id === stages[idx + 1]?.id)
+                  const isExpanded  = !!expandedFunnelStages[stage.id]
                   const convPct     = idx < stages.length - 1 && stageLeads.length > 0
                     ? Math.round((nextLeads.length / stageLeads.length) * 100)
                     : null
 
                   return (
-                    <div key={stage.id} className={styles.funnelRow}>
-                      {/* Barra */}
-                      <div className={styles.funnelBarWrap}>
-                        <div
-                          className={styles.funnelBarFill}
-                          style={{ width: `${pct}%`, background: stage.color, opacity: stageLeads.length === 0 ? 0.15 : 0.85 }}
-                        >
-                          {stageLeads.length > 0 && (
-                            <span className={styles.funnelBarLabel}>{stageLeads.length}</span>
-                          )}
+                    <div key={stage.id} className={styles.funnelStageBlock}>
+                      <div className={styles.funnelRow}>
+                        {/* Barra */}
+                        <div className={styles.funnelBarSection}>
+                          <button
+                            type="button"
+                            className={`${styles.funnelExpandBtn} ${isExpanded ? styles.funnelExpandBtnOpen : ''}`}
+                            onClick={() => toggleFunnelStage(stage.id)}
+                            aria-expanded={isExpanded}
+                            aria-label={`${isExpanded ? 'Ocultar' : 'Mostrar'} leads da etapa ${stage.name}`}
+                          >
+                            <span className={styles.funnelExpandIcon}>⌄</span>
+                          </button>
+                          <div className={styles.funnelBarWrap}>
+                            <div
+                              className={styles.funnelBarFill}
+                              style={{ width: `${pct}%`, background: stage.color, opacity: stageLeads.length === 0 ? 0.15 : 0.85 }}
+                            >
+                              {stageLeads.length > 0 && (
+                                <span className={styles.funnelBarLabel}>{stageLeads.length}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Info à direita */}
+                        <div className={styles.funnelRowInfo}>
+                          <div className={styles.funnelRowLeft}>
+                            <span className={styles.funnelColorDot} style={{ background: stage.color }} />
+                            <div>
+                              <div className={styles.funnelStageName}>{stage.name}</div>
+                              <div className={styles.funnelStageCount}>{stageLeads.length} lead{stageLeads.length !== 1 ? 's' : ''}</div>
+                            </div>
+                          </div>
+                          <div className={styles.funnelRowRight}>
+                            <span className={styles.funnelStageValue}>
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor)}
+                            </span>
+                            {convPct !== null && (
+                              <span className={`${styles.funnelConvBadge} ${convPct >= 50 ? styles.funnelConvGood : convPct >= 20 ? styles.funnelConvMid : styles.funnelConvLow}`}>
+                                ↓ {convPct}%
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 
-                      {/* Info à direita */}
-                      <div className={styles.funnelRowInfo}>
-                        <div className={styles.funnelRowLeft}>
-                          <span className={styles.funnelColorDot} style={{ background: stage.color }} />
-                          <div>
-                            <div className={styles.funnelStageName}>{stage.name}</div>
-                            <div className={styles.funnelStageCount}>{stageLeads.length} lead{stageLeads.length !== 1 ? 's' : ''}</div>
-                          </div>
-                        </div>
-                        <div className={styles.funnelRowRight}>
-                          <span className={styles.funnelStageValue}>
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor)}
-                          </span>
-                          {convPct !== null && (
-                            <span className={`${styles.funnelConvBadge} ${convPct >= 50 ? styles.funnelConvGood : convPct >= 20 ? styles.funnelConvMid : styles.funnelConvLow}`}>
-                              ↓ {convPct}%
-                            </span>
+                      {isExpanded && (
+                        <div className={styles.funnelLeadList}>
+                          {stageLeads.length === 0 ? (
+                            <div className={styles.funnelLeadEmpty}>Nenhum lead nesta etapa.</div>
+                          ) : (
+                            stageLeads
+                              .slice()
+                              .sort((a, b) => (b.estimated_value || 0) - (a.estimated_value || 0))
+                              .map(lead => (
+                                <button
+                                  key={lead.id}
+                                  type="button"
+                                  className={styles.funnelLeadItem}
+                                  onClick={() => openEditLead(lead)}
+                                >
+                                  <div className={styles.funnelLeadMain}>
+                                    <span className={styles.funnelLeadCompany}>{lead.company_name}</span>
+                                    <span className={styles.funnelLeadMeta}>
+                                      {lead.contact_name || 'Sem contato'}
+                                      {lead.source ? ` • ${lead.source}` : ''}
+                                    </span>
+                                  </div>
+                                  <span className={styles.funnelLeadValue}>{fmt(lead.estimated_value || 0)}</span>
+                                </button>
+                              ))
                           )}
                         </div>
-                      </div>
+                      )}
                     </div>
                   )
                 })}
@@ -992,15 +733,18 @@ function PipelineContent() {
                 <div className={styles.stagesList} style={{ maxHeight: 'calc(100vh - 280px)', background: '#ffffff', border: '1px solid #e2e8f0', padding: 16, borderRadius: 12, overflowY: 'auto' }}>
                   <DndContext sensors={sensors} collisionDetection={rectIntersection} onDragEnd={handleFieldDragEnd}>
                         <SortableContext items={fieldEdits.map(s => s.id)} strategy={verticalListSortingStrategy}>
-                          {fieldEdits.map(fe => (
+                          {fieldEdits.map((fe, idx) => (
                             <SortableFieldRow
                               key={fe.id}
                               field={fe}
                               saving={saving}
+                              index={idx}
+                              total={fieldEdits.length}
                               onDelete={() => deleteField(fe.id)}
                               onChangeName={(val) => setFieldEdits(prev => prev.map(f => f.id === fe.id ? { ...f, name: val } : f))}
                               onChangeType={(val) => setFieldEdits(prev => prev.map(f => f.id === fe.id ? { ...f, type: val } : f))}
                               onChangeOptions={(val) => setFieldEdits(prev => prev.map(f => f.id === fe.id ? { ...f, options: val } : f))}
+                              styles={styles}
                             />
                           ))}
                         </SortableContext>
@@ -1008,21 +752,29 @@ function PipelineContent() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16, padding: '16px', border: '1px solid #e2e8f0', borderRadius: 8, background: '#f8fafc' }}>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <input className={styles.addStageInput} style={{ flex: 1, background: '#fff' }} placeholder="+ Nome do novo campo" value={newFieldName} onChange={e => setNewFieldName(e.target.value)} onKeyDown={e => e.key === 'Enter' && saveFields()} />
-                      <select className={styles.addStageInput} style={{ width: 150, background: '#fff' }} value={newFieldType} onChange={e => setNewFieldType(e.target.value)}>
-                        <optgroup label="Padrão">
-                          <option value="system_stage_id">Etapa</option>
-                          <option value="system_contact_name">Contato</option><option value="system_source">Origem</option>
-                          <option value="system_phone">Telefone</option><option value="system_email">E-mail</option>
-                          <option value="system_estimated_value">Valor</option><option value="system_notes">Obs</option>
-                        </optgroup>
-                        <optgroup label="Customizado">
-                          <option value="text">Texto Curto</option><option value="longtext">Texto Longo</option>
-                          <option value="number">Número</option><option value="currency">Moeda</option>
-                          <option value="phone">Telefone</option><option value="email">Email</option>
-                          <option value="cnpj">CNPJ/CPF</option><option value="date">Data</option>
-                          <option value="select">Múltipla Escolha</option>
-                        </optgroup>
-                      </select>
+                      <CustomSelect
+                        caption="Tipo"
+                        value={newFieldType}
+                        options={[
+                          { id: 'system_stage_id', label: 'Etapa' },
+                          { id: 'system_contact_name', label: 'Contato' },
+                          { id: 'system_source', label: 'Origem' },
+                          { id: 'system_phone', label: 'Telefone' },
+                          { id: 'system_email', label: 'E-mail' },
+                          { id: 'system_estimated_value', label: 'Valor' },
+                          { id: 'system_notes', label: 'Obs' },
+                          { id: 'text', label: 'Texto Curto' },
+                          { id: 'longtext', label: 'Texto Longo' },
+                          { id: 'number', label: 'Número' },
+                          { id: 'currency', label: 'Moeda' },
+                          { id: 'phone', label: 'Telefone' },
+                          { id: 'email', label: 'Email' },
+                          { id: 'cnpj', label: 'CNPJ/CPF' },
+                          { id: 'date', label: 'Data' },
+                          { id: 'select', label: 'Múltipla Escolha' },
+                        ]}
+                        onChange={val => setNewFieldType(val)}
+                      />
                     </div>
                     {newFieldType === 'select' && (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
@@ -1068,7 +820,7 @@ function PipelineContent() {
                       <SortableContext items={fieldEdits.map(s => s.id)} strategy={verticalListSortingStrategy}>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px 12px' }}>
                           {fieldEdits.map(fe => (
-                            <SortablePreviewField key={fe.id} field={fe} />
+                            <SortablePreviewField key={fe.id} field={fe} styles={styles} />
                           ))}
                         </div>
                       </SortableContext>
@@ -1101,12 +853,13 @@ function PipelineContent() {
                       setFLead({ company_name: '', contact_name: '', email: '', phone: '', estimated_value: '', stage_id: stageId, notes: '', source: '', custom_data: {} })
                       setShowNewLead(true)
                     }}
+                    styles={styles}
                   />
                 ))}
               </div>
 
               <DragOverlay>
-                {activeLead && <LeadCard lead={activeLead} onEdit={() => {}} overlay />}
+                {activeLead && <LeadCard lead={activeLead} onEdit={() => {}} overlay styles={styles} />}
               </DragOverlay>
             </DndContext>
           )}
@@ -1154,15 +907,18 @@ function PipelineContent() {
             </div>
             <div className={styles.field}>
               <label>Etapa *</label>
-              <select value={fLead.stage_id} onChange={e => setFLead(f => ({ ...f, stage_id: e.target.value }))} required>
-                <option value="">Selecione...</option>
-                {stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              <CustomSelect
+                label="Etapa"
+                caption="Etapa do Funil"
+                value={fLead.stage_id}
+                options={stages.map(s => ({ id: s.id, label: s.name }))}
+                onChange={val => setFLead(f => ({ ...f, stage_id: val }))}
+              />
             </div>
             
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px 12px' }}>
               {/* Campos Dinâmicos (exceto Etapa que já está no topo) */}
-              {pipelineFields.filter(f => getBaseType(f.type) !== 'system_stage_id').map(field => {
+              {pipelineFields.filter(f => getBaseType(f.type) !== 'system_stage_id').map((field, idx) => {
                 const bType = getBaseType(field.type)
                 const isHalf = getFieldWidth(field.type) === 'half' && bType !== 'longtext' && bType !== 'system_notes'
                 const isSys = bType.startsWith('system_')
@@ -1215,20 +971,37 @@ function PipelineContent() {
                 }
 
                 return (
-                  <div key={field.id} className={styles.field} style={{ flex: isHalf ? '0 0 calc(50% - 6px)' : '0 0 100%' }}>
+                  <div 
+                    key={field.id} 
+                    className={styles.field} 
+                    style={{ 
+                      flex: isHalf ? '0 0 calc(50% - 6px)' : '0 0 100%',
+                      zIndex: pipelineFields.length - idx,
+                      position: 'relative'
+                    }}
+                  >
                     <label>{field.name}</label>
                     {bType === 'longtext' || bType === 'system_notes' ? (
                       <textarea value={val || ''} onChange={e => setVal(e.target.value)} />
                     ) : bType === 'select' ? (
-                      <select value={val || ''} onChange={e => setVal(e.target.value)}>
-                        <option value="">Selecione...</option>
-                        {(field.options || []).map(o => <option key={o} value={o}>{o}</option>)}
-                      </select>
+                      <CustomSelect
+                        caption={field.name}
+                        value={val || ''}
+                        options={(field.options || []).map(o => ({ id: o, label: o }))}
+                        onChange={v => setVal(v)}
+                        placeholder="Selecione..."
+                      />
                     ) : bType === 'currency' || bType === 'system_estimated_value' ? (
                       <CurrencyInput value={val} onChange={setVal} />
+                    ) : bType === 'date' ? (
+                      <CustomDatePicker
+                        caption={field.name}
+                        value={val || ''}
+                        onChange={v => setVal(v)}
+                      />
                     ) : (
                       <input
-                        type={bType === 'number' ? 'number' : bType === 'date' ? 'date' : bType === 'email' ? 'email' : 'text'}
+                        type={bType === 'number' ? 'number' : bType === 'email' ? 'email' : 'text'}
                         value={val || ''}
                         onChange={e => setVal(e.target.value)}
                       />
@@ -1306,6 +1079,7 @@ function PipelineContent() {
                         onDelete={() => deleteStage(se.id)}
                         onChangeName={(val) => setStageEdits(prev => prev.map(s => s.id === se.id ? { ...s, name: val } : s))}
                         onChangeColor={(val) => setStageEdits(prev => prev.map(s => s.id === se.id ? { ...s, color: val } : s))}
+                        styles={styles}
                       />
                     )
                   })}

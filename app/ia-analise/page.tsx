@@ -1,24 +1,19 @@
 'use client'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import CustomSelect, { SelectOption } from '@/components/CustomSelect'
 import { useRouter } from 'next/navigation'
 import { getSession } from '@/lib/auth'
 import { efCall } from '@/lib/api'
 import Sidebar from '@/components/Sidebar'
+import {
+  parseStructuredAnalysis,
+  renderStructuredAnalysisMarkdown,
+} from '@/lib/analytics-contract'
+import type {
+  AnalyticsSnapshot,
+  StructuredAnalysisResult,
+} from '@/lib/analytics-contract'
 import styles from './ia-analise.module.css'
-
-interface Metrics {
-  spend?: number | string
-  leads?: number | string
-  cpl?: number | string
-  impressions?: number | string
-  clicks?: number | string
-  ctr?: number | string
-  roas?: number | string
-  purchases?: number | string
-  cpc?: number | string
-  reach?: number | string
-  [key: string]: unknown
-}
 
 interface PromptTemplate {
   id: string
@@ -39,7 +34,16 @@ interface AnalysisRun {
   prompt_name?: string | null
   model?: string | null
   output: string
+  output_json?: unknown
+  snapshot_id?: string | null
   created_at: string
+}
+
+interface SnapshotRow {
+  id: string
+  period_label?: string | null
+  updated_at?: string | null
+  snapshot: AnalyticsSnapshot | null
 }
 
 function fmtMetric(v: unknown, prefix: string) {
@@ -47,20 +51,6 @@ function fmtMetric(v: unknown, prefix: string) {
   const n = parseFloat(String(v))
   if (Number.isNaN(n)) return '-'
   return prefix + (prefix ? ' ' : '') + n.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
-}
-
-function objValue(source: unknown, key: string) {
-  if (!source || typeof source !== 'object') return undefined
-  return (source as Record<string, unknown>)[key]
-}
-
-function asArray(value: unknown) {
-  return Array.isArray(value) ? value : []
-}
-
-function hasNumber(value: unknown) {
-  const n = Number(value)
-  return Number.isFinite(n) && n > 0
 }
 
 function fmtDate(value: string) {
@@ -92,6 +82,138 @@ function renderMarkdown(text: string): string {
     .replace(/^(.+)$/, '<p>$1</p>')
 }
 
+function priorityLabel(priority: 'high' | 'medium' | 'low') {
+  if (priority === 'high') return 'Alta prioridade'
+  if (priority === 'low') return 'Baixa prioridade'
+  return 'Prioridade média'
+}
+
+function confidenceLabel(confidence: 'high' | 'medium' | 'low') {
+  if (confidence === 'high') return 'Alta'
+  if (confidence === 'low') return 'Baixa'
+  return 'Média'
+}
+
+function StructuredAnalysisView({ result }: { result: StructuredAnalysisResult }) {
+  const sections = [
+    { title: 'O que está funcionando', items: result.wins },
+    { title: 'Riscos e desperdícios', items: result.risks },
+    { title: 'Oportunidades', items: result.opportunities },
+    { title: 'Lacunas de dados', items: result.dataGaps },
+  ].filter((section) => section.items.length > 0)
+
+  return (
+    <div style={{ display: 'grid', gap: 16 }}>
+      <div
+        style={{
+          background: '#fff',
+          border: '1px solid #E5E7EB',
+          borderRadius: 10,
+          padding: 16,
+        }}
+      >
+        <div style={{ fontSize: 11, fontWeight: 800, color: '#2563EB', textTransform: 'uppercase', letterSpacing: '.08em' }}>
+          Headline
+        </div>
+        <div style={{ fontSize: 22, fontWeight: 800, color: '#111827', lineHeight: 1.2, marginTop: 8 }}>
+          {result.headline}
+        </div>
+        <p style={{ margin: '12px 0 0', color: '#4B5563', fontSize: 14, lineHeight: 1.65 }}>
+          {result.diagnosis}
+        </p>
+      </div>
+
+      {result.nextActions.length > 0 && (
+        <div
+          style={{
+            background: '#fff',
+            border: '1px solid #DBEAFE',
+            borderRadius: 10,
+            padding: 16,
+          }}
+        >
+          <div style={{ fontSize: 11, fontWeight: 800, color: '#2563EB', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 12 }}>
+            Próximas ações
+          </div>
+          <div style={{ display: 'grid', gap: 10 }}>
+            {result.nextActions.map((action) => (
+              <div
+                key={`${action.priority}-${action.title}`}
+                style={{
+                  background: '#F8FAFC',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: 8,
+                  padding: 12,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <strong style={{ color: '#111827', fontSize: 14 }}>{action.title}</strong>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      letterSpacing: '.06em',
+                      textTransform: 'uppercase',
+                      color: action.priority === 'high' ? '#B91C1C' : action.priority === 'low' ? '#1D4ED8' : '#92400E',
+                      background: action.priority === 'high' ? '#FEE2E2' : action.priority === 'low' ? '#DBEAFE' : '#FEF3C7',
+                      padding: '3px 6px',
+                      borderRadius: 999,
+                    }}
+                  >
+                    {priorityLabel(action.priority)}
+                  </span>
+                </div>
+                <p style={{ margin: '8px 0 0', color: '#4B5563', fontSize: 13, lineHeight: 1.6 }}>
+                  {action.detail}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {sections.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          {sections.map((section) => (
+            <div
+              key={section.title}
+              style={{
+                background: '#fff',
+                border: '1px solid #E5E7EB',
+                borderRadius: 10,
+                padding: 16,
+              }}
+            >
+              <div style={{ fontSize: 11, fontWeight: 800, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 10 }}>
+                {section.title}
+              </div>
+              <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 8, color: '#374151', fontSize: 13, lineHeight: 1.6 }}>
+                {section.items.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div
+        style={{
+          background: '#EFF6FF',
+          border: '1px solid #BFDBFE',
+          borderRadius: 10,
+          padding: 14,
+          color: '#1D4ED8',
+          fontSize: 13,
+          fontWeight: 700,
+        }}
+      >
+        Confiança da análise: {confidenceLabel(result.confidence)}.
+      </div>
+    </div>
+  )
+}
+
 const EMPTY_PROMPT_FORM = {
   id: '',
   name: '',
@@ -99,8 +221,10 @@ const EMPTY_PROMPT_FORM = {
   category: 'performance',
   model: 'gpt-4o-mini',
   temperature: 0.35,
-  system_prompt: 'Voce e um estrategista senior de performance marketing da NGP. Responda em portugues brasileiro, com clareza e sem inventar dados ausentes.',
-  user_prompt: 'Analise as metricas do periodo e entregue diagnostico, oportunidades, riscos e proximas acoes.',
+  system_prompt:
+    'Voce e um estrategista senior de performance marketing da NGP. Responda em portugues brasileiro, com clareza e sem inventar dados ausentes.',
+  user_prompt:
+    'Analise as metricas do periodo e entregue diagnostico, oportunidades, riscos e proximas acoes.',
   is_active: true,
 }
 
@@ -116,14 +240,16 @@ export default function IaAnalisePage() {
   const [canManagePrompts, setCanManagePrompts] = useState(false)
 
   const [extraContext, setExtraContext] = useState('')
-  const [metrics, setMetrics] = useState<Metrics>({})
+  const [snapshot, setSnapshot] = useState<AnalyticsSnapshot | null>(null)
+  const [snapshotId, setSnapshotId] = useState('')
   const [clientName, setClientName] = useState('')
   const [clientUsername, setClientUsername] = useState('')
   const [clientId, setClientId] = useState('')
   const [metaAccountId, setMetaAccountId] = useState('')
   const [period, setPeriod] = useState('ultimos 30 dias')
   const [history, setHistory] = useState<AnalysisRun[]>([])
-  const [output, setOutput] = useState<string | null>(null)
+  const [analysisResult, setAnalysisResult] = useState<StructuredAnalysisResult | null>(null)
+  const [outputHtml, setOutputHtml] = useState<string | null>(null)
   const [rawOutput, setRawOutput] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadingBase, setLoadingBase] = useState(true)
@@ -133,17 +259,32 @@ export default function IaAnalisePage() {
   const analysisInFlight = useRef(false)
   const promptSaveInFlight = useRef(false)
 
-  const loadMetrics = useCallback(() => {
-    const stored = sessionStorage.getItem('ngp_ia_metrics')
-    if (!stored) {
-      setMetrics({})
+  const loadLatestSnapshot = useCallback(async (cid: string, username: string, account: string) => {
+    const data = await efCall('analytics-snapshots', {
+      action: 'latest',
+      cliente_id: cid || undefined,
+      cliente_username: username || undefined,
+      meta_account_id: account || undefined,
+    })
+
+    if (data.error) {
+      setSnapshot(null)
+      setSnapshotId('')
+      setError(String(data.error))
       return
     }
-    try {
-      setMetrics(JSON.parse(stored))
-    } catch {
-      setMetrics({})
+
+    const row = (data.snapshot as SnapshotRow | null) || null
+    if (!row?.snapshot) {
+      setSnapshot(null)
+      setSnapshotId('')
+      return
     }
+
+    setSnapshot(row.snapshot)
+    setSnapshotId(row.id)
+    setPeriod(row.snapshot.period.label || row.period_label || 'Período atual')
+    setError('')
   }, [])
 
   const loadPrompts = useCallback(async () => {
@@ -158,10 +299,10 @@ export default function IaAnalisePage() {
       return
     }
 
-    const list = Array.isArray(data.prompts) ? data.prompts as unknown as PromptTemplate[] : []
+    const list = Array.isArray(data.prompts) ? (data.prompts as PromptTemplate[]) : []
     setPrompts(list)
     setCanManagePrompts(Boolean(data.can_manage))
-    setSelectedPromptId(prev => prev || list.find(p => p.is_active)?.id || list[0]?.id || '')
+    setSelectedPromptId((prev) => prev || list.find((p) => p.is_active)?.id || list[0]?.id || '')
   }, [])
 
   const loadHistory = useCallback(async (cid: string, username: string) => {
@@ -172,7 +313,7 @@ export default function IaAnalisePage() {
     })
 
     if (!data.error && Array.isArray(data.history)) {
-      setHistory(data.history as unknown as AnalysisRun[])
+      setHistory(data.history as AnalysisRun[])
     }
   }, [])
 
@@ -211,56 +352,50 @@ export default function IaAnalisePage() {
     setClientId(id)
     setMetaAccountId(account)
     setPeriod(sessionStorage.getItem('ngp_ia_period') || 'ultimos 30 dias')
-    loadMetrics()
 
-    Promise.all([loadPrompts(), loadHistory(id, username)]).finally(() => setLoadingBase(false))
-  }, [loadHistory, loadMetrics, loadPrompts, router])
+    Promise.all([
+      loadPrompts(),
+      loadHistory(id, username),
+      loadLatestSnapshot(id, username, account),
+    ]).finally(() => setLoadingBase(false))
+  }, [loadHistory, loadLatestSnapshot, loadPrompts, router])
 
-  const metricsSummary = useMemo(() => {
-    const resumo = objValue(metrics, 'resumo')
-    return resumo && typeof resumo === 'object' ? resumo as Record<string, unknown> : metrics
-  }, [metrics])
+  const packageCampaigns = useMemo(() => snapshot?.campaigns || [], [snapshot])
+  const packageCreatives = useMemo(() => snapshot?.creatives || [], [snapshot])
+  const hasUsableMetrics = useMemo(() => Boolean(snapshot && snapshotId), [snapshot, snapshotId])
 
-  const packageCampaigns = useMemo(() => asArray(objValue(metrics, 'campanhas')), [metrics])
-  const packageCreatives = useMemo(() => asArray(objValue(metrics, 'criativos')), [metrics])
-  const hasUsableMetrics = useMemo(() => {
-    const numericKeys = [
-      'investimento', 'spend', 'impressoes', 'impressions', 'cliques', 'clicks',
-      'ctr', 'cpc_medio', 'cpc', 'resultados', 'conversas', 'leads', 'compras',
-      'purchases', 'campanhas',
-    ]
-    return numericKeys.some(key => hasNumber(objValue(metricsSummary, key))) || packageCampaigns.length > 0 || packageCreatives.length > 0
-  }, [metricsSummary, packageCampaigns.length, packageCreatives.length])
+  const metricItems = useMemo(() => {
+    if (!snapshot) return []
+    return [
+      { k: 'Cliente', v: snapshot.client.name || clientName || '-' },
+      { k: 'Periodo', v: snapshot.period.label || period || '-' },
+      { k: 'Investimento', v: fmtMetric(snapshot.summary.spend, 'R$') },
+      { k: 'Receita', v: fmtMetric(snapshot.summary.revenue, 'R$') },
+      { k: snapshot.summary.primaryResultLabel || 'Resultados', v: fmtMetric(snapshot.summary.primaryResults, '') },
+      { k: 'Conversas', v: fmtMetric(snapshot.summary.conversations, '') },
+      { k: 'Leads', v: fmtMetric(snapshot.summary.leads, '') },
+      { k: 'Compras', v: fmtMetric(snapshot.summary.purchases, '') },
+      { k: 'Impressoes', v: fmtMetric(snapshot.summary.impressions, '') },
+      { k: 'Cliques', v: fmtMetric(snapshot.summary.clicks, '') },
+      { k: 'CTR', v: `${snapshot.summary.ctr.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%` },
+      { k: 'CPC medio', v: fmtMetric(snapshot.summary.cpc, 'R$') },
+      { k: 'CPM', v: fmtMetric(snapshot.summary.cpm, 'R$') },
+      { k: 'Custo/resultado', v: fmtMetric(snapshot.summary.costPerResult, 'R$') },
+      { k: 'ROAS', v: `${snapshot.summary.roas.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}x` },
+      { k: 'Alcance', v: fmtMetric(snapshot.summary.reach, '') },
+      { k: 'Frequencia', v: `${snapshot.summary.frequency.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}x` },
+      { k: 'Campanhas', v: fmtMetric(snapshot.summary.filteredCampaignCount, '') },
+      { k: 'Criativos', v: String(packageCreatives.length) },
+    ].filter((item) => item.v !== '-')
+  }, [clientName, packageCreatives.length, period, snapshot])
 
-  const metricItems = useMemo(() => [
-    { k: 'Cliente', v: clientName || String(objValue(objValue(metrics, 'cliente'), 'nome') || '-') },
-    { k: 'Periodo', v: String(objValue(objValue(metrics, 'periodo'), 'label') || period || '-') },
-    { k: 'Investimento', v: fmtMetric(objValue(metricsSummary, 'investimento') ?? objValue(metricsSummary, 'spend'), 'R$') },
-    { k: 'Receita', v: fmtMetric(objValue(metricsSummary, 'receita') ?? objValue(metricsSummary, 'revenue'), 'R$') },
-    { k: 'Resultados', v: fmtMetric(objValue(metricsSummary, 'resultados'), '') },
-    { k: 'Conversas', v: fmtMetric(objValue(metricsSummary, 'conversas') ?? objValue(metricsSummary, 'conversations'), '') },
-    { k: 'Leads', v: fmtMetric(objValue(metricsSummary, 'leads'), '') },
-    { k: 'Compras', v: fmtMetric(objValue(metricsSummary, 'compras') ?? objValue(metricsSummary, 'purchases'), '') },
-    { k: 'Impressoes', v: fmtMetric(objValue(metricsSummary, 'impressoes') ?? objValue(metricsSummary, 'impressions'), '') },
-    { k: 'Cliques', v: fmtMetric(objValue(metricsSummary, 'cliques') ?? objValue(metricsSummary, 'clicks'), '') },
-    { k: 'CTR', v: objValue(metricsSummary, 'ctr') !== undefined ? `${Number(objValue(metricsSummary, 'ctr')).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%` : '-' },
-    { k: 'CPC medio', v: fmtMetric(objValue(metricsSummary, 'cpc_medio') ?? objValue(metricsSummary, 'cpc'), 'R$') },
-    { k: 'CPM', v: fmtMetric(objValue(metricsSummary, 'cpm'), 'R$') },
-    { k: 'Custo/resultado', v: fmtMetric(objValue(metricsSummary, 'custo_por_resultado') ?? objValue(metricsSummary, 'cpl'), 'R$') },
-    { k: 'ROAS', v: objValue(metricsSummary, 'roas') !== undefined ? `${Number(objValue(metricsSummary, 'roas')).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}x` : '-' },
-    { k: 'Alcance', v: fmtMetric(objValue(metricsSummary, 'alcance') ?? objValue(metricsSummary, 'reach'), '') },
-    { k: 'Frequencia', v: objValue(metricsSummary, 'frequencia') !== undefined ? `${Number(objValue(metricsSummary, 'frequencia')).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}x` : '-' },
-    { k: 'Campanhas', v: fmtMetric(objValue(metricsSummary, 'campanhas'), '') },
-    { k: 'Criativos', v: packageCreatives.length ? String(packageCreatives.length) : '-' },
-  ].filter(i => i.v !== '-'), [clientName, metrics, metricsSummary, packageCreatives.length, period])
-
-  const selectedPrompt = prompts.find(p => p.id === selectedPromptId)
+  const selectedPrompt = prompts.find((p) => p.id === selectedPromptId)
 
   async function runAnalysis() {
     if (analysisInFlight.current) return
 
-    if (!hasUsableMetrics) {
-      alert('As metricas ainda nao foram carregadas para a IA. Volte ao dashboard, aguarde os dados aparecerem e abra a Analise IA novamente.')
+    if (!hasUsableMetrics || !snapshotId) {
+      alert('O snapshot analítico ainda não foi salvo para esta conta/período. Volte ao dashboard, aguarde os dados e tente novamente.')
       return
     }
 
@@ -272,8 +407,9 @@ export default function IaAnalisePage() {
     analysisInFlight.current = true
     setLoading(true)
     setError('')
-    setNotice('Gerando analise no servidor. Pode levar alguns segundos.')
-    setOutput(null)
+    setNotice('Gerando análise no servidor com base no snapshot analítico consolidado.')
+    setAnalysisResult(null)
+    setOutputHtml(null)
     setRawOutput('')
 
     try {
@@ -285,7 +421,7 @@ export default function IaAnalisePage() {
         cliente_nome: clientName || undefined,
         meta_account_id: metaAccountId || undefined,
         period_label: period,
-        metrics,
+        snapshot_id: snapshotId,
         extra_context: extraContext,
       })
 
@@ -295,10 +431,15 @@ export default function IaAnalisePage() {
         return
       }
 
-      const analysis = String(data.analysis || '')
-      setRawOutput(analysis)
-      setOutput(renderMarkdown(analysis))
-      setNotice('Analise gerada e salva no historico.')
+      const structured = parseStructuredAnalysis(data.analysis_json)
+      const markdown = String(
+        data.analysis || (structured ? renderStructuredAnalysisMarkdown(structured) : '')
+      )
+
+      setAnalysisResult(structured)
+      setRawOutput(markdown)
+      setOutputHtml(structured ? null : renderMarkdown(markdown))
+      setNotice('Análise gerada e salva no histórico.')
       await loadHistory(clientId, clientUsername)
     } catch {
       setNotice('')
@@ -387,7 +528,7 @@ export default function IaAnalisePage() {
         <div className={styles.header}>
           <span className={styles.headerTitle}>Analise de IA</span>
           {clientName && <span className={styles.clientBadge}>Cliente: {clientName}</span>}
-          <span className={styles.secureBadge}>Chave protegida no servidor</span>
+          <span className={styles.secureBadge}>Snapshot + chave protegidos no servidor</span>
         </div>
 
         <div className={styles.page}>
@@ -396,25 +537,32 @@ export default function IaAnalisePage() {
               <div className={`${styles.cardIcon} ${styles.ciPurple}`}>AI</div>
               <span className={styles.cardTitle}>Gerar analise</span>
               {canManagePrompts && (
-                <button className={styles.btnGhost} style={{ marginLeft: 'auto' }} onClick={() => setEditingPrompts(v => !v)}>
+                <button className={styles.btnGhost} style={{ marginLeft: 'auto' }} onClick={() => setEditingPrompts((value) => !value)}>
                   {editingPrompts ? 'Fechar prompts' : 'Gerenciar prompts'}
                 </button>
               )}
             </div>
 
             <div className={styles.infoBox}>
-              A chave da OpenAI nao fica mais nesta tela. O navegador envia apenas metricas, cliente, periodo e prompt escolhido; a Edge Function validada chama a IA pelo servidor.
+              A IA agora consome um snapshot analítico salvo no servidor. Isso deixa a leitura coerente entre dashboard, histórico e análise automática.
             </div>
 
             <div className={styles.fieldRow} style={{ marginTop: 14 }}>
               <div className={styles.field}>
                 <label className={styles.fieldLabel}>Prompt salvo</label>
-                <select className={styles.select} value={selectedPromptId} onChange={e => setSelectedPromptId(e.target.value)} disabled={loadingBase}>
-                  {!prompts.length && <option value="">Nenhum prompt ativo</option>}
-                  {prompts.filter(p => p.is_active || canManagePrompts).map(p => (
-                    <option key={p.id} value={p.id}>{p.name}{p.is_active ? '' : ' (inativo)'}</option>
-                  ))}
-                </select>
+                <CustomSelect
+                  caption="Prompt"
+                  value={selectedPromptId}
+                  options={prompts.length > 0 
+                    ? prompts.filter((p) => p.is_active || canManagePrompts).map((p) => ({
+                        id: p.id,
+                        label: p.name + (p.is_active ? '' : ' (inativo)')
+                      }))
+                    : [{ id: '', label: 'Nenhum prompt ativo' }]
+                  }
+                  onChange={setSelectedPromptId}
+                  disabled={loadingBase}
+                />
               </div>
               <div className={styles.field}>
                 <label className={styles.fieldLabel}>Modelo</label>
@@ -422,9 +570,7 @@ export default function IaAnalisePage() {
               </div>
             </div>
 
-            {selectedPrompt?.description && (
-              <p className={styles.promptDesc}>{selectedPrompt.description}</p>
-            )}
+            {selectedPrompt?.description && <p className={styles.promptDesc}>{selectedPrompt.description}</p>}
 
             <div className={styles.field}>
               <label className={styles.fieldLabel}>
@@ -436,7 +582,7 @@ export default function IaAnalisePage() {
                 rows={3}
                 placeholder="Ex: cliente quer escalar vendas, verba mensal de R$ 10.000, foco em leads qualificados..."
                 value={extraContext}
-                onChange={e => setExtraContext(e.target.value)}
+                onChange={(e) => setExtraContext(e.target.value)}
                 maxLength={3000}
               />
             </div>
@@ -445,7 +591,13 @@ export default function IaAnalisePage() {
               <button className={styles.btnPrimary} onClick={runAnalysis} disabled={loading || loadingBase || !selectedPromptId || !hasUsableMetrics}>
                 {loading ? 'Analisando...' : 'Gerar analise com IA'}
               </button>
-              <button className={styles.btnGhost} onClick={loadMetrics} disabled={loading}>Recarregar metricas</button>
+              <button
+                className={styles.btnGhost}
+                onClick={() => loadLatestSnapshot(clientId, clientUsername, metaAccountId)}
+                disabled={loading}
+              >
+                Recarregar snapshot
+              </button>
               {loading && <span className={styles.busyInline}>A IA esta trabalhando no servidor. Aguarde sem recarregar a pagina.</span>}
             </div>
           </div>
@@ -455,17 +607,25 @@ export default function IaAnalisePage() {
               <div className={styles.cardHead}>
                 <div className={`${styles.cardIcon} ${styles.ciAmber}`}>P</div>
                 <span className={styles.cardTitle}>Templates de prompt</span>
-                <button className={styles.btnGhost} style={{ marginLeft: 'auto' }} onClick={() => setPromptForm(EMPTY_PROMPT_FORM)}>Novo</button>
+                <button className={styles.btnGhost} style={{ marginLeft: 'auto' }} onClick={() => setPromptForm(EMPTY_PROMPT_FORM)}>
+                  Novo
+                </button>
               </div>
 
               <div className={styles.promptManagerGrid}>
                 <aside className={styles.promptLibrary}>
                   <div className={styles.panelTitle}>Prompts salvos</div>
                   <div className={styles.promptList}>
-                    {prompts.map(prompt => (
-                      <button key={prompt.id} className={`${styles.promptItem} ${promptForm.id === prompt.id ? styles.promptItemActive : ''}`} onClick={() => editPrompt(prompt)}>
+                    {prompts.map((prompt) => (
+                      <button
+                        key={prompt.id}
+                        className={`${styles.promptItem} ${promptForm.id === prompt.id ? styles.promptItemActive : ''}`}
+                        onClick={() => editPrompt(prompt)}
+                      >
                         <strong>{prompt.name}</strong>
-                        <span>{prompt.model} · {prompt.is_active ? 'ativo' : 'inativo'}</span>
+                        <span>
+                          {prompt.model} · {prompt.is_active ? 'ativo' : 'inativo'}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -477,36 +637,38 @@ export default function IaAnalisePage() {
                   <div className={styles.promptEditorGrid}>
                     <div className={styles.field}>
                       <label className={styles.fieldLabel}>Nome</label>
-                      <input className={styles.input} value={promptForm.name} onChange={e => setPromptForm(p => ({ ...p, name: e.target.value }))} />
+                      <input className={styles.input} value={promptForm.name} onChange={(e) => setPromptForm((value) => ({ ...value, name: e.target.value }))} />
                     </div>
                     <div className={styles.field}>
                       <label className={styles.fieldLabel}>Modelo</label>
-                      <input className={styles.input} value={promptForm.model} onChange={e => setPromptForm(p => ({ ...p, model: e.target.value }))} />
+                      <input className={styles.input} value={promptForm.model} onChange={(e) => setPromptForm((value) => ({ ...value, model: e.target.value }))} />
                     </div>
                     <div className={styles.field}>
                       <label className={styles.fieldLabel}>Descricao</label>
-                      <input className={styles.input} value={promptForm.description} onChange={e => setPromptForm(p => ({ ...p, description: e.target.value }))} />
+                      <input className={styles.input} value={promptForm.description} onChange={(e) => setPromptForm((value) => ({ ...value, description: e.target.value }))} />
                     </div>
                     <div className={styles.field}>
                       <label className={styles.fieldLabel}>Temperatura</label>
-                      <input className={styles.input} type="number" min="0" max="1" step="0.05" value={promptForm.temperature} onChange={e => setPromptForm(p => ({ ...p, temperature: Number(e.target.value) }))} />
+                      <input className={styles.input} type="number" min="0" max="1" step="0.05" value={promptForm.temperature} onChange={(e) => setPromptForm((value) => ({ ...value, temperature: Number(e.target.value) }))} />
                     </div>
                     <div className={`${styles.field} ${styles.span2}`}>
                       <label className={styles.fieldLabel}>Prompt de sistema</label>
-                      <textarea className={styles.textarea} rows={4} value={promptForm.system_prompt} onChange={e => setPromptForm(p => ({ ...p, system_prompt: e.target.value }))} />
+                      <textarea className={styles.textarea} rows={4} value={promptForm.system_prompt} onChange={(e) => setPromptForm((value) => ({ ...value, system_prompt: e.target.value }))} />
                     </div>
                     <div className={`${styles.field} ${styles.span2}`}>
                       <label className={styles.fieldLabel}>Prompt do usuario</label>
-                      <textarea className={styles.textarea} rows={4} value={promptForm.user_prompt} onChange={e => setPromptForm(p => ({ ...p, user_prompt: e.target.value }))} />
+                      <textarea className={styles.textarea} rows={4} value={promptForm.user_prompt} onChange={(e) => setPromptForm((value) => ({ ...value, user_prompt: e.target.value }))} />
                     </div>
                   </div>
 
                   <div className={styles.promptActions}>
                     <label className={styles.checkRow}>
-                      <input type="checkbox" checked={promptForm.is_active} onChange={e => setPromptForm(p => ({ ...p, is_active: e.target.checked }))} />
+                      <input type="checkbox" checked={promptForm.is_active} onChange={(e) => setPromptForm((value) => ({ ...value, is_active: e.target.checked }))} />
                       Prompt ativo
                     </label>
-                    <button className={styles.btnPrimary} onClick={savePrompt} disabled={savingPrompt}>{savingPrompt ? 'Salvando...' : 'Salvar prompt'}</button>
+                    <button className={styles.btnPrimary} onClick={savePrompt} disabled={savingPrompt}>
+                      {savingPrompt ? 'Salvando...' : 'Salvar prompt'}
+                    </button>
                     {savingPrompt && <span className={styles.busyInline}>Gravando template no Supabase...</span>}
                   </div>
                 </section>
@@ -521,15 +683,15 @@ export default function IaAnalisePage() {
             </div>
 
             <div className={styles.metricsPreview}>
-              <div className={styles.metricsPreviewTitle}>Dados carregados do dashboard</div>
+              <div className={styles.metricsPreviewTitle}>Dados carregados do snapshot analítico</div>
               {!hasUsableMetrics ? (
                 <div className={styles.warningBox}>
-                  As metricas ainda nao chegaram para esta conta. Volte ao dashboard, aguarde Resumo/Campanhas carregar, depois abra a Analise IA novamente.
+                  Nenhum snapshot analítico foi encontrado para esta conta. Volte ao dashboard, aguarde a consolidação dos dados e tente novamente.
                 </div>
               ) : (
                 <>
                   <div className={styles.metricsGrid}>
-                    {metricItems.map(item => (
+                    {metricItems.map((item) => (
                       <div key={item.k} className={styles.metricPill}>
                         <div className={styles.metricKey}>{item.k}</div>
                         <div className={styles.metricVal}>{item.v}</div>
@@ -537,7 +699,7 @@ export default function IaAnalisePage() {
                     ))}
                   </div>
                   <div className={styles.metricsFoot}>
-                    Pacote IA: {packageCampaigns.length} campanhas e {packageCreatives.length} criativos enviados para analise.
+                    Snapshot salvo em {fmtDate(snapshot?.generatedAt || '')}. Pacote IA: {packageCampaigns.length} campanhas e {packageCreatives.length} criativos.
                   </div>
                 </>
               )}
@@ -560,15 +722,27 @@ export default function IaAnalisePage() {
             <div className={styles.outputBox}>
               {loading && <div className={styles.outputLoading}>A IA esta analisando as metricas<span className={styles.cursor} /></div>}
               {!loading && error && <span className={styles.outputError}>Erro: {error}</span>}
-              {!loading && !error && output && <div dangerouslySetInnerHTML={{ __html: output }} />}
-              {!loading && !error && !output && <span className={styles.outputEmpty}>A resposta aparece aqui depois de clicar em "Gerar analise com IA".</span>}
+              {!loading && !error && analysisResult && <StructuredAnalysisView result={analysisResult} />}
+              {!loading && !error && !analysisResult && outputHtml && <div dangerouslySetInnerHTML={{ __html: outputHtml }} />}
+              {!loading && !error && !analysisResult && !outputHtml && (
+                <span className={styles.outputEmpty}>A resposta aparece aqui depois de clicar em "Gerar analise com IA".</span>
+              )}
             </div>
 
             <div className={styles.btnRow}>
               {rawOutput && !loading && (
-                <>
-                  <button className={styles.btnGhost} onClick={() => { setOutput(null); setRawOutput(''); setError(''); setNotice('') }}>Limpar</button>
-                </>
+                <button
+                  className={styles.btnGhost}
+                  onClick={() => {
+                    setAnalysisResult(null)
+                    setOutputHtml(null)
+                    setRawOutput('')
+                    setError('')
+                    setNotice('')
+                  }}
+                >
+                  Limpar
+                </button>
               )}
             </div>
           </div>
@@ -583,15 +757,26 @@ export default function IaAnalisePage() {
               <span className={styles.outputEmpty}>Nenhuma analise salva ainda para este cliente.</span>
             ) : (
               <div className={styles.historyList}>
-                {history.map(item => (
-                  <details key={item.id} className={styles.historyItem}>
-                    <summary>
-                      <strong>{item.prompt_name || 'Analise IA'}</strong>
-                      <span>{fmtDate(item.created_at)} · {item.period_label || 'periodo nao informado'} · {item.model}</span>
-                    </summary>
-                    <div className={styles.historyOutput} dangerouslySetInnerHTML={{ __html: renderMarkdown(item.output) }} />
-                  </details>
-                ))}
+                {history.map((item) => {
+                  const structured = parseStructuredAnalysis(item.output_json)
+                  return (
+                    <details key={item.id} className={styles.historyItem}>
+                      <summary>
+                        <strong>{item.prompt_name || 'Analise IA'}</strong>
+                        <span>
+                          {fmtDate(item.created_at)} · {item.period_label || 'periodo nao informado'} · {item.model}
+                        </span>
+                      </summary>
+                      <div className={styles.historyOutput}>
+                        {structured ? (
+                          <StructuredAnalysisView result={structured} />
+                        ) : (
+                          <div dangerouslySetInnerHTML={{ __html: renderMarkdown(item.output) }} />
+                        )}
+                      </div>
+                    </details>
+                  )
+                })}
               </div>
             )}
           </div>

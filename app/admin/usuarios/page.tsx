@@ -1,5 +1,6 @@
 'use client'
 import { Suspense, useEffect, useMemo, useState, useCallback } from 'react'
+import CustomSelect, { SelectOption } from '@/components/CustomSelect'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getSession } from '@/lib/auth'
 import { SURL } from '@/lib/constants'
@@ -170,10 +171,15 @@ function UsuariosPageInner() {
                     </div>
                     <div className={styles.field}>
                       <label>Role</label>
-                      <select value={fRole} onChange={e => setFRole(e.target.value as typeof fRole)}>
-                        <option value="ngp">NGP (colaborador)</option>
-                        <option value="admin">Admin</option>
-                      </select>
+                      <CustomSelect
+                        caption="Role"
+                        value={fRole}
+                        options={[
+                          { id: 'ngp', label: 'NGP (colaborador)' },
+                          { id: 'admin', label: 'Admin' }
+                        ]}
+                        onChange={val => setFRole(val as 'admin' | 'ngp')}
+                      />
                     </div>
                   </div>
                   <button className={styles.btnSave} type="submit" disabled={saving}>

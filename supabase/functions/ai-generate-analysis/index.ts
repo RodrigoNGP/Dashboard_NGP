@@ -8,6 +8,44 @@ const MAX_CONTEXT_CHARS = 3000
 const MAX_METRICS_CHARS = 18000
 const MAX_OUTPUT_TOKENS = 1600
 const OPENAI_TIMEOUT_MS = 45000
+const STRUCTURED_ANALYSIS_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    version: { type: 'integer', enum: [1] },
+    headline: { type: 'string' },
+    diagnosis: { type: 'string' },
+    wins: { type: 'array', items: { type: 'string' } },
+    risks: { type: 'array', items: { type: 'string' } },
+    opportunities: { type: 'array', items: { type: 'string' } },
+    nextActions: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          title: { type: 'string' },
+          detail: { type: 'string' },
+          priority: { type: 'string', enum: ['high', 'medium', 'low'] },
+        },
+        required: ['title', 'detail', 'priority'],
+      },
+    },
+    dataGaps: { type: 'array', items: { type: 'string' } },
+    confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+  },
+  required: [
+    'version',
+    'headline',
+    'diagnosis',
+    'wins',
+    'risks',
+    'opportunities',
+    'nextActions',
+    'dataGaps',
+    'confidence',
+  ],
+}
 
 function cleanText(value: unknown, max = MAX_CONTEXT_CHARS) {
   return String(value || '').replace(/\s+\n/g, '\n').trim().slice(0, max)
@@ -23,6 +61,10 @@ function safeMetrics(value: unknown) {
   }
 }
 
+function normalizeMetaAccountId(value: unknown) {
+  return cleanText(value, 80).replace(/^act_/, '')
+}
+
 function extractOpenAiText(data: any) {
   if (typeof data?.output_text === 'string') return data.output_text
   const parts: string[] = []
@@ -36,14 +78,77 @@ function extractOpenAiText(data: any) {
 }
 
 function metricsToText(metrics: Record<string, unknown>) {
-  const entries = Object.entries(metrics || {})
-  if (!entries.length) return 'Nenhuma métrica foi enviada.'
-  return entries
-    .map(([key, value]) => {
-      if (value && typeof value === 'object') return `- ${key}: ${JSON.stringify(value)}`
-      return `- ${key}: ${value ?? 'não informado'}`
+  if (!metrics || typeof metrics !== 'object' || !Object.keys(metrics).length) return 'Nenhuma métrica foi enviada.'
+  const raw = JSON.stringify(metrics, null, 2)
+  if (raw.length <= MAX_METRICS_CHARS) return raw
+  return `${raw.slice(0, MAX_METRICS_CHARS)}\n... [snapshot truncado por limite de segurança]`
+}
+
+function parseStructuredAnalysis(value: unknown) {
+  if (!value || typeof value !== 'object') return null
+  const source = value as Record<string, unknown>
+  const headline = cleanText(source.headline, 240)
+  const diagnosis = cleanText(source.diagnosis, 2000)
+  if (!headline || !diagnosis) return null
+
+  const asArray = (field: string) =>
+    Array.isArray(source[field])
+      ? source[field].map((item) => cleanText(item, 400)).filter(Boolean)
+      : []
+
+  const nextActions = Array.isArray(source.nextActions)
+    ? source.nextActions
+        .map((item) => {
+          if (!item || typeof item !== 'object') return null
+          const action = item as Record<string, unknown>
+          const title = cleanText(action.title, 180)
+          const detail = cleanText(action.detail, 500)
+          const priority = ['high', 'medium', 'low'].includes(String(action.priority)) ? String(action.priority) : 'medium'
+          if (!title || !detail) return null
+          return { title, detail, priority }
+        })
+        .filter(Boolean)
+    : []
+
+  const confidence = ['high', 'medium', 'low'].includes(String(source.confidence)) ? String(source.confidence) : 'medium'
+
+  return {
+    version: 1,
+    headline,
+    diagnosis,
+    wins: asArray('wins'),
+    risks: asArray('risks'),
+    opportunities: asArray('opportunities'),
+    nextActions,
+    dataGaps: asArray('dataGaps'),
+    confidence,
+  }
+}
+
+function renderStructuredAnalysisMarkdown(analysis: ReturnType<typeof parseStructuredAnalysis>) {
+  if (!analysis) return ''
+  const sections = [`# ${analysis.headline}`, '', analysis.diagnosis]
+
+  const addList = (title: string, items: string[]) => {
+    if (!items.length) return
+    sections.push('', `## ${title}`)
+    items.forEach((item) => sections.push(`- ${item}`))
+  }
+
+  addList('O que está funcionando', analysis.wins)
+  addList('Riscos e desperdícios', analysis.risks)
+  addList('Oportunidades', analysis.opportunities)
+
+  if (analysis.nextActions.length) {
+    sections.push('', '## Próximas ações')
+    analysis.nextActions.forEach((action) => {
+      sections.push(`- [${action.priority.toUpperCase()}] ${action.title}: ${action.detail}`)
     })
-    .join('\n')
+  }
+
+  addList('Lacunas de dados', analysis.dataGaps)
+  sections.push('', `Confiança da análise: ${analysis.confidence}.`)
+  return sections.join('\n')
 }
 
 async function getSessionUser(sb: any, session_token: string) {
@@ -66,6 +171,45 @@ async function canAccessClient(sb: any, actor: any, cliente_id?: string, cliente
   if (cliente_id && cliente_id === actor.id) return true
   if (cliente_username && cliente_username === actor.username) return true
   return false
+}
+
+async function loadSnapshot(sb: any, actor: any, params: Record<string, unknown>) {
+  const snapshotId = cleanText(params.snapshot_id, 80)
+  const clienteId = cleanText(params.cliente_id, 80) || undefined
+  const clienteUsername = cleanText(params.cliente_username, 120) || undefined
+  const metaAccountId = normalizeMetaAccountId(params.meta_account_id) || undefined
+
+  if (snapshotId) {
+    const { data } = await sb
+      .from('analytics_snapshots')
+      .select('id, cliente_id, cliente_username, cliente_nome, meta_account_id, period_label, snapshot')
+      .eq('id', snapshotId)
+      .maybeSingle()
+    if (!data) return null
+    const allowed = await canAccessClient(sb, actor, data.cliente_id || undefined, data.cliente_username || undefined)
+    if (!allowed) return 'forbidden'
+    return data
+  }
+
+  if (clienteId || clienteUsername || metaAccountId) {
+    const allowed = await canAccessClient(sb, actor, clienteId, clienteUsername)
+    if (!allowed) return 'forbidden'
+
+    let query = sb
+      .from('analytics_snapshots')
+      .select('id, cliente_id, cliente_username, cliente_nome, meta_account_id, period_label, snapshot')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+
+    if (clienteId) query = query.eq('cliente_id', clienteId)
+    else if (clienteUsername) query = query.eq('cliente_username', clienteUsername)
+    else if (metaAccountId) query = query.eq('meta_account_id', metaAccountId)
+
+    const { data } = await query.maybeSingle()
+    return data || null
+  }
+
+  return null
 }
 
 serve(async (req) => {
@@ -104,7 +248,7 @@ serve(async (req) => {
 
       let query = sb
         .from('ai_analysis_runs')
-        .select('id, cliente_id, cliente_username, cliente_nome, meta_account_id, period_label, prompt_name, model, output, created_at')
+        .select('id, cliente_id, cliente_username, cliente_nome, meta_account_id, period_label, prompt_name, model, output, output_json, snapshot_id, created_at')
         .order('created_at', { ascending: false })
         .limit(12)
 
@@ -188,26 +332,37 @@ serve(async (req) => {
       .eq('is_active', true)
       .single()
 
-    if (promptError || !prompt) return json(req, { error: 'Prompt não encontrado ou inativo.' }, 404)
+      if (promptError || !prompt) return json(req, { error: 'Prompt não encontrado ou inativo.' }, 404)
 
-    const metrics = safeMetrics(params.metrics)
-    const extraContext = cleanText(params.extra_context, MAX_CONTEXT_CHARS)
-    const clientLabel = cleanText(cliente_nome || cliente_username || 'Cliente', 120)
-    const periodLabel = cleanText(period_label || 'Período atual', 80)
+      const snapshotRow = await loadSnapshot(sb, actor, params)
+      if (snapshotRow === 'forbidden') return json(req, { error: 'Acesso negado ao snapshot analítico.' }, 403)
 
-    const userText = `${prompt.user_prompt}
+      const baseMetrics = snapshotRow?.snapshot || params.metrics
+      if (!baseMetrics || typeof baseMetrics !== 'object') {
+        return json(req, { error: 'Nenhum snapshot analítico foi encontrado para esta conta/período.' }, 400)
+      }
+
+      const metrics = safeMetrics(baseMetrics)
+      const extraContext = cleanText(params.extra_context, MAX_CONTEXT_CHARS)
+      const clientLabel = cleanText(snapshotRow?.cliente_nome || cliente_nome || cliente_username || 'Cliente', 120)
+      const periodLabel = cleanText(snapshotRow?.period_label || period_label || 'Período atual', 80)
+      const accountLabel = cleanText(snapshotRow?.meta_account_id || meta_account_id || 'não informada', 80)
+
+      const userText = `${prompt.user_prompt}
 
 Cliente: ${clientLabel}
-Conta Meta: ${meta_account_id || 'não informada'}
+Conta Meta: ${accountLabel || 'não informada'}
 Período: ${periodLabel}
 
-Métricas recebidas:
+Snapshot analítico estruturado (JSON):
 ${metricsToText(metrics)}
 
 ${extraContext ? `Contexto adicional:\n${extraContext}\n` : ''}Regras:
 - Não invente dados que não foram enviados.
 - Quando faltar dado, sinalize a ausência.
-- Entregue uma leitura objetiva para decisão de tráfego pago.`
+- Entregue uma leitura objetiva para decisão de tráfego pago.
+- Priorize clareza operacional, sem frases genéricas.
+- Retorne SOMENTE o JSON no schema solicitado.`
 
     let aiRes: Response
     try {
@@ -222,6 +377,14 @@ ${extraContext ? `Contexto adicional:\n${extraContext}\n` : ''}Regras:
           model: prompt.model || 'gpt-4o-mini',
           temperature: Number(prompt.temperature ?? 0.35),
           max_output_tokens: MAX_OUTPUT_TOKENS,
+          text: {
+            format: {
+              type: 'json_schema',
+              name: 'ngp_meta_analysis',
+              strict: true,
+              schema: STRUCTURED_ANALYSIS_SCHEMA,
+            },
+          },
           input: [
             {
               role: 'system',
@@ -245,22 +408,36 @@ ${extraContext ? `Contexto adicional:\n${extraContext}\n` : ''}Regras:
     }
 
     const output = extractOpenAiText(aiData)
-    if (!output) return json(req, { error: 'A IA não retornou texto para esta análise.' }, 502)
+    if (!output) return json(req, { error: 'A IA não retornou conteúdo para esta análise.' }, 502)
+
+    let structured: ReturnType<typeof parseStructuredAnalysis> | null = null
+    try {
+      structured = parseStructuredAnalysis(JSON.parse(output))
+    } catch {
+      structured = null
+    }
+    if (!structured) {
+      return json(req, { error: 'A IA retornou um formato inválido para a análise estruturada.' }, 502)
+    }
+
+    const markdown = renderStructuredAnalysisMarkdown(structured)
 
     const { data: run, error: runError } = await sb
       .from('ai_analysis_runs')
       .insert({
         cliente_id: cliente_id || null,
         cliente_username: cliente_username || null,
-        cliente_nome: cliente_nome || null,
-        meta_account_id: meta_account_id || null,
+        cliente_nome: snapshotRow?.cliente_nome || cliente_nome || null,
+        meta_account_id: snapshotRow?.meta_account_id || meta_account_id || null,
         period_label: periodLabel,
         prompt_template_id: prompt.id,
         prompt_name: prompt.name,
         model: prompt.model || 'gpt-4o-mini',
         metrics,
+        snapshot_id: snapshotRow?.id || null,
         extra_context: extraContext || null,
-        output,
+        output: markdown,
+        output_json: structured,
         created_by: actor.id,
       })
       .select('id, created_at')
@@ -269,10 +446,12 @@ ${extraContext ? `Contexto adicional:\n${extraContext}\n` : ''}Regras:
     if (runError) throw runError
 
     return json(req, {
-      analysis: output,
+      analysis: markdown,
+      analysis_json: structured,
       run,
       model: prompt.model,
       prompt_name: prompt.name,
+      snapshot_id: snapshotRow?.id || null,
     })
   } catch (e) {
     console.error('[ai-generate-analysis]', e)

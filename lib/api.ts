@@ -34,7 +34,7 @@ export function efHeaders(): Record<string, string> {
 export async function efCall(
   fn: string,
   body: Record<string, unknown> = {},
-  options?: { skipSession?: boolean }
+  options?: { skipSession?: boolean; silent?: boolean }
 ): Promise<Record<string, unknown>> {
   const payload = { ...body }
 
@@ -53,7 +53,9 @@ export async function efCall(
     })
     return await res.json()
   } catch (e) {
-    console.error(`[efCall:${fn}]`, e)
+    if (!options?.silent) {
+      console.error(`[efCall:${fn}]`, e)
+    }
     return { error: 'Erro de conexão.' }
   }
 }

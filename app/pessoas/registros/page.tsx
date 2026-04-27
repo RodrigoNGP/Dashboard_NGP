@@ -1,10 +1,12 @@
 'use client'
 import { useEffect, useState, useCallback, useRef } from 'react'
+import CustomSelect, { SelectOption } from '@/components/CustomSelect'
 import { useRouter } from 'next/navigation'
 import { getSession } from '@/lib/auth'
 import { SURL } from '@/lib/constants'
 import { efHeaders } from '@/lib/api'
 import Sidebar from '@/components/Sidebar'
+import NGPLoading from '@/components/NGPLoading'
 import styles from './registros.module.css'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -394,7 +396,7 @@ export default function RegistrosPage() {
     URL.revokeObjectURL(url)
   }
 
-  if (!sess) return null
+  if (!sess) return <NGPLoading loading loadingText="Carregando registros..." />
 
   const nextAction = getNextAction(todayRecords)
   const { totalMins: todayMins } = calcBalance(todayRecords)
@@ -494,27 +496,43 @@ export default function RegistrosPage() {
             <div className={styles.filters}>
               <div className={styles.filterLabel}><IcoFiltro /> Filtros</div>
 
-              <select className={styles.sel} value={selMes} onChange={e => setSelMes(Number(e.target.value))}>
-                {MONTHS.map((m,i) => <option key={i} value={i+1}>{m}</option>)}
-              </select>
-              <select className={styles.sel} value={selAno} onChange={e => setSelAno(Number(e.target.value))}>
-                {[2025,2026,2027].map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
+              <CustomSelect
+                caption="Mês"
+                value={String(selMes)}
+                options={MONTHS.map((m, i) => ({ id: String(i + 1), label: m }))}
+                onChange={val => setSelMes(Number(val))}
+              />
+              <CustomSelect
+                caption="Ano"
+                value={String(selAno)}
+                options={[2025, 2026, 2027].map(a => ({ id: String(a), label: String(a) }))}
+                onChange={val => setSelAno(Number(val))}
+              />
 
               {isAdmin && (
-                <select className={styles.sel} value={filterUser} onChange={e => setFilterUser(e.target.value)}>
-                  <option value="">Todos os usuários</option>
-                  {usuariosUnicos.map(u => <option key={u} value={u}>{u}</option>)}
-                </select>
+                <CustomSelect
+                  caption="Usuário"
+                  value={filterUser}
+                  options={[
+                    { id: '', label: 'Todos os usuários' },
+                    ...usuariosUnicos.map(u => ({ id: u, label: u }))
+                  ]}
+                  onChange={setFilterUser}
+                />
               )}
 
-              <select className={styles.sel} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                <option value="">Todos os status</option>
-                <option value="complete">Completo</option>
-                <option value="overtime">Hora extra</option>
-                <option value="below">Abaixo da carga</option>
-                <option value="incomplete">Em andamento</option>
-              </select>
+              <CustomSelect
+                caption="Status"
+                value={filterStatus}
+                options={[
+                  { id: '', label: 'Todos os status' },
+                  { id: 'complete', label: 'Completo' },
+                  { id: 'overtime', label: 'Hora extra' },
+                  { id: 'below', label: 'Abaixo da carga' },
+                  { id: 'incomplete', label: 'Em andamento' },
+                ]}
+                onChange={setFilterStatus}
+              />
             </div>
 
             <button className={styles.btnExport} onClick={exportCSV} disabled={rows.length === 0}>

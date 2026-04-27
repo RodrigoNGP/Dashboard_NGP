@@ -1,6 +1,7 @@
 'use client'
 import React from 'react'
 import Sidebar from '@/components/Sidebar'
+import NGPLoading from '@/components/NGPLoading'
 import styles from './comercial.module.css'
 import { getSession } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
@@ -26,7 +27,7 @@ export default function ComercialPage() {
     setSess(s)
   }, [router])
 
-  if (!sess) return null
+  if (!sess) return <NGPLoading loading loadingText="Carregando setor comercial..." />
 
   return (
     <div className={styles.layout}>

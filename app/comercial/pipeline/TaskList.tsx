@@ -1,13 +1,18 @@
 'use client'
 import React, { useEffect, useState, useCallback } from 'react'
 import { crmCall, CrmTask, TASK_TYPE_LABELS, TASK_PRIORITY_LABELS } from '@/lib/crm-api'
+import CustomSelect from '@/components/CustomSelect'
+import CustomDatePicker from '@/components/CustomDatePicker'
 import styles from './pipeline.module.css'
+
+type CrmRequest = (fn: string, body: Record<string, unknown>) => Promise<any>
 
 interface Props {
   leadId: string
+  crmRequest?: CrmRequest
 }
 
-export default function TaskList({ leadId }: Props) {
+export default function TaskList({ leadId, crmRequest = crmCall }: Props) {
   const [tasks, setTasks] = useState<CrmTask[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -24,17 +29,17 @@ export default function TaskList({ leadId }: Props) {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const res = await crmCall('crm-manage-tasks', { action: 'list', lead_id: leadId })
+    const res = await crmRequest('crm-manage-tasks', { action: 'list', lead_id: leadId })
     if (!res.error) setTasks(res.tasks || [])
     setLoading(false)
-  }, [leadId])
+  }, [crmRequest, leadId])
 
   useEffect(() => { load() }, [load])
 
   const createTask = async () => {
     if (!form.title.trim() || saving) return
     setSaving(true)
-    const res = await crmCall('crm-manage-tasks', {
+    const res = await crmRequest('crm-manage-tasks', {
       action: 'create',
       lead_id: leadId,
       title: form.title,
@@ -54,7 +59,7 @@ export default function TaskList({ leadId }: Props) {
 
   const toggleComplete = async (task: CrmTask) => {
     const action = task.status === 'concluida' ? 'reopen' : 'complete'
-    const res = await crmCall('crm-manage-tasks', { action, task_id: task.id })
+    const res = await crmRequest('crm-manage-tasks', { action, task_id: task.id })
     if (!res.error && res.task) {
       setTasks(prev => prev.map(t => t.id === res.task.id ? res.task : t))
     }
@@ -62,7 +67,7 @@ export default function TaskList({ leadId }: Props) {
 
   const deleteTask = async (taskId: string) => {
     if (!confirm('Excluir esta tarefa?')) return
-    const res = await crmCall('crm-manage-tasks', { action: 'delete', task_id: taskId })
+    const res = await crmRequest('crm-manage-tasks', { action: 'delete', task_id: taskId })
     if (!res.error) {
       setTasks(prev => prev.filter(t => t.id !== taskId))
       setSelectedTasks(prev => prev.filter(tid => tid !== taskId))
@@ -77,7 +82,7 @@ export default function TaskList({ leadId }: Props) {
     for (const taskId of selectedTasks) {
       const task = tasks.find(t => t.id === taskId)
       if (task && task.status !== 'concluida') {
-        const res = await crmCall('crm-manage-tasks', { action: 'complete', task_id: taskId })
+        const res = await crmRequest('crm-manage-tasks', { action: 'complete', task_id: taskId })
         if (!res.error && res.task) setTasks(prev => prev.map(t => t.id === res.task?.id ? res.task! : t))
       }
     }
@@ -87,7 +92,7 @@ export default function TaskList({ leadId }: Props) {
   const deleteSelected = async () => {
     if (!confirm(`Excluir as ${selectedTasks.length} tarefas selecionadas?`)) return
     for (const taskId of selectedTasks) {
-      const res = await crmCall('crm-manage-tasks', { action: 'delete', task_id: taskId })
+      const res = await crmRequest('crm-manage-tasks', { action: 'delete', task_id: taskId })
       if (!res.error) setTasks(prev => prev.filter(t => t.id !== taskId))
     }
     setSelectedTasks([])
@@ -212,19 +217,26 @@ export default function TaskList({ leadId }: Props) {
             onKeyDown={e => e.key === 'Enter' && createTask()}
           />
           <div className={styles.taskFormRow}>
-            <select className={styles.taskFormSelect} value={form.task_type} onChange={e => setForm(f => ({ ...f, task_type: e.target.value }))}>
-              {Object.entries(TASK_TYPE_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>{v.icon} {v.label}</option>
-              ))}
-            </select>
-            <select className={styles.taskFormSelect} value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
-              {Object.entries(TASK_PRIORITY_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>{v.label}</option>
-              ))}
-            </select>
+            <CustomSelect
+              caption="Tipo"
+              value={form.task_type}
+              options={Object.entries(TASK_TYPE_LABELS).map(([k, v]) => ({ id: k, label: `${v.icon} ${v.label}` }))}
+              onChange={val => setForm(f => ({ ...f, task_type: val }))}
+            />
+            <CustomSelect
+              caption="Prioridade"
+              value={form.priority}
+              options={Object.entries(TASK_PRIORITY_LABELS).map(([k, v]) => ({ id: k, label: v.label }))}
+              onChange={val => setForm(f => ({ ...f, priority: val }))}
+            />
           </div>
           <div className={styles.taskFormRow}>
-            <input type="date" className={styles.taskFormInput} value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} />
+            <CustomDatePicker
+              caption="Data de Vencimento"
+              value={form.due_date}
+              onChange={val => setForm(f => ({ ...f, due_date: val }))}
+              className={styles.taskFormInput}
+            />
             <input type="time" className={styles.taskFormInput} value={form.due_time} onChange={e => setForm(f => ({ ...f, due_time: e.target.value }))} placeholder="Hora" />
           </div>
           <textarea

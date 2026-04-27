@@ -1,0 +1,227 @@
+.layout {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background: #0a0b0d;
+  font-family: 'Sora', sans-serif;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.content {
+  padding: 32px 36px 64px;
+  max-width: 1180px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Header */
+.header { display: flex; flex-direction: column; gap: 4px; position: relative; }
+
+.btnBack {
+  align-self: flex-start;
+  background: #181c23;
+  border: 1px solid rgba(255,255,255,0.07);
+  color: #8b92a5;
+  padding: 7px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: 'Sora', sans-serif;
+  font-size: 13px;
+  margin-bottom: 12px;
+  transition: all .15s;
+}
+.btnBack:hover { color: #f0f2f5; border-color: rgba(255,255,255,0.15); }
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  color: #4a5168;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #f0f2f5;
+  margin: 4px 0 2px;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #8b92a5;
+}
+
+/* Config Cards */
+.configCard {
+  background: #111318;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 16px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+}
+
+.configCardTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: #f0f2f5;
+}
+
+.configCardDesc {
+  font-size: 13px;
+  color: #8b92a5;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.emptyConfig {
+  font-size: 13px;
+  color: #4a5168;
+  padding: 12px 0;
+  text-align: center;
+}
+
+/* Setor List & Rows */
+.setorList { display: flex; flex-direction: column; gap: 10px; }
+
+.setorRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.04);
+  background: #181c23;
+  flex-wrap: wrap;
+  transition: border-color .15s;
+}
+.setorRow:hover { border-color: rgba(255,255,255,0.1); }
+
+.addSetorRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.setorPreview {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 2px solid rgba(255,255,255,0.1);
+  box-shadow: 0 0 10px rgba(0,0,0,0.3);
+}
+
+.setorNameInput {
+  flex: 1;
+  min-width: 140px;
+  background: #111318;
+  border: 1px solid rgba(255,255,255,0.07);
+  color: #f0f2f5;
+  padding: 10px 14px;
+  border-radius: 9px;
+  font-family: 'Sora', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+  transition: border-color .15s;
+}
+.setorNameInput:focus { border-color: #CC1414; }
+.setorNameInput::placeholder { color: #4a5168; font-weight: 400; }
+
+.setorToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #8b92a5;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.03);
+  transition: all .15s;
+}
+.setorToggle:hover { background: rgba(255,255,255,0.06); color: #f0f2f5; }
+.setorToggle input { width: 14px; height: 14px; cursor: pointer; accent-color: #CC1414; }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 16px; border-radius: 9px; border: 1px solid transparent;
+  font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.btnPrimary { background: #CC1414; color: #fff; border-color: #CC1414; }
+.btnPrimary:hover { opacity: .88; }
+.btnPrimary:disabled { opacity: .45; cursor: not-allowed; }
+
+.btnGhost { background: transparent; border-color: rgba(255,255,255,0.1); color: #8b92a5; }
+.btnGhost:hover { border-color: rgba(255,255,255,0.2); color: #f0f2f5; background: rgba(255,255,255,0.05); }
+
+.btnDanger { background: rgba(204,20,20,.12); border-color: rgba(204,20,20,.2); color: #CC1414; }
+.btnDanger:hover { background: rgba(204,20,20,.2); }
+
+.btnSm { padding: 6px 12px; font-size: 12px; }
+.btnIcon { padding: 6px 8px; }
+
+/* Color picker */
+.colorPicker { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+.colorDot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform .1s, border-color .1s;
+  flex-shrink: 0;
+}
+.colorDot:hover { transform: scale(1.2); }
+.colorDotActive { border-color: #f0f2f5 !important; transform: scale(1.2); }
+
+.colorInput {
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 1px;
+  background: none;
+}
+
+/* Feedback bars */
+.errorBar { 
+  background: rgba(204,20,20,.12); 
+  color: #CC1414; 
+  border: 1px solid rgba(204,20,20,.2); 
+  padding: 10px 14px; 
+  border-radius: 10px; 
+  font-size: 13px; 
+  flex-shrink: 0; 
+}
+
+/* Loading */
+.loadingWrap { display: flex; align-items: center; justify-content: center; flex: 1; }
+
+@media (max-width: 768px) {
+  .content { padding: 24px 16px; gap: 16px; }
+  .title { font-size: 20px; }
+  .addSetorRow { flex-direction: column; align-items: stretch; }
+  .setorRow { flex-direction: column; align-items: stretch; }
+}

@@ -165,7 +165,7 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
     }
   }
 
-  const initials = nome ? nome.slice(0, 2).toUpperCase() : '?'
+  const initials = (typeof nome === 'string' && nome) ? nome.slice(0, 2).toUpperCase() : '?'
 
   return (
     <div className={styles.overlay} onMouseDown={onClose}>

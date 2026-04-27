@@ -3,20 +3,23 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { crmCall, CrmActivity, ACTIVITY_TYPE_LABELS } from '@/lib/crm-api'
 import styles from './pipeline.module.css'
 
+type CrmRequest = (fn: string, body: Record<string, unknown>) => Promise<any>
+
 interface Props {
   leadId: string
+  crmRequest?: CrmRequest
 }
 
-export default function ActivityTimeline({ leadId }: Props) {
+export default function ActivityTimeline({ leadId, crmRequest = crmCall }: Props) {
   const [activities, setActivities] = useState<CrmActivity[]>([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     setLoading(true)
-    const res = await crmCall('crm-manage-activities', { action: 'list', lead_id: leadId, limit: 50 })
+    const res = await crmRequest('crm-manage-activities', { action: 'list', lead_id: leadId, limit: 50 })
     if (!res.error) setActivities(res.activities || [])
     setLoading(false)
-  }, [leadId])
+  }, [crmRequest, leadId])
 
   useEffect(() => { load() }, [load])
 

@@ -4,8 +4,9 @@ import { useRouter } from 'next/navigation'
 import { getSession } from '@/lib/auth'
 import { SURL } from '@/lib/constants'
 import { efHeaders } from '@/lib/api'
-import Sidebar from '@/components/Sidebar'
 import ComingSoonModal from '@/components/ComingSoonModal'
+import WorkspaceTopbar from '@/components/WorkspaceTopbar'
+import NGPLoading from '@/components/NGPLoading'
 
 const IcoAd = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width={15} height={15}>
@@ -106,7 +107,16 @@ interface Setor {
   external: boolean
   embed: boolean
   gradient: string
+  badge?: string
 }
+
+const GESTAO_ANUNCIOS_PLAN_PATH = 'docs/gestao-anuncios-roadmap.md'
+const GESTAO_ANUNCIOS_PLAN_POINTS = [
+  'Subir criativos, campanhas, conjuntos e anúncios a partir de briefing, ativos e prompts estruturados.',
+  'Usar IA para sugerir naming, copy, criativos, segmentação, orçamento e estrutura de campanha antes do envio.',
+  'Manter camada humana curta, focada em aprovação, ajustes sensíveis e publicação final.',
+  'Começar com fluxo assistido interno e só depois evoluir para automações mais autônomas.',
+]
 
 const SETORES: Setor[] = [
   {
@@ -128,21 +138,6 @@ const SETORES: Setor[] = [
     external: false,
     embed: false,
     gradient: 'linear-gradient(135deg,#dc2626,#f97316)',
-  },
-  {
-    id: 'financeiro',
-    title: 'Financeiro',
-    desc: 'Controle de receitas, despesas, DRE e gestão financeira da NGP.',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2v20"/>
-        <path d="M17 6.5c0-1.9-2.2-3.5-5-3.5s-5 1.6-5 3.5 2.2 3.5 5 3.5 5 1.6 5 3.5-2.2 3.5-5 3.5-5-1.6-5-3.5"/>
-      </svg>
-    ),
-    href: 'https://financeiro.grupongp.com.br',
-    external: true,
-    embed: true, // abre inline no NGP Space
-    gradient: 'linear-gradient(135deg,#059669,#14b8a6)',
   },
   {
     id: 'pessoas',
@@ -198,6 +193,38 @@ const SETORES: Setor[] = [
     gradient: 'linear-gradient(135deg,#0f766e,#14b8a6)',
   },
   {
+    id: 'tarefas',
+    title: 'Gestão de Tarefas',
+    desc: 'Kanban de tarefas da equipe com prioridades, responsáveis e prazos.',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="5" width="18" height="14" rx="2"/>
+        <path d="M3 10h18"/>
+        <path d="M8 3v4"/>
+        <path d="M16 3v4"/>
+      </svg>
+    ),
+    href: '/tarefas',
+    external: false,
+    embed: false,
+    gradient: 'linear-gradient(135deg,#0369a1,#3b82f6)',
+  },
+  {
+    id: 'financeiro',
+    title: 'Financeiro',
+    desc: 'Controle de receitas, despesas, DRE e gestão financeira da NGP.',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2v20"/>
+        <path d="M17 6.5c0-1.9-2.2-3.5-5-3.5s-5 1.6-5 3.5 2.2 3.5 5 3.5 5 1.6 5 3.5-2.2 3.5-5 3.5-5-1.6-5-3.5"/>
+      </svg>
+    ),
+    href: 'https://financeiro.grupongp.com.br',
+    external: true,
+    embed: true, // abre inline no NGP Space
+    gradient: 'linear-gradient(135deg,#059669,#14b8a6)',
+  },
+  {
     id: 'trackeamento',
     title: 'Trackeamento',
     desc: 'UTMs, pixels, eventos e análise de jornada de conversão.',
@@ -215,6 +242,24 @@ const SETORES: Setor[] = [
     external: true,
     embed: false,
     gradient: 'linear-gradient(135deg,#7c3aed,#ec4899)',
+  },
+  {
+    id: 'gestao-anuncios',
+    title: 'Gestão de anúncios',
+    desc: 'Setor planejado para criação e operação de campanhas com apoio forte de IA, prompts e revision humana mínima.',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="4" width="18" height="14" rx="2"/>
+        <path d="M7 20h10"/>
+        <path d="M9 8h6"/>
+        <path d="M7 12h10"/>
+      </svg>
+    ),
+    href: '#',
+    external: false,
+    embed: false,
+    gradient: 'linear-gradient(135deg,#2563eb,#0ea5e9)',
+    badge: 'Em construção',
   },
 ]
 
@@ -321,7 +366,7 @@ export default function SetoresPage() {
     return () => window.cancelAnimationFrame(frame)
   }, [sess, selectedDay])
 
-  if (!sess) return null
+  if (!sess) return <NGPLoading loading loadingText="Carregando setores..." />
 
   const isAdmin = sess.role === 'admin'
   const nextAction = getNextAction(todayRecords)
@@ -399,7 +444,7 @@ export default function SetoresPage() {
 
   return (
     <div className={styles.layout}>
-      <Sidebar showDashboardNav={false} minimal={isAdmin} />
+      <WorkspaceTopbar subtitle="Visão geral do sistema" />
 
       <main className={styles.main}>
         <div className={styles.content}>
@@ -512,6 +557,9 @@ export default function SetoresPage() {
                 <div className={styles.cardBody}>
                   <div className={styles.cardTitleRow}>
                     <h3 className={styles.cardTitle}>{setor.title}</h3>
+                    {setor.badge && (
+                      <span className={styles.cardBadge}>{setor.badge}</span>
+                    )}
                     {setor.external && !setor.embed && (
                       <span className={styles.externalTag} title="Abre em nova aba">↗</span>
                     )}
@@ -522,6 +570,34 @@ export default function SetoresPage() {
               </button>
             ))}
           </section>
+
+          {isAdmin && (
+            <section className={styles.adminPlanCard}>
+              <div className={styles.adminPlanHeader}>
+                <div>
+                  <div className={styles.adminPlanEyebrow}>Plano interno</div>
+                  <h2 className={styles.adminPlanTitle}>Gestão de anúncios</h2>
+                </div>
+                <span className={styles.adminPlanStatus}>Em construção</span>
+              </div>
+
+              <p className={styles.adminPlanDesc}>
+                Roadmap salvo para evoluirmos este setor sem perder a ideia. O objetivo é transformar a criação e a operação de anúncios em um fluxo IA-first, com aprovação humana curta e capacidade de otimização contínua.
+              </p>
+
+              <div className={styles.adminPlanPath}>
+                Arquivo-base: <code>{GESTAO_ANUNCIOS_PLAN_PATH}</code>
+              </div>
+
+              <div className={styles.adminPlanGrid}>
+                {GESTAO_ANUNCIOS_PLAN_POINTS.map((point) => (
+                  <div key={point} className={styles.adminPlanPoint}>
+                    {point}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           <footer className={styles.footer}>
             <span className={styles.footerDot} />

@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "tsc -p tests/tsconfig.json && node --test .tmp-tests/tests/*.test.js"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

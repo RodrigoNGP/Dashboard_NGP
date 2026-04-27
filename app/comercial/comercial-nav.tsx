@@ -5,12 +5,13 @@ const IcoPipe = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
 const IcoDoc  = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width={14} height={14}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
 const IcoSign = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width={14} height={14}><path d="M20 14.66V20a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2h5.34"/><polygon points="18 2 22 6 12 16 8 16 8 12 18 2"/></svg>
 const IcoKpi  = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width={14} height={14}><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+const IcoChat = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width={14} height={14}><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
 
 export const comercialNav = [
   { icon: <IcoGrid />, label: 'Gestão',      href: '/comercial/gestao' },
-  { 
-    icon: <IcoPipe />, 
-    label: 'Pipeline',    
+  {
+    icon: <IcoPipe />,
+    label: 'Pipeline',
     href: '/comercial/pipeline',
     subItems: [
       { icon: <div style={{width: 14}}/>, label: 'Meus Pipers',      href: '/comercial/pipeline', tab: 'kanban' },
@@ -19,6 +20,7 @@ export const comercialNav = [
       { icon: <div style={{width: 14}}/>, label: 'Novo Funil',       href: '/comercial/pipeline', tab: 'new_pipeline' },
     ]
   },
+  { icon: <IcoChat />, label: 'Chat',        href: '/comercial/chat' },
   { icon: <IcoDoc  />, label: 'Propostas',   href: '/comercial/propostas' },
   { icon: <IcoSign />, label: 'Contratos',   href: '/comercial/contratos' },
   { icon: <IcoKpi  />, label: 'Metas e KPIs', href: '/comercial/kpis' },

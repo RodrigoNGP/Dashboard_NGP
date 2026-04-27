@@ -1,6 +1,7 @@
 'use client'
 import React, { useEffect, useState, useCallback } from 'react'
 import Sidebar from '@/components/Sidebar'
+import NGPLoading from '@/components/NGPLoading'
 import { getSession } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import { crmCall, CrmTask, TASK_TYPE_LABELS, TASK_PRIORITY_LABELS } from '@/lib/crm-api'
@@ -81,7 +82,7 @@ export default function GestaoPage() {
   const todayCount = allTasks.filter(t => isToday(t) && t.status === 'pendente').length
   const doneCount = allTasks.filter(t => t.status === 'concluida').length
 
-  if (!sess) return null
+  if (!sess) return <NGPLoading loading loadingText="Carregando gestão comercial..." />
 
   return (
     <div className={styles.layout}>

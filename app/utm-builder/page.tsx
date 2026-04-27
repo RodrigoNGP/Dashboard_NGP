@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
+import CustomSelect, { SelectOption } from '@/components/CustomSelect'
 import { useRouter } from 'next/navigation'
 import { getSession, clearSession } from '@/lib/auth'
 import { SURL } from '@/lib/constants'
@@ -201,21 +202,37 @@ export default function UTMBuilderPage() {
             <div className={styles.fieldGrid}>
               <div className={styles.field}>
                 <label>utm_source <span className={styles.req}>*</span><span className={styles.tip}>de onde vem o tráfego</span></label>
-                <select value={source} onChange={e => { setSource(e.target.value); if (e.target.value !== 'custom') setSourceCustom('') }}>
-                  <option value="">Selecionar...</option>
-                  {['google','facebook','instagram','tiktok','youtube','linkedin','twitter','email','whatsapp','newsletter','sms'].map(v => <option key={v} value={v}>{v}</option>)}
-                  <option value="custom">✏️ Personalizado...</option>
-                </select>
+                <CustomSelect
+                  caption="Origem"
+                  value={source}
+                  options={[
+                    { id: '', label: 'Selecionar...' },
+                    ...['google', 'facebook', 'instagram', 'tiktok', 'youtube', 'linkedin', 'twitter', 'email', 'whatsapp', 'newsletter', 'sms'].map(v => ({ id: v, label: v })),
+                    { id: 'custom', label: '✏️ Personalizado...' }
+                  ]}
+                  onChange={val => {
+                    setSource(val)
+                    if (val !== 'custom') setSourceCustom('')
+                  }}
+                />
                 {source === 'custom' && <input type="text" value={sourceCustom} placeholder="fonte personalizada" onChange={e => setSourceCustom(e.target.value)} style={{ marginTop: 6 }} />}
               </div>
 
               <div className={styles.field}>
                 <label>utm_medium <span className={styles.req}>*</span><span className={styles.tip}>tipo de mídia</span></label>
-                <select value={medium} onChange={e => { setMedium(e.target.value); if (e.target.value !== 'custom') setMediumCustom('') }}>
-                  <option value="">Selecionar...</option>
-                  {['cpc','cpm','organic','social','social-paid','email','display','video','affiliate','referral','push','sms'].map(v => <option key={v} value={v}>{v}</option>)}
-                  <option value="custom">✏️ Personalizado...</option>
-                </select>
+                <CustomSelect
+                  caption="Mídia"
+                  value={medium}
+                  options={[
+                    { id: '', label: 'Selecionar...' },
+                    ...['cpc', 'cpm', 'organic', 'social', 'social-paid', 'email', 'display', 'video', 'affiliate', 'referral', 'push', 'sms'].map(v => ({ id: v, label: v })),
+                    { id: 'custom', label: '✏️ Personalizado...' }
+                  ]}
+                  onChange={val => {
+                    setMedium(val)
+                    if (val !== 'custom') setMediumCustom('')
+                  }}
+                />
                 {medium === 'custom' && <input type="text" value={mediumCustom} placeholder="mídia personalizada" onChange={e => setMediumCustom(e.target.value)} style={{ marginTop: 6 }} />}
               </div>
 

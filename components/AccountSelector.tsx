@@ -4,6 +4,7 @@ import { getSession, setSession } from '@/lib/auth'
 import { SURL } from '@/lib/constants'
 import { efHeaders } from '@/lib/api'
 import styles from './AccountSelector.module.css'
+import CustomSelect, { SelectOption } from './CustomSelect'
 
 interface Cliente {
   id: string
@@ -17,7 +18,6 @@ export default function AccountSelector() {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [currentAccount, setCurrentAccount] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [showDropdown, setShowDropdown] = useState(false)
 
   useEffect(() => {
     loadAccounts()
@@ -39,7 +39,6 @@ export default function AccountSelector() {
         setClientes(data.clientes.filter((c: Cliente) => c.meta_account_id))
       }
 
-      // Recuperar conta atualmente selecionada
       const current = sessionStorage.getItem('ngp_viewing_account')
       setCurrentAccount(current)
     } catch (e) {
@@ -49,62 +48,36 @@ export default function AccountSelector() {
     }
   }
 
-  function selectAccount(accountId: string, clienteName: string, clienteUsername: string, clienteId: string) {
+  function handleAccountChange(accountId: string) {
+    const cliente = clientes.find(c => c.meta_account_id === accountId)
+    if (!cliente) return
+
     sessionStorage.setItem('ngp_viewing_account', accountId)
-    sessionStorage.setItem('ngp_viewing_name', clienteName)
-    sessionStorage.setItem('ngp_viewing_username', clienteUsername)
-    sessionStorage.setItem('ngp_viewing_id', clienteId)
+    sessionStorage.setItem('ngp_viewing_name', cliente.nome)
+    sessionStorage.setItem('ngp_viewing_username', cliente.username)
+    sessionStorage.setItem('ngp_viewing_id', cliente.id)
     setCurrentAccount(accountId)
-    setShowDropdown(false)
-    // Trigger page reload to refresh data with new account
     window.location.reload()
   }
 
-  const selectedCliente = clientes.find(c => c.meta_account_id === currentAccount)
+  const options: SelectOption[] = clientes.map(c => ({
+    id: c.meta_account_id!,
+    label: c.nome,
+    subLabel: c.meta_account_id!,
+    image: c.foto_url || undefined
+  }))
 
   if (loading || clientes.length === 0) return null
 
   return (
     <div className={styles.container}>
-      <button
-        className={styles.trigger}
-        onClick={() => setShowDropdown(!showDropdown)}
-        title="Trocar conta de cliente"
-      >
-        {selectedCliente ? (
-          <>
-            {selectedCliente.foto_url && <img src={selectedCliente.foto_url} alt="" />}
-            <span>{selectedCliente.nome}</span>
-          </>
-        ) : (
-          <>
-            <span className={styles.icon}>👤</span>
-            <span>Selecionar conta</span>
-          </>
-        )}
-        <svg className={`${styles.arrow} ${showDropdown ? styles.open : ''}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <polyline points="6 9 12 15 18 9"></polyline>
-        </svg>
-      </button>
-
-      {showDropdown && (
-        <div className={styles.dropdown}>
-          {clientes.map(cliente => (
-            <button
-              key={cliente.id}
-              className={`${styles.option} ${currentAccount === cliente.meta_account_id ? styles.active : ''}`}
-              onClick={() => selectAccount(cliente.meta_account_id!, cliente.nome, cliente.username, cliente.id)}
-            >
-              {cliente.foto_url && <img src={cliente.foto_url} alt="" />}
-              <div>
-                <div className={styles.optionName}>{cliente.nome}</div>
-                <div className={styles.optionId}>{cliente.meta_account_id}</div>
-              </div>
-              {currentAccount === cliente.meta_account_id && <span className={styles.checkmark}>✓</span>}
-            </button>
-          ))}
-        </div>
-      )}
+      <CustomSelect
+        caption="Conta do cliente"
+        value={currentAccount || ''}
+        options={options}
+        onChange={handleAccountChange}
+        placeholder="Selecionar cliente..."
+      />
     </div>
   )
 }

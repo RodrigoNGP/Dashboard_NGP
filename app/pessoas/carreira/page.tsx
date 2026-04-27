@@ -5,6 +5,9 @@ import { getSession } from '@/lib/auth'
 import { SURL } from '@/lib/constants'
 import { efHeaders } from '@/lib/api'
 import Sidebar from '@/components/Sidebar'
+import CustomSelect from '@/components/CustomSelect'
+import CustomDatePicker from '@/components/CustomDatePicker'
+import NGPLoading from '@/components/NGPLoading'
 import styles from './carreira.module.css'
 
 interface DashboardCardData {
@@ -922,7 +925,7 @@ export default function CarreiraPage() {
     setEditingMeetingId(null)
   }
 
-  if (!sess) return null
+  if (!sess) return <NGPLoading loading loadingText="Carregando carreira..." />
 
   const pendingMeetings = (perfil?.reunioes || []).filter((reuniao) => reuniao.status !== 'publicado')
   const historyMeetings = (perfil?.reunioes || []).filter((reuniao) => reuniao.status === 'publicado')
@@ -1019,12 +1022,10 @@ export default function CarreiraPage() {
                     <form className={styles.formSection} onSubmit={createCollaborator}>
                       <div className={styles.formGrid}>
                         <div className={styles.field}>
-                          <label>Data de entrada</label>
-                          <input
-                            type="date"
+                          <CustomDatePicker
+                            caption="Data de entrada"
                             value={novoColaboradorForm.data_entrada}
-                            onChange={(e) => setNovoColaboradorForm((prev) => ({ ...prev, data_entrada: e.target.value }))}
-                            required
+                            onChange={(val) => setNovoColaboradorForm((prev) => ({ ...prev, data_entrada: val }))}
                           />
                         </div>
                         <div className={styles.field}>
@@ -1075,39 +1076,33 @@ export default function CarreiraPage() {
                         </div>
                         <div className={styles.field}>
                           <label>Cargo</label>
-                          <select
+                          <CustomSelect
+                            caption="Cargo"
                             value={novoColaboradorForm.cargo}
-                            onChange={(e) => setNovoColaboradorForm((prev) => ({ ...prev, cargo: e.target.value }))}
-                          >
-                            <option value="">Selecione um cargo</option>
-                            {cadastros.cargos.map((item) => (
-                              <option key={item.id} value={item.nome}>{item.nome}</option>
-                            ))}
-                          </select>
+                            options={cadastros.cargos.map((item) => ({ id: item.nome, label: item.nome }))}
+                            onChange={(val) => setNovoColaboradorForm((prev) => ({ ...prev, cargo: val }))}
+                            placeholder="Selecione um cargo"
+                          />
                         </div>
                         <div className={styles.field}>
                           <label>Função</label>
-                          <select
+                          <CustomSelect
+                            caption="Função"
                             value={novoColaboradorForm.funcao}
-                            onChange={(e) => setNovoColaboradorForm((prev) => ({ ...prev, funcao: e.target.value }))}
-                          >
-                            <option value="">Selecione uma função</option>
-                            {cadastros.funcoes.map((item) => (
-                              <option key={item.id} value={item.nome}>{item.nome}</option>
-                            ))}
-                          </select>
+                            options={cadastros.funcoes.map((item) => ({ id: item.nome, label: item.nome }))}
+                            onChange={(val) => setNovoColaboradorForm((prev) => ({ ...prev, funcao: val }))}
+                            placeholder="Selecione uma função"
+                          />
                         </div>
                         <div className={styles.field}>
                           <label>Senioridade</label>
-                          <select
+                          <CustomSelect
+                            caption="Senioridade"
                             value={novoColaboradorForm.senioridade}
-                            onChange={(e) => setNovoColaboradorForm((prev) => ({ ...prev, senioridade: e.target.value }))}
-                          >
-                            <option value="">Selecione uma senioridade</option>
-                            {cadastros.senioridades.map((item) => (
-                              <option key={item.id} value={item.nome}>{item.nome}</option>
-                            ))}
-                          </select>
+                            options={cadastros.senioridades.map((item) => ({ id: item.nome, label: item.nome }))}
+                            onChange={(val) => setNovoColaboradorForm((prev) => ({ ...prev, senioridade: val }))}
+                            placeholder="Selecione uma senioridade"
+                          />
                         </div>
                       </div>
                       <div className={styles.formActions}>
@@ -1171,11 +1166,10 @@ export default function CarreiraPage() {
                           <div className={styles.formSectionTitle}>Dados de carreira do colaborador</div>
                           <div className={styles.formGrid}>
                             <div className={styles.field}>
-                              <label>Data de entrada</label>
-                              <input
-                                type="date"
+                              <CustomDatePicker
+                                caption="Data de entrada"
                                 value={colaboradorForm.data_entrada}
-                                onChange={(e) => setColaboradorForm((prev) => ({ ...prev, data_entrada: e.target.value }))}
+                                onChange={(val) => setColaboradorForm((prev) => ({ ...prev, data_entrada: val }))}
                                 disabled={!canManageCollaboratorData}
                               />
                             </div>
@@ -1199,55 +1193,47 @@ export default function CarreiraPage() {
                             </div>
                             <div className={styles.field}>
                               <label>Cargo</label>
-                              <select
+                              <CustomSelect
+                                caption="Cargo"
                                 value={colaboradorForm.cargo}
-                                onChange={(e) => setColaboradorForm((prev) => ({ ...prev, cargo: e.target.value }))}
+                                options={cadastros.cargos.map((item) => ({ id: item.nome, label: item.nome }))}
+                                onChange={(val) => setColaboradorForm((prev) => ({ ...prev, cargo: val }))}
+                                placeholder="Selecione um cargo"
                                 disabled={!canManageCollaboratorData}
-                              >
-                                <option value="">Selecione um cargo</option>
-                                {cadastros.cargos.map((item) => (
-                                  <option key={item.id} value={item.nome}>{item.nome}</option>
-                                ))}
-                              </select>
+                              />
                             </div>
                             <div className={styles.field}>
                               <label>Função</label>
-                              <select
+                              <CustomSelect
+                                caption="Função"
                                 value={colaboradorForm.funcao}
-                                onChange={(e) => setColaboradorForm((prev) => ({ ...prev, funcao: e.target.value }))}
+                                options={cadastros.funcoes.map((item) => ({ id: item.nome, label: item.nome }))}
+                                onChange={(val) => setColaboradorForm((prev) => ({ ...prev, funcao: val }))}
+                                placeholder="Selecione uma função"
                                 disabled={!canManageCollaboratorData}
-                              >
-                                <option value="">Selecione uma função</option>
-                                {cadastros.funcoes.map((item) => (
-                                  <option key={item.id} value={item.nome}>{item.nome}</option>
-                                ))}
-                              </select>
+                              />
                             </div>
                             <div className={styles.field}>
                               <label>Senioridade</label>
-                              <select
+                              <CustomSelect
+                                caption="Senioridade"
                                 value={colaboradorForm.senioridade}
-                                onChange={(e) => setColaboradorForm((prev) => ({ ...prev, senioridade: e.target.value }))}
+                                options={cadastros.senioridades.map((item) => ({ id: item.nome, label: item.nome }))}
+                                onChange={(val) => setColaboradorForm((prev) => ({ ...prev, senioridade: val }))}
+                                placeholder="Selecione uma senioridade"
                                 disabled={!canManageCollaboratorData}
-                              >
-                                <option value="">Selecione uma senioridade</option>
-                                {cadastros.senioridades.map((item) => (
-                                  <option key={item.id} value={item.nome}>{item.nome}</option>
-                                ))}
-                              </select>
+                              />
                             </div>
                             <div className={styles.field}>
                               <label>Gestor responsável</label>
-                              <select
+                              <CustomSelect
+                                caption="Gestor responsável"
                                 value={colaboradorForm.gestor_usuario}
-                                onChange={(e) => setColaboradorForm((prev) => ({ ...prev, gestor_usuario: e.target.value }))}
+                                options={internalUsers.map((username) => ({ id: username, label: username }))}
+                                onChange={(val) => setColaboradorForm((prev) => ({ ...prev, gestor_usuario: val }))}
+                                placeholder="Sem gestor definido"
                                 disabled={!canManageCollaboratorData}
-                              >
-                                <option value="">Sem gestor definido</option>
-                                {internalUsers.map((username) => (
-                                  <option key={username} value={username}>{username}</option>
-                                ))}
-                              </select>
+                              />
                             </div>
                             <div className={`${styles.field} ${styles.fieldFull}`}>
                               <label>Objetivo profissional resumido</label>
@@ -1365,12 +1351,10 @@ export default function CarreiraPage() {
                             </div>
                             <div className={styles.formGrid}>
                               <div className={styles.field}>
-                                <label>Data prevista para apresentação</label>
-                                <input
-                                  type="date"
+                                <CustomDatePicker
+                                  caption="Data prevista para apresentação"
                                   value={meetingForm.data_reuniao}
-                                  onChange={(e) => setMeetingForm((prev) => ({ ...prev, data_reuniao: e.target.value }))}
-                                  required
+                                  onChange={(val) => setMeetingForm((prev) => ({ ...prev, data_reuniao: val }))}
                                 />
                               </div>
                               <div className={styles.field}>

@@ -4,10 +4,14 @@ import { crmCall, CrmLead, CrmStage, CrmPipelineField, CrmTask } from '@/lib/crm
 import ActivityTimeline from './ActivityTimeline'
 import TaskList from './TaskList'
 import RegisterActivityForm from './RegisterActivityForm'
+import ChatTab from './ChatTab'
 import { formatCnpj } from './CnpjLookup'
+import CustomSelect from '@/components/CustomSelect'
+import CustomDatePicker from '@/components/CustomDatePicker'
 import styles from './pipeline.module.css'
 
-type Tab = 'dados' | 'timeline' | 'tarefas' | 'ia'
+type Tab = 'dados' | 'timeline' | 'tarefas' | 'chat'
+type CrmRequest = (fn: string, body: Record<string, unknown>) => Promise<any>
 
 interface Props {
   lead: CrmLead
@@ -15,30 +19,16 @@ interface Props {
   pipelineFields: CrmPipelineField[]
   initialTab?: Tab
   open: boolean
+  crmRequest?: CrmRequest
   onClose: () => void
   onUpdate: (lead: CrmLead) => void
   onDelete: (leadId: string) => void
 }
 
-const getBaseType = (type: string) => type.split(':')[0]
-const getFieldWidth = (type: string): 'full' | 'half' => type.includes(':half') ? 'half' : 'full'
+import { getBaseType, getFieldWidth, CurrencyInput } from './components/FieldComponents'
+
 const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 
-const CurrencyInput = ({ value, onChange, className }: { value: number | string; onChange: (v: number) => void; className?: string }) => {
-  const displayVal = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0)
-  return (
-    <input
-      type="text"
-      className={className}
-      value={displayVal}
-      onChange={(e) => {
-        const numericStr = e.target.value.replace(/\D/g, '')
-        const floatValue = numericStr ? parseInt(numericStr, 10) / 100 : 0
-        onChange(floatValue)
-      }}
-    />
-  )
-}
 
 // ── Temperatura Badge ──────────────────────────────────────────────────────────
 function TempBadge({ temp }: { temp?: 'hot' | 'warm' | 'cold' }) {
@@ -57,7 +47,7 @@ function TempBadge({ temp }: { temp?: 'hot' | 'warm' | 'cold' }) {
 }
 
 // ── AI Advisor Tab ─────────────────────────────────────────────────────────────
-function AIAdvisorTab({ lead, currentStageName }: { lead: CrmLead; currentStageName: string }) {
+function AIAdvisorSection({ lead, currentStageName, crmRequest }: { lead: CrmLead; currentStageName: string; crmRequest: CrmRequest }) {
   const [advice, setAdvice]     = useState('')
   const [loading, setLoading]   = useState(false)
   const [cached, setCached]     = useState(false)
@@ -67,7 +57,7 @@ function AIAdvisorTab({ lead, currentStageName }: { lead: CrmLead; currentStageN
   const fetchAdvice = useCallback(async (force = false) => {
     setLoading(true)
     setError('')
-    const res = await crmCall('crm-ai-advisor', { action: 'advise', lead_id: lead.id, force_refresh: force })
+    const res = await crmRequest('crm-ai-advisor', { action: 'advise', lead_id: lead.id, force_refresh: force })
     setLoading(false)
     if (res.error) {
       setError(res.error)
@@ -76,7 +66,7 @@ function AIAdvisorTab({ lead, currentStageName }: { lead: CrmLead; currentStageN
     setAdvice(res.advice || '')
     setCached(res.cached || false)
     setCachedAt(res.created_at ? new Date(res.created_at).toLocaleString('pt-BR') : '')
-  }, [lead.id])
+  }, [crmRequest, lead.id])
 
   // Carrega automaticamente ao abrir a aba
   useEffect(() => {
@@ -87,9 +77,9 @@ function AIAdvisorTab({ lead, currentStageName }: { lead: CrmLead; currentStageN
     <div className={styles.aiAdvisorWrap}>
       <div className={styles.aiAdvisorHeader}>
         <div>
-          <div className={styles.aiAdvisorTitle}>🤖 Advisor de IA</div>
+          <div className={styles.aiAdvisorTitle}>🤖 Insight de IA para follow-up</div>
           <div className={styles.aiAdvisorSubtitle}>
-            Análise personalizada para <strong>{lead.company_name}</strong> na etapa <strong>{currentStageName}</strong>
+            Resumo rápido e orientação prática para <strong>{lead.company_name}</strong> na etapa <strong>{currentStageName}</strong>
           </div>
         </div>
         <button
@@ -270,7 +260,7 @@ function StageNotesSection({ lead, currentStageId, currentStageName, onSave, onA
   )
 }
 
-export default function LeadDetailPanel({ lead, stages, pipelineFields, initialTab, open, onClose, onUpdate, onDelete }: Props) {
+export default function LeadDetailPanel({ lead, stages, pipelineFields, initialTab, open, crmRequest = crmCall, onClose, onUpdate, onDelete }: Props) {
   const [tab, setTab]           = useState<Tab>(initialTab || 'dados')
   const [editLead, setEditLead] = useState<CrmLead>(lead)
   const [customFields, setCustomFields] = useState<Record<string, any>>(lead.custom_data || {})
@@ -287,7 +277,7 @@ export default function LeadDetailPanel({ lead, stages, pipelineFields, initialT
 
   // Load task counts for badges
   const loadTaskCounts = useCallback(async () => {
-    const res = await crmCall('crm-manage-tasks', { action: 'list', lead_id: lead.id })
+    const res = await crmRequest('crm-manage-tasks', { action: 'list', lead_id: lead.id })
     if (!res.error && res.tasks) {
       const tasks = res.tasks as CrmTask[]
       const today = new Date().toDateString()
@@ -295,7 +285,7 @@ export default function LeadDetailPanel({ lead, stages, pipelineFields, initialT
       const overdue = tasks.filter((t: CrmTask) => t.status === 'pendente' && new Date(t.due_date) < new Date(today)).length
       setTaskCount({ pending, overdue })
     }
-  }, [lead.id])
+  }, [crmRequest, lead.id])
 
   useEffect(() => {
     if (open) {
@@ -308,7 +298,7 @@ export default function LeadDetailPanel({ lead, stages, pipelineFields, initialT
 
   // Utilitário: registra atividade de sistema e recarrega timeline
   const logActivity = useCallback(async (activity_type: string, title: string, metadata?: Record<string, any>) => {
-    await crmCall('crm-manage-activities', {
+    await crmRequest('crm-manage-activities', {
       action: 'log_auto',
       lead_id: editLead.id,
       activity_type,
@@ -316,12 +306,12 @@ export default function LeadDetailPanel({ lead, stages, pipelineFields, initialT
       metadata: metadata || {},
     })
     setTimelineKey(k => k + 1)
-  }, [editLead.id])
+  }, [crmRequest, editLead.id])
 
   const saveLead = async () => {
     if (saving) return
     setSaving(true)
-    const res = await crmCall('crm-manage-leads', {
+    const res = await crmRequest('crm-manage-leads', {
       action: 'update', lead_id: editLead.id,
       company_name: editLead.company_name, contact_name: editLead.contact_name,
       email: editLead.email, phone: editLead.phone,
@@ -338,7 +328,7 @@ export default function LeadDetailPanel({ lead, stages, pipelineFields, initialT
 
   // Salva notas da etapa (chamado pelo StageNotesSection)
   const saveStageNotes = async (newNotes: Record<string, any>) => {
-    const res = await crmCall('crm-manage-leads', {
+    const res = await crmRequest('crm-manage-leads', {
       action: 'update', lead_id: editLead.id, stage_notes: newNotes,
     })
     if (!res.error && res.lead) {
@@ -350,7 +340,7 @@ export default function LeadDetailPanel({ lead, stages, pipelineFields, initialT
 
   const deleteLead = async () => {
     if (!confirm(`Excluir "${editLead.company_name}"?`)) return
-    const res = await crmCall('crm-manage-leads', { action: 'delete', lead_id: editLead.id })
+    const res = await crmRequest('crm-manage-leads', { action: 'delete', lead_id: editLead.id })
     if (res.error) { showToast(`Erro: ${res.error}`); return }
     onDelete(editLead.id)
     onClose()
@@ -404,8 +394,8 @@ export default function LeadDetailPanel({ lead, stages, pipelineFields, initialT
             {taskCount.overdue > 0 && <span className={styles.drawerBadgeRed}>{taskCount.overdue}</span>}
             {taskCount.overdue === 0 && taskCount.pending > 0 && <span className={styles.drawerBadgeBlue}>{taskCount.pending}</span>}
           </button>
-          <button className={`${styles.drawerTab} ${tab === 'ia' ? styles.drawerTabActive : ''}`} onClick={() => setTab('ia')} title="Advisor de IA — sugestão de follow-up">
-            🤖 IA
+          <button className={`${styles.drawerTab} ${tab === 'chat' ? styles.drawerTabActive : ''}`} onClick={() => setTab('chat')}>
+            💬 Chat
           </button>
         </div>
 
@@ -420,13 +410,16 @@ export default function LeadDetailPanel({ lead, stages, pipelineFields, initialT
               </div>
               <div className={styles.field}>
                 <label>Etapa</label>
-                <select value={editLead.stage_id} onChange={e => setEditLead(l => ({ ...l, stage_id: e.target.value }))}>
-                  {stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                <CustomSelect
+                  caption="Etapa"
+                  value={editLead.stage_id}
+                  options={stages.map(s => ({ id: s.id, label: s.name }))}
+                  onChange={val => setEditLead(l => ({ ...l, stage_id: val }))}
+                />
               </div>
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px 12px' }}>
-                {pipelineFields.filter(f => getBaseType(f.type) !== 'system_stage_id').map(field => {
+                {pipelineFields.filter(f => getBaseType(f.type) !== 'system_stage_id').map((field, idx) => {
                   const bType = getBaseType(field.type)
                   const isHalf = getFieldWidth(field.type) === 'half' && bType !== 'longtext' && bType !== 'system_notes' && bType !== 'cnpj'
                   const isSys = bType.startsWith('system_')
@@ -463,15 +456,26 @@ export default function LeadDetailPanel({ lead, stages, pipelineFields, initialT
                   }
 
                   return (
-                    <div key={field.id} className={styles.field} style={{ flex: isHalf ? '0 0 calc(50% - 6px)' : '0 0 100%' }}>
+                    <div 
+                      key={field.id} 
+                      className={styles.field} 
+                      style={{ 
+                        flex: isHalf ? '0 0 calc(50% - 6px)' : '0 0 100%',
+                        zIndex: pipelineFields.length - idx,
+                        position: 'relative'
+                      }}
+                    >
                       <label>{field.name}</label>
                       {bType === 'longtext' || bType === 'system_notes' ? (
                         <textarea value={val || ''} onChange={e => setVal(e.target.value)} />
                       ) : bType === 'select' ? (
-                        <select value={val || ''} onChange={e => setVal(e.target.value)}>
-                          <option value="">Selecione...</option>
-                          {(field.options || []).map(o => <option key={o} value={o}>{o}</option>)}
-                        </select>
+                        <CustomSelect
+                          caption={field.name}
+                          value={val || ''}
+                          options={(field.options || []).map(o => ({ id: o, label: o }))}
+                          onChange={v => setVal(v)}
+                          placeholder="Selecione..."
+                        />
                       ) : bType === 'currency' || bType === 'system_estimated_value' ? (
                         <CurrencyInput
                           value={val}
@@ -480,9 +484,15 @@ export default function LeadDetailPanel({ lead, stages, pipelineFields, initialT
                             else setCustomFields(f => ({ ...f, [field.name]: v }))
                           }}
                         />
+                      ) : bType === 'date' ? (
+                        <CustomDatePicker
+                          caption={field.name}
+                          value={val || ''}
+                          onChange={v => setVal(v)}
+                        />
                       ) : (
                         <input
-                          type={bType === 'number' ? 'number' : bType === 'date' ? 'date' : bType === 'email' ? 'email' : 'text'}
+                          type={bType === 'number' ? 'number' : bType === 'email' ? 'email' : 'text'}
                           value={val || ''}
                           onChange={e => setVal(e.target.value)}
                         />
@@ -512,16 +522,28 @@ export default function LeadDetailPanel({ lead, stages, pipelineFields, initialT
                   {saving ? 'Salvando...' : 'Salvar Alterações'}
                 </button>
               </div>
+
+              {currentStage && (
+                <div className={styles.aiInlineSection}>
+                  <div className={styles.aiInlineDivider} />
+                  <AIAdvisorSection
+                    lead={editLead}
+                    currentStageName={currentStage.name}
+                    crmRequest={crmRequest}
+                  />
+                </div>
+              )}
             </div>
           )}
 
           {/* ─── Tab: Timeline ─────────────────────────────────────────── */}
           {tab === 'timeline' && (
             <div className={styles.drawerTimelineWrap}>
-              <ActivityTimeline leadId={lead.id} key={timelineKey} />
+              <ActivityTimeline leadId={lead.id} crmRequest={crmRequest} key={timelineKey} />
               <div className={styles.drawerTimelineFooter}>
                 <RegisterActivityForm
                   leadId={lead.id}
+                  crmRequest={crmRequest}
                   onCreated={() => setTimelineKey(k => k + 1)}
                 />
               </div>
@@ -530,14 +552,15 @@ export default function LeadDetailPanel({ lead, stages, pipelineFields, initialT
 
           {/* ─── Tab: Tarefas ──────────────────────────────────────────── */}
           {tab === 'tarefas' && (
-            <TaskList leadId={lead.id} />
+            <TaskList leadId={lead.id} crmRequest={crmRequest} />
           )}
 
-          {/* ─── Tab: IA Advisor ───────────────────────────────────────── */}
-          {tab === 'ia' && (
-            <AIAdvisorTab
-              lead={editLead}
-              currentStageName={currentStage?.name || 'Etapa atual'}
+          {/* ─── Tab: Chat ─────────────────────────────────────────────── */}
+          {tab === 'chat' && (
+            <ChatTab
+              leadId={lead.id}
+              leadPhone={editLead.phone}
+              companyName={editLead.company_name}
             />
           )}
         </div>

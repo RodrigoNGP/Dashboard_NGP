@@ -30,6 +30,7 @@ export interface Relatorio {
 }
 
 export interface Campaign {
+  [key: string]: any
   id: string
   name: string
   status: string
@@ -48,6 +49,7 @@ export interface Campaign {
 }
 
 export interface Adset {
+  [key: string]: any
   id: string
   name: string
   status: string
@@ -62,6 +64,7 @@ export interface Adset {
 }
 
 export interface Ad {
+  [key: string]: any
   id: string
   name: string
   status: string
@@ -69,6 +72,13 @@ export interface Ad {
   impressions: number
   clicks: number
   ctr: number
+  cpc: number
+  conversations: number
+  leads: number
+  purchases: number
+  purchaseValue: number
+  roas: number
+  reach: number
   creative?: { thumbnail_url?: string }
 }
 

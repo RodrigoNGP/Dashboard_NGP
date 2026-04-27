@@ -20,7 +20,7 @@ export default function ContratosPage() {
     setSess(s)
   }, [router])
 
-  if (!sess) return null
+  if (!sess) return <NGPLoading loading loadingText="Carregando contratos..." />
 
   return (
     <div className={styles.layout}>
