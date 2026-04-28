@@ -1,0 +1,60 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { handleCors, json } from "../_shared/cors.ts"
+import { validateSession } from "../_shared/roles.ts"
+
+async function checkFinanceiroAccess(sb: any, usuario_id: string): Promise<boolean> {
+  const { data } = await sb.from('usuarios').select('acesso_financeiro, ativo').eq('id', usuario_id).single()
+  return !!data?.acesso_financeiro && !!data?.ativo
+}
+
+serve(async (req) => {
+  const cors = handleCors(req)
+  if (cors) return cors
+
+  try {
+    const { session_token, action, ...payload } = await req.json()
+    if (!session_token) return json(req, { error: 'Sessão inválida.' }, 401)
+
+    const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+    const user = await validateSession(sb, session_token)
+    if (!user) return json(req, { error: 'Sessão expirada.' }, 401)
+    if (!await checkFinanceiroAccess(sb, user.usuario_id)) return json(req, { error: 'Acesso não autorizado.' }, 403)
+
+    if (action === 'listar') {
+      const { data, error } = await sb.from('fin_clientes').select('*').eq('ativo', true).order('nome')
+      if (error) return json(req, { error: 'Erro ao buscar clientes.' }, 500)
+      return json(req, { clientes: data })
+    }
+
+    if (action === 'criar') {
+      const { nome, documento, telefone, email, observacoes } = payload
+      if (!nome) return json(req, { error: 'Nome é obrigatório.' }, 400)
+      const { data, error } = await sb.from('fin_clientes').insert({ nome, documento, telefone, email, observacoes, created_by: user.usuario_id }).select().single()
+      if (error) return json(req, { error: 'Erro ao criar cliente.' }, 500)
+      return json(req, { cliente: data })
+    }
+
+    if (action === 'atualizar') {
+      const { id, nome, documento, telefone, email, observacoes } = payload
+      if (!id) return json(req, { error: 'ID obrigatório.' }, 400)
+      const { data, error } = await sb.from('fin_clientes').update({ nome, documento, telefone, email, observacoes }).eq('id', id).select().single()
+      if (error) return json(req, { error: 'Erro ao atualizar cliente.' }, 500)
+      return json(req, { cliente: data })
+    }
+
+    if (action === 'deletar') {
+      const { id } = payload
+      if (!id) return json(req, { error: 'ID obrigatório.' }, 400)
+      const { error } = await sb.from('fin_clientes').update({ ativo: false }).eq('id', id)
+      if (error) return json(req, { error: 'Erro ao remover cliente.' }, 500)
+      return json(req, { ok: true })
+    }
+
+    return json(req, { error: 'Ação inválida.' }, 400)
+
+  } catch (e) {
+    console.error('[financeiro-clientes]', e)
+    return json(req, { error: 'Erro interno.' }, 500)
+  }
+})

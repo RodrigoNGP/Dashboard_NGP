@@ -19,6 +19,8 @@ interface Props {
   sectorNav?: NavItem[]
   sectorNavTitle?: string
   setoresOnlyOpen?: boolean
+  allowDesktopCollapse?: boolean
+  collapseStorageKey?: string
 }
 
 interface NavItem {
@@ -210,9 +212,8 @@ function getSetoresNavItems(): NavItem[] {
     },
     {
       icon: <Ico><path d="M12 3v3" /><path d="M21 12h-3" /><path d="M12 21v-3" /><path d="M3 12h3" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="1.5" /></Ico>,
-      label: 'Trackeamento',
-      href: '#',
-      badge: 'breve',
+      label: 'NGP Forms',
+      href: '/trackeamento',
     },
     {
       icon: <Ico><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 10h18" /><path d="M8 3v4" /><path d="M16 3v4" /></Ico>,
@@ -392,6 +393,7 @@ function getTopbarActiveId(pathname: string): 'pessoas' | 'comercial' | 'comerci
   if (pathname.startsWith('/dashboard') || pathname.startsWith('/relatorio') || pathname.startsWith('/utm-builder') || pathname.startsWith('/ia-analise')) return 'reports'
   if (pathname.startsWith('/tarefas')) return 'tarefas'
   if (pathname.startsWith('/pessoas')) return 'pessoas'
+  if (pathname.startsWith('/trackeamento')) return 'trackeamento'
   if (pathname.startsWith('/comercial-digital')) return 'comercial-digital'
   if (pathname.startsWith('/comercial')) return 'comercial'
   return undefined
@@ -406,6 +408,7 @@ function getTopbarSubtitle(pathname: string, sectorTitle?: string, isClient?: bo
   }
   if (pathname.startsWith('/tarefas')) return 'Gestão de Tarefas'
   if (pathname.startsWith('/pessoas')) return 'Pessoas'
+  if (pathname.startsWith('/trackeamento')) return 'NGP Forms'
   if (pathname.startsWith('/comercial-digital')) return 'Comercial digital'
   if (pathname.startsWith('/comercial')) return 'Comercial'
   return 'Operação e setores'
@@ -419,6 +422,7 @@ function getContextDescription(pathname: string, title: string, isClient: boolea
   }
   if (pathname.startsWith('/tarefas')) return 'Gerencie tarefas da equipe em um Kanban visual com prioridades e responsáveis.'
   if (pathname.startsWith('/pessoas')) return 'Acompanhe registros, cadastros e operações da equipe neste contexto.'
+  if (pathname.startsWith('/trackeamento')) return 'Crie formulários, acompanhe respostas e leia a jornada de conversão em um único módulo.'
   if (pathname.startsWith('/comercial-digital')) return 'Fluxo do CRM digital, pipelines e gestão entregue aos clientes.'
   if (pathname.startsWith('/comercial')) return 'Rotas de pipeline, propostas, contratos e operação comercial da NGP.'
   if (pathname.startsWith('/admin')) return 'Acesso administrativo para cadastros, vínculos e estrutura operacional.'
@@ -455,6 +459,8 @@ function SidebarInner({
   sectorNav,
   sectorNavTitle,
   setoresOnlyOpen = false,
+  allowDesktopCollapse = false,
+  collapseStorageKey,
 }: Props) {
   const router = useRouter()
   const pathname = usePathname()
@@ -470,6 +476,7 @@ function SidebarInner({
   const [loading, setLoading]               = useState(false)
   const [showQuickSector, setShowQuickSector] = useState(false)
   const [quickSectorClientId, setQuickSectorClientId] = useState<string | undefined>(undefined)
+  const [desktopCollapsed, setDesktopCollapsed] = useState(false)
   const configWrapRef = useRef<HTMLDivElement | null>(null)
   const bubbleRef = useRef<HTMLDivElement | null>(null)
   const shellRef = useRef<HTMLDivElement | null>(null)
@@ -495,6 +502,25 @@ function SidebarInner({
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  useEffect(() => {
+    if (!allowDesktopCollapse || !collapseStorageKey) return
+    try {
+      const stored = window.localStorage.getItem(collapseStorageKey)
+      setDesktopCollapsed(stored === '1')
+    } catch {
+      setDesktopCollapsed(false)
+    }
+  }, [allowDesktopCollapse, collapseStorageKey])
+
+  useEffect(() => {
+    if (!allowDesktopCollapse || !collapseStorageKey) return
+    try {
+      window.localStorage.setItem(collapseStorageKey, desktopCollapsed ? '1' : '0')
+    } catch {
+      // silencioso
+    }
+  }, [allowDesktopCollapse, collapseStorageKey, desktopCollapsed])
 
   useEffect(() => {
     if (!mounted || !pathname.startsWith('/tarefas')) return
@@ -597,6 +623,8 @@ function SidebarInner({
     setMobileOpen(false)
   }
 
+  const canCollapseDesktop = allowDesktopCollapse && isDesktop
+
   const renderNav = (nav: NavItem[], depth = 0): React.ReactNode => nav.map((item) => {
     const isTabItem = !!onTabChange && !!item.tab
     const isGroup = !!item.subItems?.length
@@ -691,13 +719,31 @@ function SidebarInner({
         onLogout={onLogout}
       />
 
-      <div className={styles.shell} ref={shellRef}>
+      <div className={`${styles.shell} ${canCollapseDesktop && desktopCollapsed ? styles.shellCollapsed : ''}`} ref={shellRef}>
         <div
           className={`${styles.overlay} ${mobileOpen ? styles.overlayVisible : ''}`}
           onClick={() => setMobileOpen(false)}
         />
 
-        <aside className={`${styles.sidebar} ${mobileOpen ? styles.sidebarOpen : ''}`}>
+        {allowDesktopCollapse && (
+          <button
+            type="button"
+            className={`${styles.collapseToggle} ${canCollapseDesktop && desktopCollapsed ? styles.collapseToggleCollapsed : ''}`}
+            onClick={() => {
+              setDesktopCollapsed((prev) => !prev)
+              setShowConfigMenu(false)
+            }}
+            aria-label={desktopCollapsed ? 'Expandir barra lateral' : 'Recolher barra lateral'}
+            title={desktopCollapsed ? 'Expandir barra lateral' : 'Recolher barra lateral'}
+          >
+            <span className={`${styles.collapseToggleChevron} ${canCollapseDesktop && desktopCollapsed ? styles.collapseToggleChevronCollapsed : ''}`}>‹</span>
+          </button>
+        )}
+
+        <aside
+          className={`${styles.sidebar} ${mobileOpen ? styles.sidebarOpen : ''} ${canCollapseDesktop && desktopCollapsed ? styles.sidebarCollapsed : ''}`}
+          aria-hidden={canCollapseDesktop && desktopCollapsed}
+        >
           <div className={styles.sidebarHead}>
             <div className={styles.sidebarEyebrow}>{isClient ? 'Área' : 'Setor'}</div>
             <div className={styles.sidebarTitle}>{resolvedSectorTitle}</div>

@@ -226,7 +226,7 @@ const SETORES: Setor[] = [
   },
   {
     id: 'trackeamento',
-    title: 'Trackeamento',
+    title: 'NGP Forms',
     desc: 'UTMs, pixels, eventos e análise de jornada de conversão.',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -238,8 +238,8 @@ const SETORES: Setor[] = [
         <circle cx="12" cy="12" r="1.5"/>
       </svg>
     ),
-    href: '#',
-    external: true,
+    href: '/trackeamento',
+    external: false,
     embed: false,
     gradient: 'linear-gradient(135deg,#7c3aed,#ec4899)',
   },
