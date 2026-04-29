@@ -13,9 +13,14 @@ import FinanceiroAuthModal from '@/components/FinanceiroAuthModal'
 import { financeiroNav } from './financeiro-nav'
 import styles from './financeiro.module.css'
 
-type Tab = 'transacoes' | 'clientes' | 'fornecedores' | 'categorias' | 'contas'
+type Tab = 'transacoes' | 'contatos' | 'categorias' | 'contas' | 'dre'
 type TipoFiltro = 'todos' | 'entrada' | 'saida'
+type PeriodoTipo = 'hoje' | 'semana' | 'mes' | '30dias' | 'ultimo_mes' | 'trimestre' | 'ano' | 'mes_especifico' | 'personalizado' | 'tudo'
 type ViewMode = 'competencia' | 'caixa'
+type ContatoTipo = 'cliente' | 'fornecedor' | 'ambos'
+type ContatoFiltro = 'todos' | 'clientes' | 'fornecedores' | 'ambos'
+type TransacaoSortField = 'payment_date' | 'descricao' | 'categoria' | 'cost_center' | 'account' | 'tipo' | 'valor' | 'status'
+type SortDirection = 'asc' | 'desc'
 
 interface Categoria    { id: string; nome: string; cor: string; tipo: string }
 interface FinCliente   {
@@ -34,6 +39,96 @@ interface FinFornecedor{ id: string; nome: string; documento?: string; telefone?
 interface FinAccount   { id: string; nome: string; tipo: string; saldo_inicial: number; saldo_atual: number }
 interface FinCostCenter{ id: string; nome: string; descricao?: string }
 interface FinProduct   { id: string; nome: string; tipo: string; valor_padrao?: number | null }
+interface FinContato {
+  key: string
+  nome: string
+  documento?: string
+  telefone?: string
+  email?: string
+  observacoes?: string
+  tipo: ContatoTipo
+  clienteId?: string
+  fornecedorId?: string
+  mensalidade_valor?: number | null
+  mensalidade_descricao?: string | null
+  dia_cobranca?: number | null
+  assinatura_ativa?: boolean | null
+}
+interface ImportedCsvRow {
+  competence_date: string
+  due_date?: string | null
+  payment_date?: string | null
+  descricao: string
+  status: 'confirmado' | 'pendente'
+  contato?: string | null
+  tags?: string | null
+  additional_info?: string | null
+  attachments?: string | null
+  categoria?: string | null
+  cost_center?: string | null
+  account_name?: string | null
+  valor: number
+  tipo: 'entrada' | 'saida'
+}
+interface ImportPreviewData {
+  accountId: string | null
+  accountName: string
+  fileName: string
+  rows: ImportedCsvRow[]
+  analysis?: {
+    account_name?: string
+    summary?: {
+      entradas: number
+      saidas: number
+      confirmados: number
+      pendentes: number
+      total_entradas: number
+      total_saidas: number
+    }
+    accounts_detected?: string[]
+    accounts_to_create?: string[]
+    warnings?: string[]
+    sample?: ImportedCsvRow[]
+    ai_review?: {
+      headline?: string
+      summary?: string
+      warnings?: string[]
+      opportunities?: string[]
+      confidence?: 'high' | 'medium' | 'low'
+    } | null
+  } | null
+}
+type ImportAlertKey = 'duplicados' | 'transferencias' | 'sem-categoria' | 'sem-contato'
+type ImportBulkField = 'contato' | 'categoria' | 'tipo' | 'status'
+interface ReceitaCnpjData {
+  razao_social?: string
+  nome_fantasia?: string
+  email?: string | null
+  ddd_telefone_1?: string
+  telefone_1?: string
+  logradouro?: string
+  numero?: string
+  complemento?: string
+  bairro?: string
+  municipio?: string
+  uf?: string
+  cep?: string
+  descricao_situacao_cadastral?: string
+  estabelecimento?: {
+    nome_fantasia?: string | null
+    email?: string | null
+    ddd1?: string | null
+    telefone1?: string | null
+    logradouro?: string | null
+    numero?: string | null
+    complemento?: string | null
+    bairro?: string | null
+    cep?: string | null
+    situacao_cadastral?: string | null
+    cidade?: { nome?: string | null } | null
+    estado?: { sigla?: string | null } | null
+  } | null
+}
 
 interface Transacao {
   id: string
@@ -53,7 +148,30 @@ interface Transacao {
   product?: FinProduct | null
 }
 
+interface DreCellValue { confirmado: number; pendente: number }
+interface DreRow {
+  categoria_id: string | null
+  categoria_nome: string
+  tipo: 'entrada' | 'saida'
+  meses: DreCellValue[]
+}
+interface DreData {
+  ano: number
+  view: ViewMode
+  entradas: DreRow[]
+  saidas: DreRow[]
+  total_entradas: DreCellValue[]
+  total_saidas: DreCellValue[]
+  resultado: DreCellValue[]
+}
+interface ResumoData {
+  entradas: number
+  saidas: number
+  saldo: number
+}
+
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+const MESES_CURTO = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 
 function fmtBRL(v: number) { return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) }
 function fmtDate(iso?: string | null) {
@@ -61,10 +179,356 @@ function fmtDate(iso?: string | null) {
   const [y, m, d] = iso.split('-')
   return `${d}/${m}/${y}`
 }
+function normalizeSearchText(value: unknown) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+}
+function isInternalTransferTransaction(transaction: Pick<Transacao, 'descricao' | 'observacoes' | 'categoria'>) {
+  const combined = [
+    transaction.descricao,
+    transaction.observacoes,
+    transaction.categoria?.nome,
+  ].map(normalizeSearchText).join(' ')
+
+  return (
+    combined.includes('transfer') ||
+    combined.includes('movimentacao entre contas') ||
+    combined.includes('movimentacao interna') ||
+    combined.includes('entre contas')
+  )
+}
 function todayISO() { return new Date().toISOString().split('T')[0] }
 function monthStartISO() {
   const now = new Date()
   return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+}
+function calcPeriodo(tipo: PeriodoTipo, mesEspecifico?: string, customStart?: string, customEnd?: string): { start: string | null; end: string | null; label: string } {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = now.getMonth()
+  const d = now.getDate()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const iso = (date: Date) => date.toISOString().split('T')[0]
+  switch (tipo) {
+    case 'hoje': {
+      const t = todayISO()
+      return { start: t, end: t, label: 'Hoje' }
+    }
+    case 'semana': {
+      const dow = now.getDay() === 0 ? 6 : now.getDay() - 1 // seg=0
+      const seg = new Date(y, m, d - dow)
+      const dom = new Date(y, m, d - dow + 6)
+      return { start: iso(seg), end: iso(dom), label: 'Esta semana' }
+    }
+    case 'mes': {
+      const start = `${y}-${pad(m + 1)}-01`
+      const end = new Date(Date.UTC(y, m + 1, 0)).toISOString().slice(0, 10)
+      return { start, end, label: 'Este mês' }
+    }
+    case '30dias': {
+      const from = new Date(y, m, d - 29)
+      return { start: iso(from), end: todayISO(), label: 'Últimos 30 dias' }
+    }
+    case 'ultimo_mes': {
+      const start = `${m === 0 ? y - 1 : y}-${pad(m === 0 ? 12 : m)}-01`
+      const end = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
+      return { start, end, label: 'Último mês' }
+    }
+    case 'trimestre': {
+      const q = Math.floor(m / 3)
+      const start = `${y}-${pad(q * 3 + 1)}-01`
+      const end = new Date(Date.UTC(y, q * 3 + 3, 0)).toISOString().slice(0, 10)
+      return { start, end, label: 'Este trimestre' }
+    }
+    case 'ano':
+      return { start: `${y}-01-01`, end: `${y}-12-31`, label: `Ano ${y}` }
+    case 'mes_especifico': {
+      if (!mesEspecifico) return { start: null, end: null, label: 'Mês específico' }
+      const [my, mm] = mesEspecifico.split('-').map(Number)
+      const start = `${my}-${pad(mm)}-01`
+      const end = new Date(Date.UTC(my, mm, 0)).toISOString().slice(0, 10)
+      const label = `${MESES[mm - 1]} ${my}`
+      return { start, end, label }
+    }
+    case 'personalizado':
+      return { start: customStart || null, end: customEnd || null, label: 'Personalizado' }
+    case 'tudo':
+    default:
+      return { start: null, end: null, label: 'Todo o período' }
+  }
+}
+function digitsOnly(value: string) { return value.replace(/\D/g, '') }
+function formatCnpj(value: string) {
+  const d = digitsOnly(value).slice(0, 14)
+  if (d.length <= 2) return d
+  if (d.length <= 5) return `${d.slice(0, 2)}.${d.slice(2)}`
+  if (d.length <= 8) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5)}`
+  if (d.length <= 12) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8)}`
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`
+}
+function formatPhoneBR(value?: string | null) {
+  const d = digitsOnly(value || '')
+  if (!d) return ''
+  if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`
+  if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
+  return value || ''
+}
+function getReceitaSnapshot(data: ReceitaCnpjData) {
+  const estabelecimento = data.estabelecimento || null
+  const nome = estabelecimento?.nome_fantasia || data.nome_fantasia || data.razao_social || ''
+  const email = estabelecimento?.email || data.email || ''
+  const phoneDigits = digitsOnly(`${estabelecimento?.ddd1 || data.ddd_telefone_1 || ''}${estabelecimento?.telefone1 || data.telefone_1 || ''}`)
+  const phone = formatPhoneBR(phoneDigits)
+  const address = [
+    estabelecimento?.logradouro || data.logradouro,
+    estabelecimento?.numero || data.numero,
+    estabelecimento?.complemento || data.complemento,
+    estabelecimento?.bairro || data.bairro,
+  ].filter(Boolean).join(', ')
+  const city = [
+    estabelecimento?.cidade?.nome || data.municipio,
+    estabelecimento?.estado?.sigla || data.uf,
+  ].filter(Boolean).join(' / ')
+  const cepRaw = estabelecimento?.cep || data.cep || ''
+  const cep = cepRaw ? cepRaw.replace(/^(\d{5})(\d{3})$/, '$1-$2') : ''
+  const status = estabelecimento?.situacao_cadastral || data.descricao_situacao_cadastral || ''
+  return { nome, email, phone, address, city, cep, status }
+}
+function buildObservacoesFromCnpj(data: ReceitaCnpjData) {
+  const snapshot = getReceitaSnapshot(data)
+  const lines = [
+    data.razao_social && snapshot.nome && data.razao_social !== snapshot.nome ? `Razão social: ${data.razao_social}` : '',
+    snapshot.status ? `Situação cadastral: ${snapshot.status}` : '',
+    snapshot.address ? `Endereço: ${snapshot.address}` : '',
+    snapshot.city ? `Cidade: ${snapshot.city}` : '',
+    snapshot.cep ? `CEP: ${snapshot.cep}` : '',
+  ].filter(Boolean)
+  return lines.join('\n')
+}
+function normalizeContactKey(value?: string | null) {
+  return (value || '').trim().toLowerCase()
+}
+function getContactGroupKey(item: { nome?: string; documento?: string; email?: string; telefone?: string }) {
+  const documento = digitsOnly(item.documento || '')
+  if (documento) return `doc:${documento}`
+  const email = normalizeContactKey(item.email)
+  if (email) return `email:${email}`
+  const phone = digitsOnly(item.telefone || '')
+  if (phone) return `phone:${phone}`
+  return `nome:${normalizeContactKey(item.nome)}`
+}
+function parseCsvLine(line: string, delimiter = ',') {
+  const result: string[] = []
+  let current = ''
+  let insideQuotes = false
+
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i]
+    const next = line[i + 1]
+    if (char === '"') {
+      if (insideQuotes && next === '"') {
+        current += '"'
+        i += 1
+      } else {
+        insideQuotes = !insideQuotes
+      }
+      continue
+    }
+    if (char === delimiter && !insideQuotes) {
+      result.push(current)
+      current = ''
+      continue
+    }
+    current += char
+  }
+
+  result.push(current)
+  return result.map(item => item.trim())
+}
+function parsePtBrDateToIso(value: string) {
+  const raw = value.trim()
+  if (!raw) return null
+  // DD/MM/YYYY ou D/M/YYYY
+  const matchBr = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/)
+  if (matchBr) {
+    let day = matchBr[1].padStart(2, '0')
+    let month = matchBr[2].padStart(2, '0')
+    let year = matchBr[3]
+    if (year.length === 2) year = '20' + year
+    return `${year}-${month}-${day}`
+  }
+  // YYYY-MM-DD (ISO)
+  const matchIso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (matchIso) return `${matchIso[1]}-${matchIso[2]}-${matchIso[3]}`
+  
+  // DD-MM-YYYY
+  const matchDash = raw.match(/^(\d{2})-(\d{2})-(\d{4})$/)
+  if (matchDash) return `${matchDash[3]}-${matchDash[2]}-${matchDash[1]}`
+
+  return null
+}
+function parseImportCsvContent(content: string): ImportedCsvRow[] {
+  const lines = content.replace(/^\uFEFF/, '').split(/\r?\n/).filter(line => line.trim())
+  if (lines.length <= 1) return []
+
+  // Detecção automática de delimitador
+  const firstLine = lines[0]
+  const countComma = (firstLine.match(/,/g) || []).length
+  const countSemi = (firstLine.match(/;/g) || []).length
+  const delimiter = countSemi > countComma ? ';' : ','
+
+  const headers = parseCsvLine(firstLine, delimiter).map(h => normalizeContactKey(h))
+  const rows: ImportedCsvRow[] = []
+
+  // Mapeamento inteligente de colunas
+  const findIdx = (keywords: string[]) => headers.findIndex(h => keywords.some(k => h.includes(k)))
+
+  const idxDate = findIdx(['data', 'date', 'competência', 'competencia'])
+  const idxDue = findIdx(['vencimento', 'venc'])
+  const idxPayment = findIdx(['pagamento', 'pago em', 'baixa'])
+  const idxDesc = findIdx(['descrição', 'descricao', 'histórico', 'historico'])
+  const idxValor = findIdx(['valor', 'total', 'montante', 'preço', 'débito', 'crédito', 'debito', 'credito'])
+  const idxStatus = findIdx(['status', 'situação', 'situacao', 'pago'])
+  const idxCat = findIdx(['categoria', 'plano'])
+  const idxCont = findIdx(['contato', 'cliente', 'fornecedor', 'favorecido', 'pessoa'])
+  // 'conta/' para não bater em 'contato'; 'cartao' cobre 'conta/cartão' do Controlle
+  const idxAcc = findIdx(['conta/', 'cartao', 'cartão', 'banco', 'caixa'])
+  const idxCenter = findIdx(['centro', 'custo'])
+  const idxTipo = findIdx(['tipo', 'natureza', 'e/s'])
+
+  for (const line of lines.slice(1)) {
+    const cols = parseCsvLine(line, delimiter)
+    if (cols.length === 0) continue
+
+    const descricao = idxDesc >= 0 ? cols[idxDesc] : ''
+    const valorRaw = idxValor >= 0 ? parseCurrencyInput(cols[idxValor]) : null
+    const competenceDate = idxDate >= 0 ? parsePtBrDateToIso(cols[idxDate]) : null
+
+    if (!descricao || valorRaw == null || valorRaw === 0 || !competenceDate) continue
+
+    // Lógica de Status
+    let status: 'confirmado' | 'pendente' = 'pendente'
+    const statusVal = idxStatus >= 0 ? normalizeContactKey(cols[idxStatus]) : ''
+    const paymentDate = idxPayment >= 0 ? parsePtBrDateToIso(cols[idxPayment]) : null
+    if (paymentDate || statusVal.includes('pago') || statusVal.includes('confirmado') || statusVal.includes('liquidado')) {
+      status = 'confirmado'
+    }
+
+    // Lógica de Tipo (Entrada/Saída)
+    let tipo: 'entrada' | 'saida' = valorRaw < 0 ? 'saida' : 'entrada'
+    if (idxTipo >= 0) {
+      const t = normalizeContactKey(cols[idxTipo])
+      if (t.includes('sai') || t.includes('desp') || t.includes('deb') || t.includes('pag')) tipo = 'saida'
+      else if (t.includes('ent') || t.includes('rec') || t.includes('cre')) tipo = 'entrada'
+    }
+
+    rows.push({
+      competence_date: competenceDate,
+      due_date: idxDue >= 0 ? parsePtBrDateToIso(cols[idxDue]) : null,
+      payment_date: paymentDate,
+      descricao: descricao.trim(),
+      status,
+      contato: idxCont >= 0 ? cols[idxCont] : null,
+      categoria: idxCat >= 0 ? cols[idxCat] : null,
+      account_name: idxAcc >= 0 ? cols[idxAcc] : null,
+      cost_center: idxCenter >= 0 ? cols[idxCenter] : null,
+      valor: Math.abs(valorRaw),
+      tipo,
+      tags: null,
+      additional_info: null,
+      attachments: null,
+    })
+  }
+
+  return rows
+}
+function escapeCsvValue(value: unknown) {
+  const text = String(value ?? '')
+  return `"${text.replace(/"/g, '""')}"`
+}
+
+function summarizeImportRows(rows: ImportedCsvRow[]) {
+  return rows.reduce((acc, row) => {
+    const valor = Number(row.valor || 0)
+    if (row.tipo === 'entrada') {
+      acc.entradas += 1
+      acc.total_entradas += valor
+    } else {
+      acc.saidas += 1
+      acc.total_saidas += valor
+    }
+    if (row.status === 'pendente') acc.pendentes += 1
+    else acc.confirmados += 1
+    return acc
+  }, {
+    entradas: 0,
+    saidas: 0,
+    confirmados: 0,
+    pendentes: 0,
+    total_entradas: 0,
+    total_saidas: 0,
+  })
+}
+
+function buildImportWarnings(rows: ImportedCsvRow[]) {
+  const warnings: string[] = []
+  const duplicateKeys = new Set<string>()
+  const seen = new Set<string>()
+  const transferRows = rows.filter(row => /transfer/i.test(String(row.descricao || '')))
+  const noCategory = rows.filter(row => !normalizeContactKey(row.categoria)).length
+  const noContact = rows.filter(row => !normalizeContactKey(row.contato)).length
+
+  for (const row of rows) {
+    const key = [row.tipo, normalizeContactKey(row.descricao), row.competence_date, Number(row.valor || 0)].join('|')
+    if (seen.has(key)) duplicateKeys.add(key)
+    seen.add(key)
+  }
+
+  if (duplicateKeys.size > 0) warnings.push(`${duplicateKeys.size} lançamentos parecem duplicados dentro do próprio arquivo.`)
+  if (transferRows.length > 0) warnings.push(`${transferRows.length} lançamentos parecem transferências entre contas e merecem revisão.`)
+  if (noCategory > 0) warnings.push(`${noCategory} linhas vieram sem categoria e dependerão de fallback automático.`)
+  if (noContact > 0) warnings.push(`${noContact} linhas vieram sem contato identificado.`)
+  return warnings
+}
+
+function getImportAlertRows(rows: ImportedCsvRow[], key: ImportAlertKey) {
+  if (key === 'transferencias') return rows.filter(row => /transfer/i.test(String(row.descricao || '')))
+  if (key === 'sem-categoria') return rows.filter(row => !normalizeContactKey(row.categoria))
+  if (key === 'sem-contato') return rows.filter(row => !normalizeContactKey(row.contato))
+  const seen = new Set<string>()
+  const duplicateKeys = new Set<string>()
+  for (const row of rows) {
+    const rowKey = [row.tipo, normalizeContactKey(row.descricao), row.competence_date, Number(row.valor || 0)].join('|')
+    if (seen.has(rowKey)) duplicateKeys.add(rowKey)
+    seen.add(rowKey)
+  }
+  return rows.filter(row => {
+    const rowKey = [row.tipo, normalizeContactKey(row.descricao), row.competence_date, Number(row.valor || 0)].join('|')
+    return duplicateKeys.has(rowKey)
+  })
+}
+
+function buildImportAlerts(rows: ImportedCsvRow[]) {
+  const alertConfigs: { key: ImportAlertKey; buildLabel: (count: number) => string }[] = [
+    { key: 'duplicados', buildLabel: count => `${count} lançamentos parecem duplicados dentro do próprio arquivo.` },
+    { key: 'transferencias', buildLabel: count => `${count} lançamentos parecem transferências entre contas e merecem revisão.` },
+    { key: 'sem-categoria', buildLabel: count => `${count} linhas vieram sem categoria e dependerão de fallback automático.` },
+    { key: 'sem-contato', buildLabel: count => `${count} linhas vieram sem contato identificado.` },
+  ]
+
+  return alertConfigs
+    .map(config => {
+      const matchedRows = getImportAlertRows(rows, config.key)
+      return {
+        key: config.key,
+        count: matchedRows.length,
+        label: config.buildLabel(matchedRows.length),
+      }
+    })
+    .filter(alert => alert.count > 0)
 }
 
 // ── SelectComCadastro: CustomSelect + botão inline de cadastro rápido ────────
@@ -72,7 +536,7 @@ interface QuickCreateField { key: string; label: string; placeholder?: string; t
 
 function SelectComCadastro({
   label, value, options, onChange, placeholder,
-  createLabel, createFields, onQuickCreate,
+  createLabel, createFields, onQuickCreate, menuFixed,
 }: {
   label: string
   value: string
@@ -82,6 +546,7 @@ function SelectComCadastro({
   createLabel: string
   createFields: QuickCreateField[]
   onQuickCreate: (fields: Record<string, string>) => Promise<boolean>
+  menuFixed?: boolean
 }) {
   const [showQuick, setShowQuick] = useState(false)
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({})
@@ -94,8 +559,9 @@ function SelectComCadastro({
     setShowQuick(true)
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleSubmit() {
+    const hasMissingRequired = createFields.some(f => f.required && !(fieldValues[f.key] || '').trim())
+    if (hasMissingRequired) return
     setSaving(true)
     try {
       const ok = await onQuickCreate(fieldValues)
@@ -111,14 +577,12 @@ function SelectComCadastro({
         options={options}
         onChange={onChange}
         placeholder={placeholder}
+        createOptionLabel="+ Cadastrar"
+        onCreateOption={openQuick}
+        menuFixed={menuFixed}
       />
-      {!showQuick && (
-        <button type="button" className={styles.btnQuickCreate} onClick={openQuick}>
-          + {createLabel}
-        </button>
-      )}
       {showQuick && (
-        <form onSubmit={handleSubmit} className={styles.quickForm}>
+        <div className={styles.quickForm}>
           {createFields.map(f => (
             <input
               key={f.key}
@@ -126,15 +590,21 @@ function SelectComCadastro({
               placeholder={f.placeholder || f.label}
               value={fieldValues[f.key] || ''}
               onChange={e => setFieldValues(prev => ({ ...prev, [f.key]: e.target.value }))}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  void handleSubmit()
+                }
+              }}
               required={f.required}
               className={styles.quickInput}
             />
           ))}
           <div className={styles.quickActions}>
             <button type="button" className={styles.btnQuickCancel} onClick={() => setShowQuick(false)}>Cancelar</button>
-            <button type="submit" className={styles.btnQuickSave} disabled={saving}>{saving ? '...' : 'Salvar'}</button>
+            <button type="button" className={styles.btnQuickSave} disabled={saving} onClick={() => void handleSubmit()}>{saving ? '...' : 'Salvar'}</button>
           </div>
-        </form>
+        </div>
       )}
     </div>
   )
@@ -152,13 +622,26 @@ function FinanceiroInner() {
   const [msg, setMsg]               = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
   const now = new Date()
-  const [mesFiltro, setMesFiltro]   = useState(now.getMonth() + 1)
-  const [anoFiltro, setAnoFiltro]   = useState(now.getFullYear())
+  const [periodoTipo, setPeriodoTipo]         = useState<PeriodoTipo>('mes')
+  const [periodoMesEsp, setPeriodoMesEsp]     = useState(`${now.getFullYear()}-${now.getMonth() + 1}`)
+  const [periodoCustomStart, setPeriodoCustomStart] = useState(monthStartISO())
+  const [periodoCustomEnd, setPeriodoCustomEnd]     = useState(todayISO())
+  const [showMesEspDropdown, setShowMesEspDropdown] = useState(false)
+  const periodo = calcPeriodo(periodoTipo, periodoMesEsp, periodoCustomStart, periodoCustomEnd)
+  // mantém mesFiltro/anoFiltro apenas para compatibilidade com aba contas
+  const mesFiltro = periodoTipo === 'mes_especifico' ? Number(periodoMesEsp.split('-')[1]) : (periodoTipo === 'mes' ? now.getMonth() + 1 : 0)
+  const anoFiltro = periodoTipo === 'mes_especifico' ? Number(periodoMesEsp.split('-')[0]) : (periodoTipo === 'mes' ? now.getFullYear() : 0)
   const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>('todos')
   const [viewMode, setViewMode]     = useState<ViewMode>('competencia')
+  const [contatoFiltro, setContatoFiltro] = useState<ContatoFiltro>('todos')
+  const [accountFilterId, setAccountFilterId] = useState('')
+  const [transacaoSort, setTransacaoSort] = useState<{ field: TransacaoSortField; direction: SortDirection }>({
+    field: 'payment_date',
+    direction: 'desc',
+  })
 
   const [transacoes, setTransacoes]     = useState<Transacao[]>([])
-  const [resumo, setResumo]             = useState({ entradas: 0, saidas: 0, saldo: 0 })
+  const [resumo, setResumo]             = useState<ResumoData>({ entradas: 0, saidas: 0, saldo: 0 })
   const [categorias, setCategorias]     = useState<Categoria[]>([])
   const [clientes, setClientes]         = useState<FinCliente[]>([])
   const [fornecedores, setFornecedores] = useState<FinFornecedor[]>([])
@@ -181,9 +664,10 @@ function FinanceiroInner() {
   const [fAccount, setFAccount]       = useState('')
   const [fCostCenter, setFCostCenter] = useState('')
   const [fProduct, setFProduct]       = useState('')
-  const [fStatus, setFStatus]         = useState<'confirmado' | 'pendente'>('confirmado')
+  const [fStatus, setFStatus]         = useState<'confirmado' | 'pendente'>('pendente')
   const [fObs, setFObs]               = useState('')
   const [saving, setSaving]           = useState(false)
+  const transactionSubmitModeRef      = useRef<'close' | 'create-another'>('close')
 
   // ── Modal cadastro cliente/fornecedor (aba) ───────────────────────────────
   const [showCadForm, setShowCadForm] = useState(false)
@@ -203,22 +687,57 @@ function FinanceiroInner() {
   const [cadRecebimentoDesc, setCadRecebimentoDesc]   = useState('')
   const [cadRecebimentoData, setCadRecebimentoData]   = useState(todayISO())
   const [cadSaving, setCadSaving]     = useState(false)
+  const [cadCnpjLoading, setCadCnpjLoading] = useState(false)
+  const [cadCnpjError, setCadCnpjError]     = useState('')
+  const [cadCnpjData, setCadCnpjData]       = useState<ReceitaCnpjData | null>(null)
+  const [cadTipoContato, setCadTipoContato] = useState<ContatoTipo>('cliente')
+  const [cadOrigin, setCadOrigin]           = useState<'contatos' | 'transacao-cliente' | 'transacao-fornecedor' | 'import-contato'>('contatos')
+
+  // ── DRE ──────────────────────────────────────────────────────────────────
+  const [dreData, setDreData]           = useState<DreData | null>(null)
+  const [dreLoading, setDreLoading]     = useState(false)
+  const [dreAno, setDreAno]             = useState(now.getFullYear())
+  const [dreViewMode, setDreViewMode]   = useState<ViewMode>('competencia')
+  const [dreAccountId, setDreAccountId] = useState('')
 
   // ── Modal nova conta bancária (aba Contas) ────────────────────────────────
   const [showContaForm, setShowContaForm] = useState(false)
+  const [contaMode, setContaMode]         = useState<'criar' | 'editar'>('criar')
+  const [contaEditId, setContaEditId]     = useState<string | null>(null)
   const [contaNome, setContaNome]         = useState('')
   const [contaTipo, setContaTipo]         = useState<'banco'|'carteira'|'cartao'>('banco')
   const [contaSaldo, setContaSaldo]       = useState('')
   const [contaSaving, setContaSaving]     = useState(false)
+  const [accountMenuOpenId, setAccountMenuOpenId] = useState<string | null>(null)
+  const [showArchivedAccounts, setShowArchivedAccounts] = useState(false)
+  const [importingAccountId, setImportingAccountId] = useState<string | null>(null)
+  const [importMode, setImportMode] = useState<'single' | 'multi'>('single')
+  const [importPreview, setImportPreview] = useState<ImportPreviewData | null>(null)
+  const [importPreviewLoading, setImportPreviewLoading] = useState(false)
+  const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null)
+  const [editingImportRowIndex, setEditingImportRowIndex] = useState<number | null>(null)
+  const [editingImportRow, setEditingImportRow] = useState<ImportedCsvRow | null>(null)
+  const [importContactRowIndex, setImportContactRowIndex] = useState<number | null>(null)
+  const [activeImportAlert, setActiveImportAlert] = useState<ImportAlertKey | null>(null)
+  const [showBulkApplyPanel, setShowBulkApplyPanel] = useState(false)
+  const [bulkApplyFields, setBulkApplyFields] = useState<Record<ImportBulkField, boolean>>({
+    contato: true,
+    categoria: true,
+    tipo: true,
+    status: true,
+  })
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   // Sync tab com query params
   useEffect(() => {
     const tab  = searchParams.get('tab')
     const tipo = searchParams.get('tipo')
-    if (tab === 'clientes')     { setActiveTab('clientes');     return }
-    if (tab === 'fornecedores') { setActiveTab('fornecedores'); return }
+    if (tab === 'clientes')     { setActiveTab('contatos'); setContatoFiltro('clientes'); return }
+    if (tab === 'fornecedores') { setActiveTab('contatos'); setContatoFiltro('fornecedores'); return }
+    if (tab === 'contatos')     { setActiveTab('contatos'); setContatoFiltro('todos'); return }
     if (tab === 'categorias')   { setActiveTab('categorias');   return }
     if (tab === 'contas')       { setActiveTab('contas');       return }
+    if (tab === 'dre')          { setActiveTab('dre');          return }
     setActiveTab('transacoes')
     if (tipo === 'entrada') setTipoFiltro('entrada')
     else if (tipo === 'saida') setTipoFiltro('saida')
@@ -260,31 +779,39 @@ function FinanceiroInner() {
   const fetchTransacoes   = useCallback(async () => {
     setLoading(true)
     try {
-      const [data, r] = await Promise.all([
-        callFn('financeiro-transacoes', { action: 'listar', mes: mesFiltro, ano: anoFiltro, view: viewMode }),
-        callFn('financeiro-transacoes', { action: 'resumo', mes: mesFiltro, ano: anoFiltro, view: viewMode }),
-      ])
+      const p = calcPeriodo(periodoTipo, periodoMesEsp, periodoCustomStart, periodoCustomEnd)
+      const data = await callFn('financeiro-transacoes', { action: 'listar', date_start: p.start, date_end: p.end, view: viewMode, account_id: accountFilterId || undefined })
       if (data?.error) {
         setTransacoes([])
+        setResumo({ entradas: 0, saidas: 0, saldo: 0 })
         showMsg('err', data.error)
       } else if (data?.transacoes) {
         setTransacoes(data.transacoes)
       }
-      if (r?.error) {
-        setResumo({ entradas: 0, saidas: 0, saldo: 0 })
-        showMsg('err', r.error)
-      } else if (r) {
-        setResumo(r)
-      }
     } finally { setLoading(false) }
-  }, [callFn, mesFiltro, anoFiltro, viewMode])
+  }, [callFn, periodoTipo, periodoMesEsp, periodoCustomStart, periodoCustomEnd, viewMode, accountFilterId])
 
   const fetchCategorias   = useCallback(async () => { const d = await callFn('financeiro-categorias',   { action: 'listar' }); if (d?.categorias)   setCategorias(d.categorias)     }, [callFn])
   const fetchClientes     = useCallback(async () => { const d = await callFn('financeiro-clientes',     { action: 'listar' }); if (d?.clientes)     setClientes(d.clientes)         }, [callFn])
   const fetchFornecedores = useCallback(async () => { const d = await callFn('financeiro-fornecedores', { action: 'listar' }); if (d?.fornecedores) setFornecedores(d.fornecedores) }, [callFn])
-  const fetchAccounts     = useCallback(async () => { const d = await callFn('financeiro-aux', { entity: 'accounts',     action: 'listar' }); if (d?.accounts)     setAccounts(d.accounts)         }, [callFn])
+  const fetchAccounts     = useCallback(async () => {
+    const d = await callFn('financeiro-aux', {
+      entity: 'accounts',
+      action: 'listar',
+      show_archived: showArchivedAccounts,
+    });
+    if (d?.accounts) setAccounts(d.accounts)
+  }, [callFn, showArchivedAccounts])
   const fetchCostCenters  = useCallback(async () => { const d = await callFn('financeiro-aux', { entity: 'cost_centers', action: 'listar' }); if (d?.cost_centers) setCostCenters(d.cost_centers)   }, [callFn])
   const fetchProducts     = useCallback(async () => { const d = await callFn('financeiro-aux', { entity: 'products',     action: 'listar' }); if (d?.products)     setProducts(d.products)         }, [callFn])
+
+  const fetchDre = useCallback(async () => {
+    setDreLoading(true)
+    try {
+      const d = await callFn('financeiro-dre', { ano: dreAno, view: dreViewMode, account_id: dreAccountId || undefined })
+      if (d && !d.error) setDreData(d as DreData)
+    } finally { setDreLoading(false) }
+  }, [callFn, dreAno, dreViewMode, dreAccountId])
 
   useEffect(() => {
     if (!authorized) return
@@ -296,20 +823,53 @@ function FinanceiroInner() {
     if (authorized && activeTab === 'transacoes') fetchTransacoes()
   }, [authorized, activeTab, fetchTransacoes])
 
+  useEffect(() => {
+    const transacoesSemTransferenciasInternas = transacoes.filter(transaction => !isInternalTransferTransaction(transaction))
+    const entradas = transacoesSemTransferenciasInternas
+      .filter(transaction => transaction.tipo === 'entrada')
+      .reduce((sum, transaction) => sum + Number(transaction.valor || 0), 0)
+    const saidas = transacoesSemTransferenciasInternas
+      .filter(transaction => transaction.tipo === 'saida')
+      .reduce((sum, transaction) => sum + Number(transaction.valor || 0), 0)
+
+    const selectedAccount = accountFilterId ? accounts.find(account => account.id === accountFilterId) || null : null
+    const saldo = selectedAccount
+      ? Number(selectedAccount.saldo_atual || 0)
+      : accounts.reduce((sum, account) => sum + Number(account.saldo_atual || 0), 0)
+
+    setResumo({ entradas, saidas, saldo })
+  }, [accounts, accountFilterId, transacoes])
+
+  useEffect(() => {
+    if (authorized && activeTab === 'dre') fetchDre()
+  }, [authorized, activeTab, fetchDre])
+
+  useEffect(() => {
+    if (!accountMenuOpenId) return
+    function handleClickOutside() {
+      setAccountMenuOpenId(null)
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [accountMenuOpenId])
+
   function resetForm() {
     setFormMode('criar'); setEditId(null)
     setFTipo('saida'); setFDesc(''); setFValor('')
     setFCompDate(todayISO()); setFPayDate(todayISO())
     setFCat(''); setFCliente(''); setFFornecedor('')
     setFAccount(''); setFCostCenter(''); setFProduct('')
-    setFStatus('confirmado'); setFObs('')
+    setFStatus('pendente'); setFObs('')
   }
 
   function resetCadastroForm() {
     setCadMode('criar'); setCadEditId(null)
+    setCadTipoContato('cliente')
+    setCadOrigin('contatos')
     setCadNome(''); setCadDoc(''); setCadTel(''); setCadEmail(''); setCadObs('')
     setCadMensalidadeValor(''); setCadMensalidadeDesc(''); setCadDiaCobranca(''); setCadAssinaturaAtiva(false)
     setCadCriarRecebimento(false); setCadRecebimentoValor(''); setCadRecebimentoDesc(''); setCadRecebimentoData(todayISO())
+    setCadCnpjLoading(false); setCadCnpjError(''); setCadCnpjData(null)
   }
 
   function openNovaTransacao() { resetForm(); setShowForm(true) }
@@ -342,37 +902,116 @@ function FinanceiroInner() {
 
   function openNovoCadastro() {
     resetCadastroForm()
+    setCadOrigin('contatos')
     setShowCadForm(true)
   }
 
-  function openEditarCadastroCliente(cliente: FinCliente) {
-    setCadMode('editar'); setCadEditId(cliente.id)
-    setCadNome(cliente.nome || '')
-    setCadDoc(cliente.documento || '')
-    setCadTel(cliente.telefone || '')
-    setCadEmail(cliente.email || '')
-    setCadObs(cliente.observacoes || '')
-    setCadMensalidadeValor(cliente.mensalidade_valor != null ? String(cliente.mensalidade_valor) : '')
-    setCadMensalidadeDesc(cliente.mensalidade_descricao || '')
-    setCadDiaCobranca(cliente.dia_cobranca != null ? String(cliente.dia_cobranca) : '')
-    setCadAssinaturaAtiva(Boolean(cliente.assinatura_ativa))
+  function openAccountTransacoes(account: FinAccount) {
+    setAccountFilterId(account.id)
+    setTipoFiltro('todos')
+    setActiveTab('transacoes')
+  }
+
+  function toggleTransacaoSort(field: TransacaoSortField) {
+    setTransacaoSort(current => current.field === field
+      ? { field, direction: current.direction === 'desc' ? 'asc' : 'desc' }
+      : { field, direction: 'desc' })
+  }
+
+  function getTransacaoSortValue(transacao: Transacao, field: TransacaoSortField) {
+    if (field === 'payment_date') return transacao.payment_date || ''
+    if (field === 'descricao') return transacao.descricao || ''
+    if (field === 'categoria') return transacao.categoria?.nome || ''
+    if (field === 'cost_center') return transacao.cost_center?.nome || ''
+    if (field === 'account') return transacao.account?.nome || ''
+    if (field === 'tipo') return transacao.tipo || ''
+    if (field === 'valor') return Number(transacao.valor || 0)
+    return transacao.status || ''
+  }
+
+  function openNovoContatoDaTransacao(tipo: 'cliente' | 'fornecedor') {
+    resetCadastroForm()
+    setCadTipoContato(tipo)
+    setCadOrigin(tipo === 'cliente' ? 'transacao-cliente' : 'transacao-fornecedor')
+    setShowCadForm(true)
+  }
+
+  function openNovoContatoDaImportacao(rowIndex: number, tipo: 'entrada' | 'saida') {
+    resetCadastroForm()
+    setImportContactRowIndex(rowIndex)
+    setCadTipoContato(tipo === 'entrada' ? 'cliente' : 'fornecedor')
+    setCadOrigin('import-contato')
+    setShowCadForm(true)
+  }
+
+  function openEditarContato(contato: FinContato) {
+    setCadMode('editar')
+    setCadEditId(contato.key)
+    setCadTipoContato(contato.tipo)
+    setCadNome(contato.nome || '')
+    setCadDoc(contato.documento || '')
+    setCadTel(contato.telefone || '')
+    setCadEmail(contato.email || '')
+    setCadObs(contato.observacoes || '')
+    setCadMensalidadeValor(contato.mensalidade_valor != null ? String(contato.mensalidade_valor) : '')
+    setCadMensalidadeDesc(contato.mensalidade_descricao || '')
+    setCadDiaCobranca(contato.dia_cobranca != null ? String(contato.dia_cobranca) : '')
+    setCadAssinaturaAtiva(Boolean(contato.assinatura_ativa))
     setCadCriarRecebimento(false)
     setCadRecebimentoValor('')
     setCadRecebimentoDesc('')
     setCadRecebimentoData(todayISO())
+    setCadCnpjLoading(false); setCadCnpjError(''); setCadCnpjData(null)
+    setCadOrigin('contatos')
     setShowCadForm(true)
   }
 
-  function openEditarCadastroFornecedor(fornecedor: FinFornecedor) {
-    setCadMode('editar'); setCadEditId(fornecedor.id)
-    setCadNome(fornecedor.nome || '')
-    setCadDoc(fornecedor.documento || '')
-    setCadTel(fornecedor.telefone || '')
-    setCadEmail(fornecedor.email || '')
-    setCadObs(fornecedor.observacoes || '')
-    setCadMensalidadeValor(''); setCadMensalidadeDesc(''); setCadDiaCobranca(''); setCadAssinaturaAtiva(false)
-    setCadCriarRecebimento(false); setCadRecebimentoValor(''); setCadRecebimentoDesc(''); setCadRecebimentoData(todayISO())
-    setShowCadForm(true)
+  async function preencherCadastroPorCnpj() {
+    const digits = digitsOnly(cadDoc)
+    if (digits.length !== 14) {
+      setCadCnpjError('Informe um CNPJ válido com 14 dígitos.')
+      setCadCnpjData(null)
+      return
+    }
+
+    setCadCnpjLoading(true)
+    setCadCnpjError('')
+    try {
+      const res = await fetch(`https://publica.cnpj.ws/cnpj/${digits}`)
+      if (res.status === 404) {
+        setCadCnpjError('CNPJ não encontrado na Receita Federal.')
+        setCadCnpjData(null)
+        return
+      }
+      if (res.status === 429) {
+        setCadCnpjError('Muitas consultas seguidas. Aguarde um momento.')
+        setCadCnpjData(null)
+        return
+      }
+      if (!res.ok) {
+        setCadCnpjError(`Erro ao consultar CNPJ (${res.status}).`)
+        setCadCnpjData(null)
+        return
+      }
+
+      const data = await res.json() as ReceitaCnpjData
+      setCadCnpjData(data)
+      setCadDoc(formatCnpj(digits))
+      const snapshot = getReceitaSnapshot(data)
+      setCadNome(snapshot.nome || data.razao_social || '')
+      if (snapshot.email) setCadEmail(snapshot.email.toLowerCase())
+      if (snapshot.phone) setCadTel(snapshot.phone)
+
+      const obsFromCnpj = buildObservacoesFromCnpj(data)
+      if (obsFromCnpj) setCadObs(obsFromCnpj)
+
+      showMsg('ok', 'Dados do CNPJ importados.')
+    } catch {
+      setCadCnpjError('Não foi possível consultar o CNPJ agora.')
+      setCadCnpjData(null)
+    } finally {
+      setCadCnpjLoading(false)
+    }
   }
 
   function lancarMensalidade(cliente: FinCliente) {
@@ -406,6 +1045,7 @@ function FinanceiroInner() {
 
   async function salvarTransacao(e: React.FormEvent) {
     e.preventDefault()
+    const shouldCreateAnother = formMode === 'criar' && transactionSubmitModeRef.current === 'create-another'
     const valor = parseCurrencyInput(fValor)
     if (valor == null || valor <= 0) {
       showMsg('err', 'Informe um valor monetário válido maior que zero.')
@@ -428,9 +1068,22 @@ function FinanceiroInner() {
         ? { action: 'criar', ...payload }
         : { action: 'atualizar', id: editId, ...payload })
       if (data?.error) { showMsg('err', data.error); return }
-      showMsg('ok', formMode === 'criar' ? 'Transação criada!' : 'Transação atualizada!')
-      setShowForm(false); fetchTransacoes()
-    } finally { setSaving(false) }
+      showMsg('ok',
+        formMode === 'criar'
+          ? (shouldCreateAnother ? 'Transação criada! Preencha a próxima.' : 'Transação criada!')
+          : 'Transação atualizada!',
+      )
+      await fetchTransacoes()
+      if (shouldCreateAnother) {
+        resetForm()
+        setShowForm(true)
+        return
+      }
+      setShowForm(false)
+    } finally {
+      transactionSubmitModeRef.current = 'close'
+      setSaving(false)
+    }
   }
 
   async function deletarTransacao(id: string) {
@@ -453,70 +1106,120 @@ function FinanceiroInner() {
 
   async function salvarCadastro(e: React.FormEvent) {
     e.preventDefault()
-    const isCliente = activeTab === 'clientes'
+    const includeCliente = cadTipoContato === 'cliente' || cadTipoContato === 'ambos'
+    const includeFornecedor = cadTipoContato === 'fornecedor' || cadTipoContato === 'ambos'
+    const contatoAtual = cadMode === 'editar' ? contatos.find(contato => contato.key === cadEditId) : null
     const mensalidadeValor = parseCurrencyInput(cadMensalidadeValor)
-    if (isCliente && cadMensalidadeValor.trim() && (mensalidadeValor == null || mensalidadeValor <= 0)) {
+    if (includeCliente && cadMensalidadeValor.trim() && (mensalidadeValor == null || mensalidadeValor <= 0)) {
       showMsg('err', 'Informe um valor mensal válido.')
       return
     }
     const diaCobranca = cadDiaCobranca.trim() ? Number(cadDiaCobranca) : null
-    if (isCliente && diaCobranca != null && (!Number.isInteger(diaCobranca) || diaCobranca < 1 || diaCobranca > 31)) {
+    if (includeCliente && diaCobranca != null && (!Number.isInteger(diaCobranca) || diaCobranca < 1 || diaCobranca > 31)) {
       showMsg('err', 'Use um dia de cobrança entre 1 e 31.')
       return
     }
-    if (isCliente && cadAssinaturaAtiva && (mensalidadeValor == null || mensalidadeValor <= 0)) {
+    if (includeCliente && cadAssinaturaAtiva && (mensalidadeValor == null || mensalidadeValor <= 0)) {
       showMsg('err', 'Defina um valor mensal maior que zero para ativar a assinatura.')
       return
     }
     const recebimentoValor = parseCurrencyInput(cadRecebimentoValor)
-    if (isCliente && cadCriarRecebimento && (recebimentoValor == null || recebimentoValor <= 0)) {
+    if (includeCliente && cadCriarRecebimento && (recebimentoValor == null || recebimentoValor <= 0)) {
       showMsg('err', 'Informe um valor válido para o recebimento pendente.')
       return
     }
-    if (isCliente && cadCriarRecebimento && !cadRecebimentoData) {
+    if (includeCliente && cadCriarRecebimento && !cadRecebimentoData) {
       showMsg('err', 'Defina a data do recebimento pendente.')
+      return
+    }
+    if (cadMode === 'editar' && contatoAtual?.tipo === 'ambos' && cadTipoContato !== 'ambos') {
+      showMsg('err', 'Este contato existe como cliente e fornecedor. Para não perder vínculo, mantenha o tipo "Ambos".')
+      return
+    }
+    if (cadMode === 'editar' && contatoAtual?.tipo === 'cliente' && cadTipoContato === 'fornecedor') {
+      showMsg('err', 'Este contato hoje é cliente. Para ampliar o cadastro, troque para "Ambos".')
+      return
+    }
+    if (cadMode === 'editar' && contatoAtual?.tipo === 'fornecedor' && cadTipoContato === 'cliente') {
+      showMsg('err', 'Este contato hoje é fornecedor. Para ampliar o cadastro, troque para "Ambos".')
       return
     }
     setCadSaving(true)
     try {
-      const fn   = activeTab === 'clientes' ? 'financeiro-clientes' : 'financeiro-fornecedores'
-      const action = cadMode === 'criar' ? 'criar' : 'atualizar'
-      const data = await callFn(fn, {
-        action,
-        id: cadMode === 'editar' ? cadEditId : undefined,
+      const basePayload = {
         nome: cadNome,
         documento: cadDoc,
         telefone: cadTel,
         email: cadEmail,
         observacoes: cadObs,
-        ...(isCliente ? {
-          mensalidade_valor: mensalidadeValor,
-          mensalidade_descricao: cadMensalidadeDesc || null,
-          dia_cobranca: diaCobranca,
-          assinatura_ativa: cadAssinaturaAtiva,
-          criar_recebimento_pendente: cadCriarRecebimento,
-          recebimento_valor: recebimentoValor,
-          recebimento_descricao: cadRecebimentoDesc || null,
-          recebimento_competencia: cadRecebimentoData || null,
-        } : {}),
-      })
-      if (data?.error) { showMsg('err', data.error); return }
-      showMsg('ok', `${activeTab === 'clientes' ? 'Cliente' : 'Fornecedor'} ${cadMode === 'criar' ? 'cadastrado' : 'atualizado'}!`)
+      }
+      const clientePayload = {
+        ...basePayload,
+        mensalidade_valor: mensalidadeValor,
+        mensalidade_descricao: cadMensalidadeDesc || null,
+        dia_cobranca: diaCobranca,
+        assinatura_ativa: cadAssinaturaAtiva,
+        criar_recebimento_pendente: cadCriarRecebimento,
+        recebimento_valor: recebimentoValor,
+        recebimento_descricao: cadRecebimentoDesc || null,
+        recebimento_competencia: cadRecebimentoData || null,
+      }
+
+      if (includeCliente) {
+        const clienteAction = contatoAtual?.clienteId ? 'atualizar' : 'criar'
+        const clienteData = await callFn('financeiro-clientes', {
+          action: clienteAction,
+          id: clienteAction === 'atualizar' ? contatoAtual?.clienteId : undefined,
+          ...clientePayload,
+        })
+        if (clienteData?.error) { showMsg('err', clienteData.error); return }
+        if (cadOrigin === 'transacao-cliente' && clienteData?.cliente?.id) setFCliente(clienteData.cliente.id)
+      }
+
+      if (includeFornecedor) {
+        const fornecedorAction = contatoAtual?.fornecedorId ? 'atualizar' : 'criar'
+        const fornecedorData = await callFn('financeiro-fornecedores', {
+          action: fornecedorAction,
+          id: fornecedorAction === 'atualizar' ? contatoAtual?.fornecedorId : undefined,
+          ...basePayload,
+        })
+        if (fornecedorData?.error) { showMsg('err', fornecedorData.error); return }
+        if (cadOrigin === 'transacao-fornecedor' && fornecedorData?.fornecedor?.id) setFFornecedor(fornecedorData.fornecedor.id)
+      }
+
+      if (cadOrigin === 'import-contato' && importContactRowIndex != null) {
+        setImportPreview(prev => prev ? ({
+          ...prev,
+          rows: prev.rows.map((row, index) => index === importContactRowIndex ? { ...row, contato: cadNome.trim() } : row),
+        }) : prev)
+      }
+
+      showMsg('ok', `Contato ${cadMode === 'criar' ? 'cadastrado' : 'atualizado'}!`)
       setShowCadForm(false)
+      setImportContactRowIndex(null)
       resetCadastroForm()
-      activeTab === 'clientes' ? fetchClientes() : fetchFornecedores()
-      if (activeTab === 'clientes') fetchTransacoes()
+      await fetchClientes()
+      await fetchFornecedores()
+      if (includeCliente) fetchTransacoes()
     } finally { setCadSaving(false) }
   }
 
-  async function deletarCadastro(id: string, tipo: 'clientes' | 'fornecedores') {
-    const label = tipo === 'clientes' ? 'cliente' : 'fornecedor'
-    if (!confirm(`Remover este ${label}?`)) return
-    const fn   = tipo === 'clientes' ? 'financeiro-clientes' : 'financeiro-fornecedores'
-    const data = await callFn(fn, { action: 'deletar', id })
-    if (data?.error) { showMsg('err', data.error); return }
-    showMsg('ok', `${label.charAt(0).toUpperCase() + label.slice(1)} removido.`)
-    tipo === 'clientes' ? fetchClientes() : fetchFornecedores()
+  async function deletarContato(contato: FinContato) {
+    const label = contato.tipo === 'ambos' ? 'este contato de cliente e fornecedor' : 'este contato'
+    if (!confirm(`Remover ${label}?`)) return
+
+    if (contato.clienteId) {
+      const data = await callFn('financeiro-clientes', { action: 'deletar', id: contato.clienteId })
+      if (data?.error) { showMsg('err', data.error); return }
+    }
+    if (contato.fornecedorId) {
+      const data = await callFn('financeiro-fornecedores', { action: 'deletar', id: contato.fornecedorId })
+      if (data?.error) { showMsg('err', data.error); return }
+    }
+
+    showMsg('ok', 'Contato removido.')
+    await fetchClientes()
+    await fetchFornecedores()
   }
 
   async function deletarCategoria(id: string) {
@@ -536,15 +1239,278 @@ function FinanceiroInner() {
     setContaSaving(true)
     try {
       const data = await callFn('financeiro-aux', {
-        entity: 'accounts', action: 'criar',
+        entity: 'accounts', action: contaMode === 'criar' ? 'criar' : 'atualizar',
+        id: contaMode === 'editar' ? contaEditId : undefined,
         nome: contaNome, tipo: contaTipo,
         saldo_inicial: saldoInicial ?? 0,
       })
       if (data?.error) { showMsg('err', data.error); return }
-      showMsg('ok', 'Conta cadastrada!')
-      setShowContaForm(false); setContaNome(''); setContaTipo('banco'); setContaSaldo('')
+      showMsg('ok', contaMode === 'criar' ? 'Conta cadastrada!' : 'Conta atualizada!')
+      setShowContaForm(false); setContaMode('criar'); setContaEditId(null); setContaNome(''); setContaTipo('banco'); setContaSaldo('')
       fetchAccounts()
     } finally { setContaSaving(false) }
+  }
+
+  function openNovaConta() {
+    setContaMode('criar')
+    setContaEditId(null)
+    setContaNome('')
+    setContaTipo('banco')
+    setContaSaldo('')
+    setShowContaForm(true)
+  }
+
+  function openEditarConta(account: FinAccount) {
+    setContaMode('editar')
+    setContaEditId(account.id)
+    setContaNome(account.nome)
+    setContaTipo(account.tipo as 'banco' | 'carteira' | 'cartao')
+    setContaSaldo(String(account.saldo_inicial ?? 0))
+    setAccountMenuOpenId(null)
+    setShowContaForm(true)
+  }
+
+  async function deletarConta(account: FinAccount) {
+    if (!confirm(`Deseja realmente arquivar a conta "${account.nome}"? Ela será removida da lista e suas transações não serão mais contabilizadas nos totais.`)) return
+    setAccountMenuOpenId(null)
+    const data = await callFn('financeiro-aux', { entity: 'accounts', action: 'deletar', id: account.id })
+    if (data?.error) { showMsg('err', data.error); return }
+    if (accountFilterId === account.id) setAccountFilterId('')
+    showMsg('ok', 'Conta removida com sucesso.')
+    await fetchAccounts()
+    if (activeTab === 'transacoes') await fetchTransacoes()
+  }
+
+  async function restaurarConta(account: FinAccount) {
+    if (!confirm(`Deseja restaurar a conta "${account.nome}"?`)) return
+    setAccountMenuOpenId(null)
+    const data = await callFn('financeiro-aux', { entity: 'accounts', action: 'restaurar', id: account.id })
+    if (data?.error) { showMsg('err', data.error); return }
+    showMsg('ok', 'Conta restaurada com sucesso.')
+    await fetchAccounts()
+  }
+
+  function openAccountMenu(accountId: string) {
+    setAccountMenuOpenId(prev => prev === accountId ? null : accountId)
+  }
+
+  function triggerImportForAccount(accountId: string) {
+    setImportMode('single')
+    setImportingAccountId(accountId)
+    setAccountMenuOpenId(null)
+    fileInputRef.current?.click()
+  }
+
+  function triggerImportMultiConta() {
+    setImportMode('multi')
+    setImportingAccountId(null)
+    setAccountMenuOpenId(null)
+    fileInputRef.current?.click()
+  }
+
+  async function handleImportFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    const accountId = importingAccountId
+    e.currentTarget.value = ''
+    if (!file || (importMode === 'single' && !accountId)) return
+
+    const text = await file.text()
+    const rows = parseImportCsvContent(text)
+    if (rows.length === 0) {
+      showMsg('err', 'Nenhuma linha válida encontrada no CSV.')
+      setImportingAccountId(null)
+      return
+    }
+
+    if (importMode === 'multi' && !rows.some(row => normalizeContactKey(row.account_name))) {
+      showMsg('err', 'Esse CSV não trouxe a coluna de conta preenchida. Use a importação por conta neste caso.')
+      setImportingAccountId(null)
+      return
+    }
+
+    const accountName = importMode === 'multi'
+      ? 'Importação multi-conta'
+      : (accounts.find(account => account.id === accountId)?.nome || 'Conta selecionada')
+    setImportPreviewLoading(true)
+    try {
+      const analysis = await callFn('financeiro-transacoes', {
+        action: 'analisar_importacao_csv',
+        account_id: importMode === 'single' ? accountId : undefined,
+        rows,
+      })
+      if (analysis?.error) { showMsg('err', analysis.error); return }
+      setImportPreview({
+        accountId: importMode === 'single' ? accountId : null,
+        accountName,
+        fileName: file.name,
+        rows,
+        analysis,
+      })
+      setActiveImportAlert(null)
+    } finally {
+      setImportPreviewLoading(false)
+      setImportingAccountId(null)
+    }
+  }
+
+  async function confirmImportPreview() {
+    if (!importPreview) return
+    setImportPreviewLoading(true)
+    const BATCH_SIZE = 500
+    const allRows = importPreview.rows
+    const totalBatches = Math.ceil(allRows.length / BATCH_SIZE)
+    setImportProgress({ done: 0, total: allRows.length })
+    let totalImported = 0
+    let totalSkipped = 0
+    try {
+      for (let i = 0; i < totalBatches; i++) {
+        const batch = allRows.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE)
+        const data = await callFn('financeiro-transacoes', {
+          action: 'importar_csv',
+          account_id: importPreview.accountId || undefined,
+          rows: batch,
+        })
+        if (data?.error) { showMsg('err', data.error); return }
+        totalImported += data.imported || 0
+        totalSkipped += data.skipped || 0
+        setImportProgress({ done: Math.min((i + 1) * BATCH_SIZE, allRows.length), total: allRows.length })
+      }
+      showMsg('ok', `Importação concluída: ${totalImported} lançamentos importados, ${totalSkipped} ignorados.`)
+      setImportPreview(null)
+      setEditingImportRowIndex(null)
+      setEditingImportRow(null)
+      setActiveImportAlert(null)
+      await fetchAccounts()
+      if (activeTab === 'transacoes') await fetchTransacoes()
+    } finally {
+      setImportPreviewLoading(false)
+      setImportProgress(null)
+    }
+  }
+
+  function startImportRowEdit(index: number) {
+    if (!importPreview?.rows[index]) return
+    setEditingImportRowIndex(index)
+    setEditingImportRow({ ...importPreview.rows[index] })
+  }
+
+  function cancelImportRowEdit() {
+    setEditingImportRowIndex(null)
+    setEditingImportRow(null)
+    setShowBulkApplyPanel(false)
+  }
+
+  function saveImportRowEdit() {
+    if (editingImportRowIndex == null || !editingImportRow || !importPreview) return
+    if (!editingImportRow.descricao.trim()) {
+      showMsg('err', 'A descrição da linha é obrigatória.')
+      return
+    }
+    if (!editingImportRow.competence_date) {
+      showMsg('err', 'A data de competência é obrigatória.')
+      return
+    }
+    if (Number(editingImportRow.valor) <= 0) {
+      showMsg('err', 'O valor da linha deve ser maior que zero.')
+      return
+    }
+
+    setImportPreview({
+      ...importPreview,
+      rows: importPreview.rows.map((row, index) => index === editingImportRowIndex ? {
+        ...editingImportRow,
+        descricao: editingImportRow.descricao.trim(),
+        contato: editingImportRow.contato?.trim() || null,
+        categoria: editingImportRow.categoria?.trim() || null,
+        cost_center: editingImportRow.cost_center?.trim() || null,
+        additional_info: editingImportRow.additional_info?.trim() || null,
+        attachments: editingImportRow.attachments?.trim() || null,
+        tags: editingImportRow.tags?.trim() || null,
+        payment_date: editingImportRow.status === 'confirmado'
+          ? (editingImportRow.payment_date || editingImportRow.competence_date)
+          : null,
+      } : row),
+    })
+    cancelImportRowEdit()
+  }
+
+  function applyImportEditToFilteredRows() {
+    if (editingImportRowIndex == null || !editingImportRow || !importPreview || !activeImportAlert) return
+    if (!Object.values(bulkApplyFields).some(Boolean)) {
+      showMsg('err', 'Selecione pelo menos um campo para aplicar em lote.')
+      return
+    }
+    const filteredRows = getImportAlertRows(importPreview.rows, activeImportAlert)
+    const filteredIndexes = new Set(
+      filteredRows.map(row => importPreview.rows.indexOf(row)).filter(index => index >= 0),
+    )
+
+    setImportPreview({
+      ...importPreview,
+      rows: importPreview.rows.map((row, index) => {
+        if (!filteredIndexes.has(index)) return row
+        return {
+          ...row,
+          contato: bulkApplyFields.contato ? (editingImportRow.contato?.trim() || null) : row.contato,
+          categoria: bulkApplyFields.categoria ? (editingImportRow.categoria?.trim() || null) : row.categoria,
+          tipo: bulkApplyFields.tipo ? editingImportRow.tipo : row.tipo,
+          status: bulkApplyFields.status ? editingImportRow.status : row.status,
+          payment_date: bulkApplyFields.status
+            ? (editingImportRow.status === 'confirmado' ? (row.payment_date || row.competence_date) : null)
+            : row.payment_date,
+        }
+      }),
+    })
+
+    showMsg('ok', `Campos aplicados em ${filteredIndexes.size} linhas filtradas.`)
+    setShowBulkApplyPanel(false)
+  }
+
+  async function exportAccountCsv(account: FinAccount) {
+    setAccountMenuOpenId(null)
+    const data = await callFn('financeiro-transacoes', {
+      action: 'listar',
+      account_id: account.id,
+      view: 'competencia',
+    })
+    if (data?.error) { showMsg('err', data.error); return }
+
+    const rows = (data?.transacoes || []).map((t: Transacao) => {
+      const competencia = fmtDate(t.competence_date || t.data_transacao)
+      const pagamento = t.payment_date ? fmtDate(t.payment_date) : ''
+      const contato = t.tipo === 'entrada' ? (t.cliente?.nome || '') : (t.fornecedor?.nome || '')
+      const valor = t.tipo === 'saida' ? `R$ -${fmtBRL(t.valor).replace('R$', '').trim()}` : `R$ ${fmtBRL(t.valor).replace('R$', '').trim()}`
+      return [
+        competencia,
+        '',
+        pagamento,
+        t.descricao,
+        t.status === 'confirmado' ? 'Pago' : 'Não Pago',
+        contato,
+        '',
+        t.observacoes || '',
+        '',
+        account.nome,
+        t.categoria?.nome || '',
+        t.cost_center?.nome || '',
+        valor,
+      ]
+    })
+
+    const header = [
+      'Data competência','Data vencimento','Data pagamento','Descrição','Situação','Contato','Tags','Informações adicionais','Anexos','Conta/cartão','Categoria','Centro de custo','Valor',
+    ]
+    const csv = [header, ...rows].map(row => row.map(escapeCsvValue).join(',')).join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `lancamentos-${account.nome.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.csv`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    showMsg('ok', 'CSV exportado com sucesso.')
   }
 
   // ── Funções de cadastro rápido inline (dentro do modal de transação) ───────
@@ -598,9 +1564,123 @@ function FinanceiroInner() {
     showMsg('ok', 'Conta cadastrada!'); return true
   }
 
-  const transacoesFiltradas = transacoes.filter(t => tipoFiltro === 'todos' || t.tipo === tipoFiltro)
+  async function quickCreateCostCenter(fields: Record<string, string>): Promise<boolean> {
+    const data = await callFn('financeiro-aux', {
+      entity: 'cost_centers',
+      action: 'criar',
+      nome: fields.nome,
+      descricao: fields.descricao || null,
+    })
+    if (data?.error) { showMsg('err', data.error); return false }
+    await fetchCostCenters()
+    if (data?.cost_center) setFCostCenter(data.cost_center.id)
+    showMsg('ok', 'Centro de custo cadastrado!')
+    return true
+  }
+
+  async function quickCreateCategoria(fields: Record<string, string>): Promise<boolean> {
+    const data = await callFn('financeiro-categorias', {
+      action: 'criar',
+      nome: fields.nome,
+      tipo: fTipo,
+      cor: fields.cor || '#6b7280',
+    })
+    if (data?.error) { showMsg('err', data.error); return false }
+    await fetchCategorias()
+    if (data?.categoria) setFCat(data.categoria.id)
+    showMsg('ok', 'Categoria cadastrada!')
+    return true
+  }
+
+  const contatos = (() => {
+    const grouped = new Map<string, FinContato>()
+
+    for (const cliente of clientes) {
+      const key = getContactGroupKey(cliente)
+      const current = grouped.get(key)
+      grouped.set(key, {
+        key,
+        nome: current?.nome || cliente.nome,
+        documento: current?.documento || cliente.documento,
+        telefone: current?.telefone || cliente.telefone,
+        email: current?.email || cliente.email,
+        observacoes: current?.observacoes || cliente.observacoes,
+        tipo: current?.fornecedorId ? 'ambos' : 'cliente',
+        clienteId: cliente.id,
+        fornecedorId: current?.fornecedorId,
+        mensalidade_valor: cliente.mensalidade_valor,
+        mensalidade_descricao: cliente.mensalidade_descricao,
+        dia_cobranca: cliente.dia_cobranca,
+        assinatura_ativa: cliente.assinatura_ativa,
+      })
+    }
+
+    for (const fornecedor of fornecedores) {
+      const key = getContactGroupKey(fornecedor)
+      const current = grouped.get(key)
+      grouped.set(key, {
+        key,
+        nome: current?.nome || fornecedor.nome,
+        documento: current?.documento || fornecedor.documento,
+        telefone: current?.telefone || fornecedor.telefone,
+        email: current?.email || fornecedor.email,
+        observacoes: current?.observacoes || fornecedor.observacoes,
+        tipo: current?.clienteId ? 'ambos' : 'fornecedor',
+        clienteId: current?.clienteId,
+        fornecedorId: fornecedor.id,
+        mensalidade_valor: current?.mensalidade_valor,
+        mensalidade_descricao: current?.mensalidade_descricao,
+        dia_cobranca: current?.dia_cobranca,
+        assinatura_ativa: current?.assinatura_ativa,
+      })
+    }
+
+    return Array.from(grouped.values()).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+  })()
+
+  const contatosFiltrados = contatos.filter(contato => {
+    if (contatoFiltro === 'todos') return true
+    if (contatoFiltro === 'clientes') return contato.tipo === 'cliente' || contato.tipo === 'ambos'
+    if (contatoFiltro === 'fornecedores') return contato.tipo === 'fornecedor' || contato.tipo === 'ambos'
+    return contato.tipo === 'ambos'
+  })
+
+  const transacoesFiltradas = transacoes
+    .filter(t => tipoFiltro === 'todos' || t.tipo === tipoFiltro)
+    .sort((a, b) => {
+      const aValue = getTransacaoSortValue(a, transacaoSort.field)
+      const bValue = getTransacaoSortValue(b, transacaoSort.field)
+
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return transacaoSort.direction === 'asc' ? aValue - bValue : bValue - aValue
+      }
+
+      const comparison = String(aValue).localeCompare(String(bValue), 'pt-BR', { numeric: true, sensitivity: 'base' })
+      return transacaoSort.direction === 'asc' ? comparison : -comparison
+    })
   const catsFiltradas = categorias.filter(c => c.tipo === fTipo)
   const resumoLabel = viewMode === 'competencia' ? 'Competência (DRE)' : 'Caixa (Pagos)'
+  const selectedAccountFilter = accountFilterId ? accounts.find(account => account.id === accountFilterId) || null : null
+  const importSummary = importPreview ? summarizeImportRows(importPreview.rows) : null
+  const importWarnings = importPreview ? buildImportWarnings(importPreview.rows) : []
+  const importAlerts = importPreview ? buildImportAlerts(importPreview.rows) : []
+  const importContactOptions = contatos.map(contato => ({
+    value: contato.nome,
+    label: contato.nome,
+  }))
+  const importRowsToDisplay = importPreview
+    ? (activeImportAlert ? getImportAlertRows(importPreview.rows, activeImportAlert) : importPreview.rows)
+    : []
+  const sortableHeaders: { field: TransacaoSortField; label: string }[] = [
+    { field: 'payment_date', label: 'Pagamento' },
+    { field: 'descricao', label: 'Descrição' },
+    { field: 'categoria', label: 'Categoria' },
+    { field: 'cost_center', label: 'Centro' },
+    { field: 'account', label: 'Conta' },
+    { field: 'tipo', label: 'Tipo' },
+    { field: 'valor', label: 'Valor' },
+    { field: 'status', label: 'Status' },
+  ]
 
   if (!authChecked) return <NGPLoading loading loadingText="Carregando financeiro..." />
 
@@ -642,7 +1722,9 @@ function FinanceiroInner() {
                   <button className={`${styles.viewToggleBtn} ${viewMode === 'caixa' ? styles.viewToggleBtnActive : ''}`} onClick={() => setViewMode('caixa')}>Caixa (Pagos)</button>
                 </div>
                 <span className={styles.viewToggleHint}>
-                  {viewMode === 'competencia' ? 'Mostra todas as transações do período por data de competência' : 'Mostra apenas transações pagas no período'}
+                  {viewMode === 'competencia'
+                    ? 'Entradas e saídas mostram o período por competência, sem contar transferências internas; o saldo mostra o caixa geral acumulado das contas.'
+                    : 'Entradas e saídas mostram apenas transações pagas no período, sem contar transferências internas; o saldo mostra o caixa geral acumulado das contas.'}
                 </span>
               </div>
 
@@ -656,19 +1738,53 @@ function FinanceiroInner() {
                   <div className={`${styles.resumoValue} ${styles.resumoSaida}`}>{fmtBRL(resumo.saidas)}</div>
                 </div>
                 <div className={styles.resumoCard}>
-                  <div className={styles.resumoLabel}>Saldo · {resumoLabel}</div>
+                  <div className={styles.resumoLabel}>Saldo geral</div>
                   <div className={`${styles.resumoValue} ${styles.resumoSaldo}`} style={{ color: resumo.saldo >= 0 ? '#059669' : '#DC2626' }}>{fmtBRL(resumo.saldo)}</div>
                 </div>
               </div>
 
               <div className={styles.toolbar}>
                 <div className={styles.toolbarLeft}>
-                  <CustomSelect
-                    value={`${anoFiltro}-${mesFiltro}`}
-                    options={MESES.map((nome, i) => ({ id: `${anoFiltro}-${i + 1}`, label: `${nome} ${anoFiltro}` }))}
-                    onChange={v => { const [y, m] = v.split('-'); setAnoFiltro(Number(y)); setMesFiltro(Number(m)) }}
-                    className={styles.selectMesCustom}
-                  />
+                  <div className={styles.periodoFiltroWrap}>
+                    <CustomSelect
+                      value={periodoTipo}
+                      options={[
+                        { id: 'hoje',          label: 'Hoje' },
+                        { id: 'semana',        label: 'Esta semana' },
+                        { id: 'mes',           label: 'Este mês' },
+                        { id: '30dias',        label: 'Últimos 30 dias' },
+                        { id: 'ultimo_mes',    label: 'Último mês' },
+                        { id: 'trimestre',     label: 'Este trimestre' },
+                        { id: 'ano',           label: `Ano ${now.getFullYear()}` },
+                        { id: 'mes_especifico',label: 'Mês específico…' },
+                        { id: 'personalizado', label: 'Personalizado…' },
+                        { id: 'tudo',          label: 'Todo o período' },
+                      ]}
+                      onChange={v => setPeriodoTipo(v as PeriodoTipo)}
+                      className={styles.selectMesCustom}
+                    />
+                    {periodoTipo === 'mes_especifico' && (
+                      <CustomSelect
+                        value={periodoMesEsp}
+                        options={[
+                          ...MESES.map((nome, i) => ({ id: `${2022}-${i + 1}`, label: `${nome} 2022` })),
+                          ...MESES.map((nome, i) => ({ id: `${2023}-${i + 1}`, label: `${nome} 2023` })),
+                          ...MESES.map((nome, i) => ({ id: `${2024}-${i + 1}`, label: `${nome} 2024` })),
+                          ...MESES.map((nome, i) => ({ id: `${2025}-${i + 1}`, label: `${nome} 2025` })),
+                          ...MESES.map((nome, i) => ({ id: `${2026}-${i + 1}`, label: `${nome} 2026` })),
+                        ]}
+                        onChange={v => setPeriodoMesEsp(v)}
+                        className={styles.selectMesCustom}
+                      />
+                    )}
+                    {periodoTipo === 'personalizado' && (
+                      <div className={styles.periodoCustomInputs}>
+                        <input type="date" className={styles.periodoDateInput} value={periodoCustomStart} onChange={e => setPeriodoCustomStart(e.target.value)} />
+                        <span className={styles.periodoDateSep}>até</span>
+                        <input type="date" className={styles.periodoDateInput} value={periodoCustomEnd} onChange={e => setPeriodoCustomEnd(e.target.value)} />
+                      </div>
+                    )}
+                  </div>
                   <div className={styles.filtroTipo}>
                     {(['todos','entrada','saida'] as TipoFiltro[]).map(f => (
                       <button key={f} className={`${styles.filtroBtn} ${tipoFiltro === f ? styles.filtroBtnActive : ''}`} onClick={() => setTipoFiltro(f)}>
@@ -676,9 +1792,22 @@ function FinanceiroInner() {
                       </button>
                     ))}
                   </div>
+                  <CustomSelect
+                    value={accountFilterId}
+                    options={[{ id: '', label: 'Todas as contas' }, ...accounts.map(account => ({ id: account.id, label: account.nome }))]}
+                    onChange={setAccountFilterId}
+                    className={styles.selectMesCustom}
+                  />
                 </div>
                 <button className={styles.btnNovo} onClick={openNovaTransacao}>+ Nova transação</button>
               </div>
+
+              {selectedAccountFilter && (
+                <div className={styles.filterInfoBar}>
+                  Mostrando transações da conta <strong>{selectedAccountFilter.nome}</strong>.
+                  <button type="button" className={styles.filterInfoAction} onClick={() => setAccountFilterId('')}>Ver todas</button>
+                </div>
+              )}
 
               {loading ? (
                 <div className={styles.empty}>Carregando...</div>
@@ -686,9 +1815,28 @@ function FinanceiroInner() {
                 <div className={styles.empty}>Nenhuma transação encontrada para este período.</div>
               ) : (
                 <div className={styles.tableWrap}>
-                  <table className={styles.table}>
+                  <table className={`${styles.table} ${styles.transacoesTable}`}>
                     <thead>
-                      <tr><th>Competência</th><th>Pagamento</th><th>Descrição</th><th>Categoria</th><th>Centro</th><th>Conta</th><th>Tipo</th><th>Valor</th><th>Status</th><th></th></tr>
+                      <tr>
+                        <th>Competência</th>
+                        {sortableHeaders.map(header => (
+                          <th key={header.field}>
+                            <button
+                              type="button"
+                              className={`${styles.sortHeaderBtn} ${transacaoSort.field === header.field ? styles.sortHeaderBtnActive : ''}`}
+                              onClick={() => toggleTransacaoSort(header.field)}
+                            >
+                              <span>{header.label}</span>
+                              <span className={styles.sortHeaderArrow}>
+                                {transacaoSort.field === header.field
+                                  ? (transacaoSort.direction === 'desc' ? '↓' : '↑')
+                                  : '↓'}
+                              </span>
+                            </button>
+                          </th>
+                        ))}
+                        <th className={styles.actionsHeader}>Ações</th>
+                      </tr>
                     </thead>
                     <tbody>
                       {transacoesFiltradas.map(t => {
@@ -698,12 +1846,12 @@ function FinanceiroInner() {
                           <td className={styles.tdMuted}>{fmtDate(t.competence_date || t.data_transacao)}</td>
                           <td className={styles.tdMuted}>{fmtDate(t.payment_date)}</td>
                           <td>
-                            <div>{t.descricao}</div>
+                            <div className={styles.cellEllipsis} title={t.descricao}>{t.descricao}</div>
                             {t.product && <div className={styles.tdSub}>{t.product.nome}</div>}
                           </td>
                           <td>
                             {t.categoria
-                              ? <span><span className={styles.catDot} style={{ background: t.categoria.cor }} />{t.categoria.nome}</span>
+                              ? <span className={styles.cellEllipsis} title={t.categoria.nome}><span className={styles.catDot} style={{ background: t.categoria.cor }} />{t.categoria.nome}</span>
                               : <span className={styles.tdMuted}>—</span>}
                           </td>
                           <td className={styles.tdMuted}>{t.cost_center?.nome || '—'}</td>
@@ -717,8 +1865,18 @@ function FinanceiroInner() {
                             {t.tipo === 'entrada' ? '+' : '-'}{fmtBRL(t.valor)}
                           </td>
                           <td>
+                            <span className={`${styles.statusBadge} ${
+                              t.status === 'confirmado'
+                                ? styles.statusConfirmado
+                                : t.status === 'pendente'
+                                  ? styles.statusPendente
+                                  : styles.statusCancelado
+                            }`}>
+                              {t.status === 'confirmado' ? 'Pago' : t.status === 'pendente' ? 'Pendente' : 'Cancelado'}
+                            </span>
+                          </td>
+                          <td className={styles.actionsCell}>
                             <div className={styles.rowActions}>
-                              {/* Pagar / Pago */}
                               <button
                                 className={`${styles.actionBtn} ${isPago ? styles.actionBtnPago : styles.actionBtnPagar}`}
                                 onClick={() => togglePagamento(t)}
@@ -740,70 +1898,95 @@ function FinanceiroInner() {
             </>
           )}
 
-          {/* ── CLIENTES ── */}
-          {activeTab === 'clientes' && (
+          {/* ── CONTATOS ── */}
+          {activeTab === 'contatos' && (
             <>
               <div className={styles.toolbar}>
-                <span style={{ fontSize: 13, color: '#8E8E93' }}>{clientes.length} cliente{clientes.length !== 1 ? 's' : ''}</span>
-                <button className={styles.btnNovo} onClick={openNovoCadastro}>+ Novo cliente</button>
-              </div>
-              {clientes.length === 0 ? <div className={styles.empty}>Nenhum cliente cadastrado.</div> : (
-                <div className={styles.cardGrid}>
-                  {clientes.map(c => (
-                    <div key={c.id} className={styles.cadastroCard}>
-                      <div className={styles.cadastroNome}>{c.nome}</div>
-                      {c.mensalidade_valor != null && (
-                        <div className={`${styles.cadastroRecurring} ${c.assinatura_ativa ? styles.cadastroRecurringActive : styles.cadastroRecurringPaused}`}>
-                          {c.assinatura_ativa ? 'Assinatura ativa' : 'Assinatura cadastrada'} · {fmtBRL(c.mensalidade_valor)}
-                        </div>
-                      )}
-                      {c.dia_cobranca != null && <div className={styles.cadastroInfo}>Cobrança no dia {c.dia_cobranca}</div>}
-                      {c.mensalidade_descricao && <div className={styles.cadastroInfo}>{c.mensalidade_descricao}</div>}
-                      {c.documento   && <div className={styles.cadastroInfo}>Doc: {c.documento}</div>}
-                      {c.telefone    && <div className={styles.cadastroInfo}>Tel: {c.telefone}</div>}
-                      {c.email       && <div className={styles.cadastroInfo}>{c.email}</div>}
-                      {c.observacoes && <div className={styles.cadastroInfo}>{c.observacoes}</div>}
-                      <div className={styles.cadastroActions}>
-                        <button className={styles.actionBtn} onClick={() => openEditarCadastroCliente(c)}>Editar</button>
-                        {c.assinatura_ativa && c.mensalidade_valor != null && c.mensalidade_valor > 0 && (
-                          <button className={`${styles.actionBtn} ${styles.actionBtnRecurring}`} onClick={() => lancarMensalidade(c)}>
-                            Lançar mensalidade
-                          </button>
-                        )}
-                        <button className={`${styles.actionBtn} ${styles.actionBtnRecurring}`} onClick={() => abrirRecebimentoPendenteCliente(c)}>
-                          Recebimento pendente
-                        </button>
-                        <button className={`${styles.actionBtn} ${styles.actionBtnDel}`} onClick={() => deletarCadastro(c.id, 'clientes')}>Remover</button>
-                      </div>
-                    </div>
-                  ))}
+                <div className={styles.toolbarLeft}>
+                  <span style={{ fontSize: 13, color: '#8E8E93' }}>{contatosFiltrados.length} contato{contatosFiltrados.length !== 1 ? 's' : ''}</span>
+                  <div className={styles.filtroTipo}>
+                    {([
+                      { id: 'todos', label: 'Todos' },
+                      { id: 'clientes', label: 'Clientes' },
+                      { id: 'fornecedores', label: 'Fornecedores' },
+                      { id: 'ambos', label: 'Ambos' },
+                    ] as { id: ContatoFiltro; label: string }[]).map(f => (
+                      <button key={f.id} className={`${styles.filtroBtn} ${contatoFiltro === f.id ? styles.filtroBtnActive : ''}`} onClick={() => setContatoFiltro(f.id)}>
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              )}
-            </>
-          )}
-
-          {/* ── FORNECEDORES ── */}
-          {activeTab === 'fornecedores' && (
-            <>
-              <div className={styles.toolbar}>
-                <span style={{ fontSize: 13, color: '#8E8E93' }}>{fornecedores.length} fornecedor{fornecedores.length !== 1 ? 'es' : ''}</span>
-                <button className={styles.btnNovo} onClick={openNovoCadastro}>+ Novo fornecedor</button>
+                <button className={styles.btnNovo} onClick={openNovoCadastro}>+ Novo contato</button>
               </div>
-              {fornecedores.length === 0 ? <div className={styles.empty}>Nenhum fornecedor cadastrado.</div> : (
-                <div className={styles.cardGrid}>
-                  {fornecedores.map(f => (
-                    <div key={f.id} className={styles.cadastroCard}>
-                      <div className={styles.cadastroNome}>{f.nome}</div>
-                      {f.documento   && <div className={styles.cadastroInfo}>Doc: {f.documento}</div>}
-                      {f.telefone    && <div className={styles.cadastroInfo}>Tel: {f.telefone}</div>}
-                      {f.email       && <div className={styles.cadastroInfo}>{f.email}</div>}
-                      {f.observacoes && <div className={styles.cadastroInfo}>{f.observacoes}</div>}
-                      <div className={styles.cadastroActions}>
-                        <button className={styles.actionBtn} onClick={() => openEditarCadastroFornecedor(f)}>Editar</button>
-                        <button className={`${styles.actionBtn} ${styles.actionBtnDel}`} onClick={() => deletarCadastro(f.id, 'fornecedores')}>Remover</button>
-                      </div>
-                    </div>
+              {contatosFiltrados.length === 0 ? <div className={styles.empty}>Nenhum contato encontrado neste filtro.</div> : (
+                <div className={styles.tableWrap}>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr><th>Nome</th><th>Tipo</th><th>Documento</th><th>Telefone</th><th>E-mail</th><th>Detalhes</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                  {contatosFiltrados.map(contato => (
+                    <tr key={contato.key}>
+                      <td>
+                        <div className={styles.cadastroNome}>{contato.nome}</div>
+                      </td>
+                      <td>
+                        <span className={`${styles.tipoBadge} ${contato.tipo === 'cliente' ? styles.tipoEntrada : contato.tipo === 'fornecedor' ? styles.tipoSaida : styles.statusConfirmado}`}>
+                          {contato.tipo === 'cliente' ? 'Cliente' : contato.tipo === 'fornecedor' ? 'Fornecedor' : 'Ambos'}
+                        </span>
+                      </td>
+                      <td className={styles.tdMuted}>{contato.documento || '—'}</td>
+                      <td className={styles.tdMuted}>{contato.telefone || '—'}</td>
+                      <td className={styles.tdMuted}>{contato.email || '—'}</td>
+                      <td>
+                        <div className={styles.listMain}>
+                          {(contato.mensalidade_valor != null || contato.mensalidade_descricao || contato.dia_cobranca != null) && (
+                            <div className={styles.listSubmeta}>
+                              {contato.mensalidade_valor != null && (
+                                <span className={`${styles.cadastroRecurring} ${contato.assinatura_ativa ? styles.cadastroRecurringActive : styles.cadastroRecurringPaused}`}>
+                                  {contato.assinatura_ativa ? 'Assinatura ativa' : 'Assinatura cadastrada'} · {fmtBRL(contato.mensalidade_valor)}
+                                </span>
+                              )}
+                              {contato.dia_cobranca != null && <span>Cobrança dia {contato.dia_cobranca}</span>}
+                              {contato.mensalidade_descricao && <span>{contato.mensalidade_descricao}</span>}
+                            </div>
+                          )}
+                          {contato.observacoes && <div className={styles.tdSub}>{contato.observacoes}</div>}
+                        </div>
+                      </td>
+                      <td>
+                        <div className={styles.rowActions}>
+                          <button className={styles.actionBtn} onClick={() => openEditarContato(contato)}>Editar</button>
+                          {contato.clienteId && contato.assinatura_ativa && contato.mensalidade_valor != null && contato.mensalidade_valor > 0 && (
+                            <button
+                              className={`${styles.actionBtn} ${styles.actionBtnRecurring}`}
+                              onClick={() => {
+                                const cliente = clientes.find(c => c.id === contato.clienteId)
+                                if (cliente) lancarMensalidade(cliente)
+                              }}
+                            >
+                              Lançar mensalidade
+                            </button>
+                          )}
+                          {contato.clienteId && (
+                            <button
+                              className={`${styles.actionBtn} ${styles.actionBtnRecurring}`}
+                              onClick={() => {
+                                const cliente = clientes.find(c => c.id === contato.clienteId)
+                                if (cliente) abrirRecebimentoPendenteCliente(cliente)
+                              }}
+                            >
+                              Recebimento pendente
+                            </button>
+                          )}
+                          <button className={`${styles.actionBtn} ${styles.actionBtnDel}`} onClick={() => deletarContato(contato)}>Remover</button>
+                        </div>
+                      </td>
+                    </tr>
                   ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </>
@@ -816,14 +1999,18 @@ function FinanceiroInner() {
                 <span style={{ fontSize: 13, color: '#8E8E93' }}>{categorias.length} categoria{categorias.length !== 1 ? 's' : ''}</span>
               </div>
               {categorias.length === 0 ? <div className={styles.empty}>Nenhuma categoria cadastrada.</div> : (
-                <div className={styles.cardGrid}>
+                <div className={styles.listWrap}>
                   {categorias.map(c => (
-                    <div key={c.id} className={styles.cadastroCard}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: c.cor, flexShrink: 0, display: 'inline-block' }} />
-                        <div className={styles.cadastroNome}>{c.nome}</div>
+                    <div key={c.id} className={styles.listRow}>
+                      <div className={styles.listMain}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ width: 10, height: 10, borderRadius: '50%', background: c.cor, flexShrink: 0, display: 'inline-block' }} />
+                          <div className={styles.cadastroNome}>{c.nome}</div>
+                        </div>
+                        <div className={styles.listMeta}>
+                          <span>{c.tipo === 'entrada' ? 'Entrada' : 'Saída'}</span>
+                        </div>
                       </div>
-                      <div className={styles.cadastroInfo}>{c.tipo === 'entrada' ? 'Entrada' : 'Saída'}</div>
                       <div className={styles.cadastroActions}>
                         <button className={`${styles.actionBtn} ${styles.actionBtnDel}`} onClick={() => deletarCategoria(c.id)}>Remover</button>
                       </div>
@@ -837,20 +2024,56 @@ function FinanceiroInner() {
           {/* ── CONTAS ── */}
           {activeTab === 'contas' && (
             <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                style={{ display: 'none' }}
+                onChange={handleImportFileChange}
+              />
               <div className={styles.toolbar}>
-                <span style={{ fontSize: 13, color: '#8E8E93' }}>{accounts.length} conta{accounts.length !== 1 ? 's' : ''}</span>
-                <button className={styles.btnNovo} onClick={() => { setContaNome(''); setContaTipo('banco'); setContaSaldo(''); setShowContaForm(true) }}>+ Nova conta</button>
+                <div className={styles.toolbarLeft}>
+                  <span style={{ fontSize: 13, color: '#8E8E93' }}>{accounts.length} conta{accounts.length !== 1 ? 's' : ''}</span>
+                  <button type="button" className={styles.filtroBtn} onClick={triggerImportMultiConta}>Importar multi-conta</button>
+                  <button type="button" className={styles.filtroBtn} onClick={() => setShowArchivedAccounts(!showArchivedAccounts)}>
+                    {showArchivedAccounts ? 'Ver Ativas' : 'Ver Arquivadas'}
+                  </button>
+                </div>
+                <button className={styles.btnNovo} onClick={openNovaConta}>+ Nova conta</button>
               </div>
               {accounts.length === 0 ? <div className={styles.empty}>Nenhuma conta bancária cadastrada. Adicione uma para controlar seu saldo real.</div> : (
-                <div className={styles.resumoGrid} style={{ marginBottom: 0 }}>
+                <div className={styles.listWrap}>
                   {accounts.map(a => (
-                    <div key={a.id} className={styles.resumoCard}>
-                      <div className={styles.resumoLabel}>{a.nome} · {a.tipo}</div>
-                      <div className={styles.resumoValue} style={{ color: a.saldo_atual >= 0 ? '#059669' : '#DC2626' }}>
-                        {fmtBRL(a.saldo_atual)}
+                    <div key={a.id} className={`${styles.listRow} ${styles.listRowClickable}`} onClick={() => openAccountTransacoes(a)}>
+                      <div className={styles.listMain}>
+                        <div className={styles.cadastroNome}>{a.nome}</div>
+                        <div className={styles.listMeta}>
+                          <span>{a.tipo}</span>
+                          <span>Saldo inicial: {fmtBRL(a.saldo_inicial)}</span>
+                        </div>
                       </div>
-                      <div style={{ fontSize: 11, color: '#8E8E93', marginTop: 4 }}>
-                        Saldo inicial: {fmtBRL(a.saldo_inicial)}
+                      <div className={styles.accountRowAside}>
+                        <div className={styles.listValue} style={{ color: a.saldo_atual >= 0 ? '#059669' : '#DC2626' }}>
+                          {fmtBRL(a.saldo_atual)}
+                        </div>
+                        {mesFiltro > 0 && <div className={styles.tdSub} style={{ fontSize: 10, textAlign: 'right' }}>em {MESES[mesFiltro-1]} {anoFiltro}</div>}
+                        <div className={styles.accountMenuWrap}>
+                          <button className={styles.iconMenuBtn} type="button" onClick={(e) => { e.stopPropagation(); openAccountMenu(a.id) }} aria-label="Ações da conta">
+                            ⋯
+                          </button>
+                          {accountMenuOpenId === a.id && (
+                            <div className={styles.accountMenu} onClick={e => e.stopPropagation()}>
+                              <button type="button" className={styles.accountMenuItem} onClick={() => openEditarConta(a)}>Editar conta</button>
+                              <button type="button" className={styles.accountMenuItem} onClick={() => triggerImportForAccount(a.id)}>Importar CSV</button>
+                              <button type="button" className={styles.accountMenuItem} onClick={() => void exportAccountCsv(a)}>Exportar CSV</button>
+                              {showArchivedAccounts ? (
+                                <button type="button" className={styles.accountMenuItem} onClick={() => void restaurarConta(a)}>Restaurar conta</button>
+                              ) : (
+                                <button type="button" className={`${styles.accountMenuItem} ${styles.accountMenuItemDanger}`} onClick={() => void deletarConta(a)}>Arquivar conta</button>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -858,6 +2081,164 @@ function FinanceiroInner() {
               )}
             </>
           )}
+
+          {/* ── DRE ── */}
+          {activeTab === 'dre' && (() => {
+            const hoje = new Date()
+            const mesAtualIdx = dreAno === hoje.getFullYear() ? hoje.getMonth() : (dreAno < hoje.getFullYear() ? 11 : -1)
+            // mesAtualIdx: índice 0-11 do mês atual; meses > mesAtualIdx são futuros
+            const isFuturo = (i: number) => dreAno > hoje.getFullYear() || (dreAno === hoje.getFullYear() && i > mesAtualIdx)
+            const fmtCell = (c: DreCellValue, tipo: 'entrada' | 'saida', futuro: boolean) => {
+              const cellCls = tipo === 'entrada' ? styles.dreCellEntrada : styles.dreCellSaida
+              const wrapCls = futuro ? `${cellCls} ${styles.dreCellFuturo}` : cellCls
+              return (
+                <td className={wrapCls}>
+                  {c.confirmado > 0
+                    ? <span>{fmtBRL(c.confirmado)}</span>
+                    : <span className={styles.dreMuted}>—</span>
+                  }
+                  {c.pendente > 0 && <span className={styles.drePendente}>+{fmtBRL(c.pendente)}</span>}
+                </td>
+              )
+            }
+            const totalConf = (arr: DreCellValue[]) => arr.reduce((s,c) => s + c.confirmado, 0)
+            const totalPend = (arr: DreCellValue[]) => arr.reduce((s,c) => s + c.pendente, 0)
+
+            return (
+              <>
+                <div className={styles.toolbar}>
+                  <div className={styles.toolbarLeft}>
+                    <button className={`${styles.filtroBtn} ${dreViewMode === 'competencia' ? styles.filtroBtnActive : ''}`} onClick={() => setDreViewMode('competencia')}>Competência</button>
+                    <button className={`${styles.filtroBtn} ${dreViewMode === 'caixa' ? styles.filtroBtnActive : ''}`} onClick={() => setDreViewMode('caixa')}>Caixa</button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <button className={styles.filtroBtn} onClick={() => setDreAno(a => a - 1)}>‹</button>
+                      <span style={{ fontSize: 14, fontWeight: 600, minWidth: 44, textAlign: 'center' }}>{dreAno}</span>
+                      <button className={styles.filtroBtn} onClick={() => setDreAno(a => a + 1)}>›</button>
+                    </div>
+                    <div style={{ minWidth: 180 }}>
+                      <CustomSelect
+                        label=""
+                        value={dreAccountId}
+                        options={[{ id: '', label: 'Todas as contas' }, ...accounts.map(a => ({ id: a.id, label: a.nome }))]}
+                        onChange={v => setDreAccountId(v)}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {dreLoading ? (
+                  <div className={styles.empty}>Carregando DRE...</div>
+                ) : !dreData ? (
+                  <div className={styles.empty}>Selecione um ano para visualizar o DRE.</div>
+                ) : (
+                  <div className={styles.dreWrap}>
+                    <table className={styles.dreTable}>
+                      <thead>
+                        <tr>
+                          <th className={styles.dreThCat}>Categoria</th>
+                          {MESES_CURTO.map((m, i) => (
+                            <th key={m} className={`${styles.dreThMes} ${isFuturo(i) ? styles.dreThFuturo : ''}`}>{m}</th>
+                          ))}
+                          <th className={styles.dreThTotal}>Total</th>
+                          <th className={styles.dreThTotal}>Projetado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {/* ── RECEITAS ── */}
+                        <tr className={styles.dreGroupHeader}>
+                          <td colSpan={15}>RECEITAS</td>
+                        </tr>
+                        {dreData.entradas.map(row => {
+                          const conf = row.meses.reduce((s,c) => s + c.confirmado, 0)
+                          const pend = row.meses.reduce((s,c) => s + c.pendente, 0)
+                          return (
+                            <tr key={row.categoria_id ?? 'sem-cat-entrada'} className={styles.dreRow}>
+                              <td className={styles.dreCatNome}>{row.categoria_nome}</td>
+                              {row.meses.map((c, i) => fmtCell(c, 'entrada', isFuturo(i)))}
+                              <td className={styles.dreTotalConf}><strong>{fmtBRL(conf)}</strong></td>
+                              <td className={styles.dreTotalProj}>{pend > 0 ? <span>{fmtBRL(conf + pend)}</span> : <span className={styles.dreMuted}>—</span>}</td>
+                            </tr>
+                          )
+                        })}
+                        <tr className={styles.dreTotalRow}>
+                          <td className={styles.dreCatNome}>Total Receitas</td>
+                          {dreData.total_entradas.map((c, i) => fmtCell(c, 'entrada', isFuturo(i)))}
+                          <td className={`${styles.dreTotalConf} ${styles.dreCellEntrada}`}><strong>{fmtBRL(totalConf(dreData.total_entradas))}</strong></td>
+                          <td className={`${styles.dreTotalProj} ${styles.dreCellEntrada}`}><strong>{fmtBRL(totalConf(dreData.total_entradas) + totalPend(dreData.total_entradas))}</strong></td>
+                        </tr>
+
+                        {/* ── DESPESAS ── */}
+                        <tr className={styles.dreGroupHeader}>
+                          <td colSpan={15}>DESPESAS</td>
+                        </tr>
+                        {dreData.saidas.map(row => {
+                          const conf = row.meses.reduce((s,c) => s + c.confirmado, 0)
+                          const pend = row.meses.reduce((s,c) => s + c.pendente, 0)
+                          return (
+                            <tr key={row.categoria_id ?? 'sem-cat-saida'} className={styles.dreRow}>
+                              <td className={styles.dreCatNome}>{row.categoria_nome}</td>
+                              {row.meses.map((c, i) => fmtCell(c, 'saida', isFuturo(i)))}
+                              <td className={styles.dreTotalConf}><strong>{fmtBRL(conf)}</strong></td>
+                              <td className={styles.dreTotalProj}>{pend > 0 ? <span>{fmtBRL(conf + pend)}</span> : <span className={styles.dreMuted}>—</span>}</td>
+                            </tr>
+                          )
+                        })}
+                        <tr className={styles.dreTotalRow}>
+                          <td className={styles.dreCatNome}>Total Despesas</td>
+                          {dreData.total_saidas.map((c, i) => fmtCell(c, 'saida', isFuturo(i)))}
+                          <td className={`${styles.dreTotalConf} ${styles.dreCellSaida}`}><strong>{fmtBRL(totalConf(dreData.total_saidas))}</strong></td>
+                          <td className={`${styles.dreTotalProj} ${styles.dreCellSaida}`}><strong>{fmtBRL(totalConf(dreData.total_saidas) + totalPend(dreData.total_saidas))}</strong></td>
+                        </tr>
+
+                        {/* ── RESULTADO CONFIRMADO ── */}
+                        <tr className={styles.dreResultadoRow}>
+                          <td className={styles.dreCatNome}>Resultado realizado</td>
+                          {dreData.resultado.map((c, i) => (
+                            <td key={i} className={`${c.confirmado >= 0 ? styles.dreResultadoPos : styles.dreResultadoNeg} ${isFuturo(i) ? styles.dreResultadoFuturo : ''}`}>
+                              <strong>{fmtBRL(c.confirmado)}</strong>
+                            </td>
+                          ))}
+                          {(() => {
+                            const v = totalConf(dreData.resultado)
+                            return (
+                              <>
+                                <td className={v >= 0 ? styles.dreResultadoPos : styles.dreResultadoNeg}><strong>{fmtBRL(v)}</strong></td>
+                                <td className={styles.dreResultadoVazio}>—</td>
+                              </>
+                            )
+                          })()}
+                        </tr>
+
+                        {/* ── RESULTADO PROJETADO (confirmado + pendente) ── */}
+                        {totalPend(dreData.resultado) !== 0 && (
+                          <tr className={styles.dreResultadoProjetadoRow}>
+                            <td className={styles.dreCatNome}>Resultado projetado</td>
+                            {dreData.resultado.map((c, i) => {
+                              const val = c.confirmado + c.pendente
+                              return (
+                                <td key={i} className={`${val >= 0 ? styles.dreResultadoProjPos : styles.dreResultadoProjNeg} ${isFuturo(i) ? styles.dreResultadoFuturo : ''}`}>
+                                  <strong>{fmtBRL(val)}</strong>
+                                </td>
+                              )
+                            })}
+                            {(() => {
+                              const v = totalConf(dreData.resultado) + totalPend(dreData.resultado)
+                              return (
+                                <>
+                                  <td className={styles.dreResultadoVazio}>—</td>
+                                  <td className={v >= 0 ? styles.dreResultadoProjPos : styles.dreResultadoProjNeg}><strong>{fmtBRL(v)}</strong></td>
+                                </>
+                              )
+                            })()}
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )
+          })()}
 
             <footer className={styles.footer}>
               <span className={styles.footerDot} />
@@ -893,9 +2274,19 @@ function FinanceiroInner() {
                   <input value={fValor} onChange={e => setFValor(e.target.value)} placeholder="0,00" required />
                 </div>
 
-                <CustomSelect label="Centro de Custo" value={fCostCenter} placeholder="Selecionar..." menuFixed
+                <SelectComCadastro
+                  label="Centro de Custo"
+                  value={fCostCenter}
+                  placeholder="Selecionar..."
+                  menuFixed
                   options={costCenters.map(cc => ({ id: cc.id, label: cc.nome }))}
                   onChange={setFCostCenter}
+                  createLabel="Cadastrar"
+                  createFields={[
+                    { key: 'nome', label: 'Nome do centro de custo', placeholder: 'Ex: Tráfego Pago', required: true },
+                    { key: 'descricao', label: 'Descrição', placeholder: 'Opcional' },
+                  ]}
+                  onQuickCreate={quickCreateCostCenter}
                 />
 
                 <CustomDatePicker caption="Data de Competência *" value={fCompDate} onChange={setFCompDate} />
@@ -910,6 +2301,7 @@ function FinanceiroInner() {
                 {/* Conta Bancária com cadastro rápido */}
                 <SelectComCadastro
                   label="Conta Bancária" value={fAccount} placeholder="Selecionar..."
+                  menuFixed
                   options={accounts.map(a => ({ id: a.id, label: a.nome }))}
                   onChange={setFAccount}
                   createLabel="Nova conta"
@@ -921,23 +2313,29 @@ function FinanceiroInner() {
                   onQuickCreate={quickCreateConta}
                 />
 
-                <CustomSelect label="Categoria" value={fCat} placeholder="Sem categoria" menuFixed
+                <SelectComCadastro
+                  label="Categoria"
+                  value={fCat}
+                  placeholder="Sem categoria"
+                  menuFixed
                   options={[{ id: '', label: 'Sem categoria' }, ...catsFiltradas.map(c => ({ id: c.id, label: c.nome }))]}
                   onChange={setFCat}
+                  createLabel="Cadastrar"
+                  createFields={[
+                    { key: 'nome', label: 'Nome da categoria', placeholder: 'Ex: Ferramentas', required: true },
+                    { key: 'cor', label: 'Cor', placeholder: '#6b7280' },
+                  ]}
+                  onQuickCreate={quickCreateCategoria}
                 />
 
                 {/* Cliente com cadastro rápido (só entrada) */}
                 {fTipo === 'entrada' && (
-                  <SelectComCadastro
-                    label="Cliente" value={fCliente} placeholder="Selecionar..."
+                  <CustomSelect
+                    label="Cliente" value={fCliente} placeholder="Selecionar..." menuFixed
                     options={clientes.map(c => ({ id: c.id, label: c.nome }))}
                     onChange={setFCliente}
-                    createLabel="Novo cliente"
-                    createFields={[
-                      { key: 'nome', label: 'Nome', placeholder: 'Nome completo ou empresa', required: true },
-                      { key: 'email', label: 'E-mail', placeholder: 'email@exemplo.com', type: 'email' },
-                    ]}
-                    onQuickCreate={quickCreateCliente}
+                    createOptionLabel="+ Cadastrar"
+                    onCreateOption={() => openNovoContatoDaTransacao('cliente')}
                   />
                 )}
 
@@ -945,6 +2343,7 @@ function FinanceiroInner() {
                 {fTipo === 'entrada' && (
                   <SelectComCadastro
                     label="Produto / Serviço" value={fProduct} placeholder="Selecionar..."
+                    menuFixed
                     options={products.map(p => ({ id: p.id, label: p.nome }))}
                     onChange={handleProductChange}
                     createLabel="Novo produto"
@@ -959,16 +2358,12 @@ function FinanceiroInner() {
 
                 {/* Fornecedor com cadastro rápido (só saída) */}
                 {fTipo === 'saida' && (
-                  <SelectComCadastro
-                    label="Fornecedor" value={fFornecedor} placeholder="Selecionar..."
+                  <CustomSelect
+                    label="Fornecedor" value={fFornecedor} placeholder="Selecionar..." menuFixed
                     options={fornecedores.map(f => ({ id: f.id, label: f.nome }))}
                     onChange={setFFornecedor}
-                    createLabel="Novo fornecedor"
-                    createFields={[
-                      { key: 'nome', label: 'Nome', placeholder: 'Nome ou razão social', required: true },
-                      { key: 'email', label: 'E-mail', placeholder: 'email@exemplo.com', type: 'email' },
-                    ]}
-                    onQuickCreate={quickCreateFornecedor}
+                    createOptionLabel="+ Cadastrar"
+                    onCreateOption={() => openNovoContatoDaTransacao('fornecedor')}
                   />
                 )}
 
@@ -980,7 +2375,24 @@ function FinanceiroInner() {
                 </div>
                 <div className={styles.formActions}>
                   <button type="button" className={styles.btnCancelForm} onClick={() => setShowForm(false)}>Cancelar</button>
-                  <button type="submit" className={styles.btnSave} disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</button>
+                  {formMode === 'criar' && (
+                    <button
+                      type="submit"
+                      className={styles.btnSaveSecondary}
+                      disabled={saving}
+                      onClick={() => { transactionSubmitModeRef.current = 'create-another' }}
+                    >
+                      {saving ? 'Salvando...' : 'Salvar e criar nova'}
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    className={styles.btnSave}
+                    disabled={saving}
+                    onClick={() => { transactionSubmitModeRef.current = 'close' }}
+                  >
+                    {saving ? 'Salvando...' : 'Salvar'}
+                  </button>
                 </div>
               </form>
             </div>
@@ -990,21 +2402,53 @@ function FinanceiroInner() {
         {/* ── Modal cadastro cliente/fornecedor (aba) ── */}
         {showCadForm && (
           <div className={styles.formOverlay} onClick={() => setShowCadForm(false)}>
-            <div className={styles.formModal} onClick={e => e.stopPropagation()}>
+            <div className={styles.sidePanel} onClick={e => e.stopPropagation()}>
               <div className={styles.formTitle}>
-                {cadMode === 'criar'
-                  ? activeTab === 'clientes' ? 'Novo cliente' : 'Novo fornecedor'
-                  : activeTab === 'clientes' ? 'Editar cliente' : 'Editar fornecedor'}
+                {cadMode === 'criar' ? 'Novo contato' : 'Editar contato'}
               </div>
               <form onSubmit={salvarCadastro}>
                 <div className={styles.formGrid}>
+                <CustomSelect
+                  label="Tipo do contato"
+                  value={cadTipoContato}
+                  menuFixed
+                  options={[
+                    { id: 'cliente', label: 'Cliente' },
+                    { id: 'fornecedor', label: 'Fornecedor' },
+                    { id: 'ambos', label: 'Ambos' },
+                  ]}
+                  onChange={v => setCadTipoContato(v as ContatoTipo)}
+                />
                 <div className={`${styles.field} ${styles.formGridFull}`}>
                   <label>Nome *</label>
                   <input value={cadNome} onChange={e => setCadNome(e.target.value)} placeholder="Nome completo ou razão social" required />
                 </div>
                 <div className={styles.field}>
                   <label>CPF / CNPJ</label>
-                  <input value={cadDoc} onChange={e => setCadDoc(e.target.value)} placeholder="Opcional" />
+                  <div className={styles.inlineFieldAction}>
+                    <input
+                      value={cadDoc}
+                      onChange={e => {
+                        setCadDoc(e.target.value)
+                        if (cadCnpjError) setCadCnpjError('')
+                      }}
+                      placeholder="Opcional"
+                    />
+                    <button
+                      type="button"
+                      className={styles.inlineActionBtn}
+                      onClick={() => void preencherCadastroPorCnpj()}
+                      disabled={cadCnpjLoading || digitsOnly(cadDoc).length !== 14}
+                    >
+                      {cadCnpjLoading ? 'Buscando...' : 'Buscar CNPJ'}
+                    </button>
+                  </div>
+                  {cadCnpjError && <div className={styles.inlineError}>{cadCnpjError}</div>}
+                  {cadCnpjData && !cadCnpjError && (
+                    <div className={styles.inlineHint}>
+                      Dados importados: {getReceitaSnapshot(cadCnpjData).nome || cadCnpjData.razao_social}
+                    </div>
+                  )}
                 </div>
                 <div className={styles.field}>
                   <label>Telefone</label>
@@ -1019,7 +2463,7 @@ function FinanceiroInner() {
                   <textarea value={cadObs} onChange={e => setCadObs(e.target.value)} placeholder="Opcional" />
                 </div>
 
-                {activeTab === 'clientes' && (
+                {(cadTipoContato === 'cliente' || cadTipoContato === 'ambos') && (
                   <>
                     <CustomSelect
                       label="Assinatura mensal"
@@ -1086,7 +2530,7 @@ function FinanceiroInner() {
         {showContaForm && (
           <div className={styles.formOverlay} onClick={() => setShowContaForm(false)}>
             <div className={styles.formModal} onClick={e => e.stopPropagation()}>
-              <div className={styles.formTitle}>Nova conta bancária</div>
+              <div className={styles.formTitle}>{contaMode === 'criar' ? 'Nova conta bancária' : 'Editar conta e ajustar caixa'}</div>
               <form onSubmit={salvarConta}>
                 <div className={styles.formGrid}>
                 <div className={`${styles.field} ${styles.formGridFull}`}>
@@ -1102,15 +2546,361 @@ function FinanceiroInner() {
                   onChange={v => setContaTipo(v as 'banco'|'carteira'|'cartao')}
                 />
                 <div className={styles.field}>
-                  <label>Saldo inicial (R$)</label>
+                  <label>{contaMode === 'criar' ? 'Saldo inicial (R$)' : 'Ajuste de caixa base (R$)'}</label>
                   <input value={contaSaldo} onChange={e => setContaSaldo(e.target.value)} placeholder="0,00" />
                 </div>
+                {contaMode === 'editar' && (
+                  <div className={`${styles.field} ${styles.formGridFull}`}>
+                    <label>Observação</label>
+                    <div className={styles.accountAdjustmentHint}>
+                      Esse ajuste altera o saldo base da conta para acertar o caixa inicial, sem criar transação financeira.
+                    </div>
+                  </div>
+                )}
                 </div>
                 <div className={styles.formActions}>
                   <button type="button" className={styles.btnCancelForm} onClick={() => setShowContaForm(false)}>Cancelar</button>
-                  <button type="submit" className={styles.btnSave} disabled={contaSaving}>{contaSaving ? 'Salvando...' : 'Cadastrar'}</button>
+                  <button type="submit" className={styles.btnSave} disabled={contaSaving}>{contaSaving ? 'Salvando...' : contaMode === 'criar' ? 'Cadastrar' : 'Salvar ajuste'}</button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {importPreview && (
+          <div className={styles.formOverlay} onClick={() => !importPreviewLoading && setImportPreview(null)}>
+            <div className={`${styles.formModal} ${styles.importPreviewModal}`} onClick={e => e.stopPropagation()}>
+              <div className={styles.formTitle}>Prévia da importação</div>
+              <div className={styles.importPreviewBody}>
+                <div className={styles.importPreviewHeader}>
+                  <div>
+                    <div className={styles.importPreviewFile}>{importPreview.fileName}</div>
+                    <div className={styles.importPreviewMeta}>Conta de destino: {importPreview.analysis?.account_name || importPreview.accountName}</div>
+                  </div>
+                  <div className={styles.importPreviewRows}>{importPreview.rows.length} linhas válidas</div>
+                </div>
+
+                <div className={styles.importPreviewGrid}>
+                  <div className={styles.importPreviewCard}>
+                    <span>Entradas</span>
+                    <strong>{importSummary?.entradas || 0}</strong>
+                    <small>{fmtBRL(importSummary?.total_entradas || 0)}</small>
+                  </div>
+                  <div className={styles.importPreviewCard}>
+                    <span>Saídas</span>
+                    <strong>{importSummary?.saidas || 0}</strong>
+                    <small>{fmtBRL(importSummary?.total_saidas || 0)}</small>
+                  </div>
+                  <div className={styles.importPreviewCard}>
+                    <span>Confirmados</span>
+                    <strong>{importSummary?.confirmados || 0}</strong>
+                    <small>com baixa informada</small>
+                  </div>
+                  <div className={styles.importPreviewCard}>
+                    <span>Pendentes</span>
+                    <strong>{importSummary?.pendentes || 0}</strong>
+                    <small>sem pagamento</small>
+                  </div>
+                </div>
+
+                {!!importWarnings.length && (
+                  <div className={styles.importPreviewBlock}>
+                    <div className={styles.importPreviewBlockTitle}>Alertas automáticos</div>
+                    <div className={styles.importPreviewList}>
+                      {importAlerts.map(alert => (
+                        <button
+                          key={alert.key}
+                          type="button"
+                          className={`${styles.importPreviewWarning} ${styles.importPreviewWarningButton} ${activeImportAlert === alert.key ? styles.importPreviewWarningActive : ''}`}
+                          onClick={() => setActiveImportAlert(current => current === alert.key ? null : alert.key)}
+                        >
+                          {alert.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {!!importPreview.analysis?.accounts_detected?.length && (
+                  <div className={styles.importPreviewBlock}>
+                    <div className={styles.importPreviewBlockTitle}>Contas detectadas no arquivo</div>
+                    <div className={styles.importPreviewAccountList}>
+                      {importPreview.analysis.accounts_detected.map(accountName => (
+                        <span key={accountName} className={styles.importPreviewAccountChip}>{accountName}</span>
+                      ))}
+                    </div>
+                    {!!importPreview.analysis.accounts_to_create?.length && (
+                      <div className={styles.importPreviewAccountHint}>
+                        Novas contas que serão criadas: {importPreview.analysis.accounts_to_create.join(', ')}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {importPreview.analysis?.ai_review && (
+                  <div className={styles.importPreviewBlock}>
+                    <div className={styles.importPreviewBlockTitle}>Leitura assistida por IA</div>
+                    <div className={styles.importPreviewAiCard}>
+                      <div className={styles.importPreviewAiHeadline}>{importPreview.analysis.ai_review.headline}</div>
+                      {importPreview.analysis.ai_review.summary && (
+                        <p className={styles.importPreviewAiSummary}>{importPreview.analysis.ai_review.summary}</p>
+                      )}
+                      <div className={styles.importPreviewAiMeta}>
+                        Confiança: {importPreview.analysis.ai_review.confidence === 'high' ? 'alta' : importPreview.analysis.ai_review.confidence === 'medium' ? 'média' : 'baixa'}
+                      </div>
+                      {!!importPreview.analysis.ai_review.warnings?.length && (
+                        <div className={styles.importPreviewList}>
+                          {importPreview.analysis.ai_review.warnings.map(item => (
+                            <div key={item} className={styles.importPreviewWarning}>{item}</div>
+                          ))}
+                        </div>
+                      )}
+                      {!!importPreview.analysis.ai_review.opportunities?.length && (
+                        <div className={styles.importPreviewList}>
+                          {importPreview.analysis.ai_review.opportunities.map(item => (
+                            <div key={item} className={styles.importPreviewOpportunity}>{item}</div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className={`${styles.importPreviewBlock} ${styles.importPreviewTableBlock}`}>
+                  <div className={styles.importPreviewBlockTitle}>
+                    {activeImportAlert
+                      ? `Conferência filtrada · ${importRowsToDisplay.length} linha${importRowsToDisplay.length !== 1 ? 's' : ''}`
+                      : 'Conferência completa do arquivo'}
+                  </div>
+                  <div className={`${styles.tableWrap} ${styles.importPreviewTableWrap}`}>
+                    <table className={styles.table}>
+                      <thead>
+                        <tr><th>Competência</th><th>Descrição</th><th>Contato</th><th>Categoria</th><th>Tipo</th><th>Valor</th><th>Status</th><th></th></tr>
+                      </thead>
+                      <tbody>
+                      {importRowsToDisplay.map((row) => {
+                        const index = importPreview.rows.indexOf(row)
+                        const isEditing = editingImportRowIndex === index && editingImportRow
+                        const draft = isEditing ? editingImportRow : null
+                        const rowTipo = draft?.tipo || row.tipo
+                        return (
+                        <tr key={`${row.descricao}-${row.competence_date}-${index}`}>
+                          <td className={styles.tdMuted}>
+                            {isEditing ? (
+                              <input
+                                type="date"
+                                className={styles.importCellInput}
+                                value={draft?.competence_date || ''}
+                                onChange={e => setEditingImportRow(prev => prev ? { ...prev, competence_date: e.target.value } : prev)}
+                              />
+                            ) : fmtDate(row.competence_date)}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                className={styles.importCellInput}
+                                value={draft?.descricao || ''}
+                                onChange={e => setEditingImportRow(prev => prev ? { ...prev, descricao: e.target.value } : prev)}
+                              />
+                            ) : row.descricao}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <div className={styles.importCellStack}>
+                                <input
+                                  list="financeiro-import-contatos"
+                                  type="text"
+                                  className={styles.importCellInput}
+                                  value={draft?.contato || ''}
+                                  onChange={e => setEditingImportRow(prev => prev ? { ...prev, contato: e.target.value } : prev)}
+                                  placeholder="Contato"
+                                />
+                                <button
+                                  type="button"
+                                  className={styles.importInlineAction}
+                                  onClick={() => openNovoContatoDaImportacao(index, rowTipo)}
+                                >
+                                  Novo contato
+                                </button>
+                              </div>
+                            ) : <span className={styles.tdMuted}>{row.contato || '—'}</span>}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                list={`financeiro-import-categorias-${rowTipo}`}
+                                type="text"
+                                className={styles.importCellInput}
+                                value={draft?.categoria || ''}
+                                onChange={e => setEditingImportRow(prev => prev ? { ...prev, categoria: e.target.value } : prev)}
+                                placeholder="Categoria"
+                              />
+                            ) : <span className={styles.tdMuted}>{row.categoria || '—'}</span>}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <select
+                                className={styles.importCellSelect}
+                                value={draft?.tipo || row.tipo}
+                                onChange={e => setEditingImportRow(prev => prev ? { ...prev, tipo: e.target.value as 'entrada' | 'saida', categoria: '' } : prev)}
+                              >
+                                <option value="entrada">Entrada</option>
+                                <option value="saida">Saída</option>
+                              </select>
+                            ) : (
+                              <span className={`${styles.tipoBadge} ${row.tipo === 'entrada' ? styles.tipoEntrada : styles.tipoSaida}`}>
+                                {row.tipo === 'entrada' ? 'Entrada' : 'Saída'}
+                              </span>
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                className={styles.importCellInput}
+                                value={String(draft?.valor ?? row.valor)}
+                                onChange={e => setEditingImportRow(prev => prev ? { ...prev, valor: Number(e.target.value) } : prev)}
+                              />
+                            ) : (
+                              <span className={row.tipo === 'entrada' ? styles.valorEntrada : styles.valorSaida}>{fmtBRL(row.valor)}</span>
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <select
+                                className={styles.importCellSelect}
+                                value={draft?.status || row.status}
+                                onChange={e => setEditingImportRow(prev => prev ? {
+                                  ...prev,
+                                  status: e.target.value as 'confirmado' | 'pendente',
+                                  payment_date: e.target.value === 'confirmado'
+                                    ? (prev.payment_date || prev.competence_date)
+                                    : null,
+                                } : prev)}
+                              >
+                                <option value="confirmado">Confirmado</option>
+                                <option value="pendente">Pendente</option>
+                              </select>
+                            ) : (
+                              <span className={`${styles.statusBadge} ${row.status === 'confirmado' ? styles.statusConfirmado : styles.statusPendente}`}>
+                                {row.status === 'confirmado' ? 'Confirmado' : 'Pendente'}
+                              </span>
+                            )}
+                          </td>
+                          <td>
+                            <div className={styles.rowActions}>
+                              {isEditing ? (
+                                <>
+                                  {activeImportAlert && (
+                                    <div className={styles.importBulkApplyWrap}>
+                                      <button
+                                        type="button"
+                                        className={styles.actionBtn}
+                                        onClick={() => setShowBulkApplyPanel(current => !current)}
+                                        title="Escolha quais campos aplicar para todas as linhas visíveis neste filtro"
+                                      >
+                                        Aplicar para filtradas
+                                      </button>
+                                      {showBulkApplyPanel && (
+                                        <div className={styles.importBulkApplyPanel}>
+                                          <div className={styles.importBulkApplyTitle}>Aplicar em lote</div>
+                                          <label className={styles.importBulkApplyOption}>
+                                            <input
+                                              type="checkbox"
+                                              checked={bulkApplyFields.contato}
+                                              onChange={e => setBulkApplyFields(prev => ({ ...prev, contato: e.target.checked }))}
+                                            />
+                                            <span>Contato</span>
+                                          </label>
+                                          <label className={styles.importBulkApplyOption}>
+                                            <input
+                                              type="checkbox"
+                                              checked={bulkApplyFields.categoria}
+                                              onChange={e => setBulkApplyFields(prev => ({ ...prev, categoria: e.target.checked }))}
+                                            />
+                                            <span>Categoria</span>
+                                          </label>
+                                          <label className={styles.importBulkApplyOption}>
+                                            <input
+                                              type="checkbox"
+                                              checked={bulkApplyFields.tipo}
+                                              onChange={e => setBulkApplyFields(prev => ({ ...prev, tipo: e.target.checked }))}
+                                            />
+                                            <span>Tipo</span>
+                                          </label>
+                                          <label className={styles.importBulkApplyOption}>
+                                            <input
+                                              type="checkbox"
+                                              checked={bulkApplyFields.status}
+                                              onChange={e => setBulkApplyFields(prev => ({ ...prev, status: e.target.checked }))}
+                                            />
+                                            <span>Status</span>
+                                          </label>
+                                          <div className={styles.importBulkApplyActions}>
+                                            <button type="button" className={styles.btnQuickCancel} onClick={() => setShowBulkApplyPanel(false)}>Fechar</button>
+                                            <button type="button" className={styles.btnQuickSave} onClick={applyImportEditToFilteredRows}>Aplicar</button>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                  <button type="button" className={styles.actionBtn} onClick={saveImportRowEdit}>Salvar</button>
+                                  <button type="button" className={`${styles.actionBtn} ${styles.actionBtnDel}`} onClick={cancelImportRowEdit}>Cancelar</button>
+                                </>
+                              ) : (
+                                <button type="button" className={styles.actionBtn} onClick={() => startImportRowEdit(index)}>Editar</button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                        )
+                      })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <datalist id="financeiro-import-contatos">
+                    {importContactOptions.map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </datalist>
+                  <datalist id="financeiro-import-categorias-entrada">
+                    {categorias.filter(categoria => categoria.tipo === 'entrada').map(categoria => (
+                      <option key={categoria.id} value={categoria.nome}>{categoria.nome}</option>
+                    ))}
+                  </datalist>
+                  <datalist id="financeiro-import-categorias-saida">
+                    {categorias.filter(categoria => categoria.tipo === 'saida').map(categoria => (
+                      <option key={categoria.id} value={categoria.nome}>{categoria.nome}</option>
+                    ))}
+                  </datalist>
+                </div>
+              </div>
+
+              {importProgress && (
+                <div className={styles.importProgressBar}>
+                  <div
+                    className={styles.importProgressFill}
+                    style={{ width: `${Math.round((importProgress.done / importProgress.total) * 100)}%` }}
+                  />
+                  <span className={styles.importProgressLabel}>
+                    {importProgress.done} / {importProgress.total} lançamentos
+                  </span>
+                </div>
+              )}
+
+              <div className={styles.formActions}>
+                <button type="button" className={styles.btnCancelForm} disabled={importPreviewLoading} onClick={() => setImportPreview(null)}>Cancelar</button>
+                <button type="button" className={styles.btnSave} disabled={importPreviewLoading} onClick={() => void confirmImportPreview()}>
+                  {importPreviewLoading
+                    ? importProgress
+                      ? `Importando lote ${Math.ceil(importProgress.done / 500)} de ${Math.ceil(importProgress.total / 500)}…`
+                      : 'Preparando…'
+                    : 'Importar agora'}
+                </button>
+              </div>
             </div>
           </div>
         )}
