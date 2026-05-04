@@ -1,10 +1,11 @@
 'use client'
-import { Suspense, useEffect, useState, useCallback, useRef } from 'react'
+import { Suspense, useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getSession } from '@/lib/auth'
 import { SURL } from '@/lib/constants'
 import { parseCurrencyInput } from '@/lib/financeiro'
 import { efHeaders } from '@/lib/api'
+import { fetchWithRetry, debounce } from '@/lib/fetch-utils'
 import Sidebar from '@/components/Sidebar'
 import NGPLoading from '@/components/NGPLoading'
 import CustomSelect from '@/components/CustomSelect'
@@ -140,6 +141,10 @@ interface Transacao {
   payment_date?: string | null
   status: 'confirmado' | 'pendente' | 'cancelado'
   observacoes?: string
+  source_type?: 'manual' | 'api' | 'import' | 'system' | null
+  source_tag?: string | null
+  source_message?: string | null
+  api_token_id?: string | null
   categoria?: Categoria | null
   cliente?: FinCliente | null
   fornecedor?: FinFornecedor | null
@@ -374,13 +379,21 @@ function parseImportCsvContent(content: string): ImportedCsvRow[] {
   const lines = content.replace(/^\uFEFF/, '').split(/\r?\n/).filter(line => line.trim())
   if (lines.length <= 1) return []
 
-  // Detecção automática de delimitador
-  const firstLine = lines[0]
-  const countComma = (firstLine.match(/,/g) || []).length
-  const countSemi = (firstLine.match(/;/g) || []).length
+  // Detecção automática de delimitador (usa amostra de linha com mais separadores)
+  const sampleLine = lines.find(l => l.includes(';') || l.includes(',')) ?? lines[0]
+  const countComma = (sampleLine.match(/,/g) || []).length
+  const countSemi = (sampleLine.match(/;/g) || []).length
   const delimiter = countSemi > countComma ? ';' : ','
 
-  const headers = parseCsvLine(firstLine, delimiter).map(h => normalizeContactKey(h))
+  // Encontra a linha de cabeçalho real — ignora linhas de título/período no topo do arquivo
+  const headerKeywords = ['data', 'date', 'valor', 'value', 'descrição', 'descricao', 'historico', 'histórico', 'transacao', 'transação']
+  const headerLineIdx = lines.findIndex(line => {
+    const cols = parseCsvLine(line, delimiter).map(h => normalizeContactKey(h))
+    return cols.some(h => headerKeywords.some(k => h.includes(k)))
+  })
+  if (headerLineIdx < 0) return []
+
+  const headers = parseCsvLine(lines[headerLineIdx], delimiter).map(h => normalizeContactKey(h))
   const rows: ImportedCsvRow[] = []
 
   // Mapeamento inteligente de colunas
@@ -397,9 +410,9 @@ function parseImportCsvContent(content: string): ImportedCsvRow[] {
   // 'conta/' para não bater em 'contato'; 'cartao' cobre 'conta/cartão' do Controlle
   const idxAcc = findIdx(['conta/', 'cartao', 'cartão', 'banco', 'caixa'])
   const idxCenter = findIdx(['centro', 'custo'])
-  const idxTipo = findIdx(['tipo', 'natureza', 'e/s'])
+  const idxTipo = findIdx(['lancamento', 'lançamento', 'natureza', 'e/s'])
 
-  for (const line of lines.slice(1)) {
+  for (const line of lines.slice(headerLineIdx + 1)) {
     const cols = parseCsvLine(line, delimiter)
     if (cols.length === 0) continue
 
@@ -759,28 +772,51 @@ function FinanceiroInner() {
     setAuthChecked(true)
   }, [router])
 
+  // AbortControllers por função — cancela a chamada anterior ao disparar uma nova
+  const abortRefs = useRef<Record<string, AbortController>>({})
+
   const callFn = useCallback(async (fn: string, body: object) => {
     const s = getSession()
     if (!s) return null
+
+    // Cancela apenas requests equivalentes. A mesma Edge Function pode servir
+    // entidades diferentes em paralelo, como accounts, cost_centers e products.
+    const requestKey = [
+      fn,
+      (body as { entity?: unknown }).entity || '',
+      (body as { action?: unknown }).action || '',
+    ].join(':')
+    abortRefs.current[requestKey]?.abort()
+    const controller = new AbortController()
+    abortRefs.current[requestKey] = controller
+    const signal = controller.signal
+
     try {
-      const res = await fetch(`${SURL}/functions/v1/${fn}`, {
-        method: 'POST', headers: efHeaders(),
-        body: JSON.stringify({ session_token: s.session, ...body }),
-      })
+      const res = await fetchWithRetry(
+        `${SURL}/functions/v1/${fn}`,
+        { method: 'POST', headers: efHeaders(), body: JSON.stringify({ session_token: s.session, ...body }), signal, cache: 'no-store' },
+      )
       const text = await res.text()
       const data = text ? JSON.parse(text) : null
       if (!res.ok && !data?.error) return { error: 'Erro inesperado ao processar a solicitação.' }
       return data
-    } catch {
+    } catch (e: any) {
+      if (e?.name === 'AbortError') return null // request cancelada — ignorar
       return { error: 'Erro de conexão. Tente novamente.' }
+    } finally {
+      if (abortRefs.current[requestKey] === controller) delete abortRefs.current[requestKey]
     }
   }, [])
 
-  const fetchTransacoes   = useCallback(async () => {
+  const transacoesInflightRef = useRef(false)
+  const fetchTransacoes = useCallback(async () => {
+    if (transacoesInflightRef.current) return
+    transacoesInflightRef.current = true
     setLoading(true)
     try {
       const p = calcPeriodo(periodoTipo, periodoMesEsp, periodoCustomStart, periodoCustomEnd)
       const data = await callFn('financeiro-transacoes', { action: 'listar', date_start: p.start, date_end: p.end, view: viewMode, account_id: accountFilterId || undefined })
+      if (data === null) return // request abortada
       if (data?.error) {
         setTransacoes([])
         setResumo({ entradas: 0, saidas: 0, saldo: 0 })
@@ -788,7 +824,10 @@ function FinanceiroInner() {
       } else if (data?.transacoes) {
         setTransacoes(data.transacoes)
       }
-    } finally { setLoading(false) }
+    } finally {
+      setLoading(false)
+      transacoesInflightRef.current = false
+    }
   }, [callFn, periodoTipo, periodoMesEsp, periodoCustomStart, periodoCustomEnd, viewMode, accountFilterId])
 
   const fetchCategorias   = useCallback(async () => { const d = await callFn('financeiro-categorias',   { action: 'listar' }); if (d?.categorias)   setCategorias(d.categorias)     }, [callFn])
@@ -800,17 +839,29 @@ function FinanceiroInner() {
       action: 'listar',
       show_archived: showArchivedAccounts,
     });
+    if (d?.error) {
+      setAccounts([])
+      showMsg('err', d.error)
+      return
+    }
     if (d?.accounts) setAccounts(d.accounts)
   }, [callFn, showArchivedAccounts])
   const fetchCostCenters  = useCallback(async () => { const d = await callFn('financeiro-aux', { entity: 'cost_centers', action: 'listar' }); if (d?.cost_centers) setCostCenters(d.cost_centers)   }, [callFn])
   const fetchProducts     = useCallback(async () => { const d = await callFn('financeiro-aux', { entity: 'products',     action: 'listar' }); if (d?.products)     setProducts(d.products)         }, [callFn])
 
+  const dreInflightRef = useRef(false)
   const fetchDre = useCallback(async () => {
+    if (dreInflightRef.current) return
+    dreInflightRef.current = true
     setDreLoading(true)
     try {
       const d = await callFn('financeiro-dre', { ano: dreAno, view: dreViewMode, account_id: dreAccountId || undefined })
+      if (d === null) return // request abortada
       if (d && !d.error) setDreData(d as DreData)
-    } finally { setDreLoading(false) }
+    } finally {
+      setDreLoading(false)
+      dreInflightRef.current = false
+    }
   }, [callFn, dreAno, dreViewMode, dreAccountId])
 
   useEffect(() => {
@@ -823,22 +874,24 @@ function FinanceiroInner() {
     if (authorized && activeTab === 'transacoes') fetchTransacoes()
   }, [authorized, activeTab, fetchTransacoes])
 
-  useEffect(() => {
-    const transacoesSemTransferenciasInternas = transacoes.filter(transaction => !isInternalTransferTransaction(transaction))
-    const entradas = transacoesSemTransferenciasInternas
-      .filter(transaction => transaction.tipo === 'entrada')
-      .reduce((sum, transaction) => sum + Number(transaction.valor || 0), 0)
-    const saidas = transacoesSemTransferenciasInternas
-      .filter(transaction => transaction.tipo === 'saida')
-      .reduce((sum, transaction) => sum + Number(transaction.valor || 0), 0)
-
-    const selectedAccount = accountFilterId ? accounts.find(account => account.id === accountFilterId) || null : null
+  const resumoComputado = useMemo(() => {
+    const semInternas = transacoes.filter(t => !isInternalTransferTransaction(t))
+    const entradas = semInternas
+      .filter(t => t.tipo === 'entrada')
+      .reduce((sum, t) => sum + Number(t.valor || 0), 0)
+    const saidas = semInternas
+      .filter(t => t.tipo === 'saida')
+      .reduce((sum, t) => sum + Number(t.valor || 0), 0)
+    const selectedAccount = accountFilterId ? accounts.find(a => a.id === accountFilterId) || null : null
     const saldo = selectedAccount
       ? Number(selectedAccount.saldo_atual || 0)
-      : accounts.reduce((sum, account) => sum + Number(account.saldo_atual || 0), 0)
-
-    setResumo({ entradas, saidas, saldo })
+      : accounts.reduce((sum, a) => sum + Number(a.saldo_atual || 0), 0)
+    return { entradas, saidas, saldo }
   }, [accounts, accountFilterId, transacoes])
+
+  useEffect(() => {
+    setResumo(resumoComputado)
+  }, [resumoComputado])
 
   useEffect(() => {
     if (authorized && activeTab === 'dre') fetchDre()
@@ -1491,6 +1544,7 @@ function FinanceiroInner() {
         t.observacoes || '',
         '',
         account.nome,
+        t.source_tag || '',
         t.categoria?.nome || '',
         t.cost_center?.nome || '',
         valor,
@@ -1498,7 +1552,7 @@ function FinanceiroInner() {
     })
 
     const header = [
-      'Data competência','Data vencimento','Data pagamento','Descrição','Situação','Contato','Tags','Informações adicionais','Anexos','Conta/cartão','Categoria','Centro de custo','Valor',
+      'Data competência','Data vencimento','Data pagamento','Descrição','Situação','Contato','Tags','Informações adicionais','Anexos','Conta/cartão','Origem','Categoria','Centro de custo','Valor',
     ]
     const csv = [header, ...rows].map(row => row.map(escapeCsvValue).join(',')).join('\n')
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
@@ -1638,39 +1692,58 @@ function FinanceiroInner() {
     return Array.from(grouped.values()).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
   })()
 
-  const contatosFiltrados = contatos.filter(contato => {
+  const contatosFiltrados = useMemo(() => contatos.filter(contato => {
     if (contatoFiltro === 'todos') return true
     if (contatoFiltro === 'clientes') return contato.tipo === 'cliente' || contato.tipo === 'ambos'
     if (contatoFiltro === 'fornecedores') return contato.tipo === 'fornecedor' || contato.tipo === 'ambos'
     return contato.tipo === 'ambos'
-  })
+  }), [contatos, contatoFiltro])
 
-  const transacoesFiltradas = transacoes
-    .filter(t => tipoFiltro === 'todos' || t.tipo === tipoFiltro)
-    .sort((a, b) => {
-      const aValue = getTransacaoSortValue(a, transacaoSort.field)
-      const bValue = getTransacaoSortValue(b, transacaoSort.field)
+  const transacoesFiltradas = useMemo(() =>
+    transacoes
+      .filter(t => tipoFiltro === 'todos' || t.tipo === tipoFiltro)
+      .sort((a, b) => {
+        const aValue = getTransacaoSortValue(a, transacaoSort.field)
+        const bValue = getTransacaoSortValue(b, transacaoSort.field)
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return transacaoSort.direction === 'asc' ? aValue - bValue : bValue - aValue
+        }
+        const comparison = String(aValue).localeCompare(String(bValue), 'pt-BR', { numeric: true, sensitivity: 'base' })
+        return transacaoSort.direction === 'asc' ? comparison : -comparison
+      }),
+  [transacoes, tipoFiltro, transacaoSort])
 
-      if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return transacaoSort.direction === 'asc' ? aValue - bValue : bValue - aValue
-      }
+  const catsFiltradas = useMemo(() => categorias.filter(c => c.tipo === fTipo), [categorias, fTipo])
 
-      const comparison = String(aValue).localeCompare(String(bValue), 'pt-BR', { numeric: true, sensitivity: 'base' })
-      return transacaoSort.direction === 'asc' ? comparison : -comparison
-    })
-  const catsFiltradas = categorias.filter(c => c.tipo === fTipo)
   const resumoLabel = viewMode === 'competencia' ? 'Competência (DRE)' : 'Caixa (Pagos)'
-  const selectedAccountFilter = accountFilterId ? accounts.find(account => account.id === accountFilterId) || null : null
-  const importSummary = importPreview ? summarizeImportRows(importPreview.rows) : null
-  const importWarnings = importPreview ? buildImportWarnings(importPreview.rows) : []
-  const importAlerts = importPreview ? buildImportAlerts(importPreview.rows) : []
-  const importContactOptions = contatos.map(contato => ({
-    value: contato.nome,
-    label: contato.nome,
-  }))
-  const importRowsToDisplay = importPreview
-    ? (activeImportAlert ? getImportAlertRows(importPreview.rows, activeImportAlert) : importPreview.rows)
-    : []
+
+  const selectedAccountFilter = useMemo(
+    () => accountFilterId ? accounts.find(a => a.id === accountFilterId) || null : null,
+    [accountFilterId, accounts],
+  )
+
+  const importSummary = useMemo(
+    () => importPreview ? summarizeImportRows(importPreview.rows) : null,
+    [importPreview],
+  )
+  const importWarnings = useMemo(
+    () => importPreview ? buildImportWarnings(importPreview.rows) : [],
+    [importPreview],
+  )
+  const importAlerts = useMemo(
+    () => importPreview ? buildImportAlerts(importPreview.rows) : [],
+    [importPreview],
+  )
+  const importContactOptions = useMemo(
+    () => contatos.map(contato => ({ value: contato.nome, label: contato.nome })),
+    [contatos],
+  )
+  const importRowsToDisplay = useMemo(
+    () => importPreview
+      ? (activeImportAlert ? getImportAlertRows(importPreview.rows, activeImportAlert) : importPreview.rows)
+      : [],
+    [importPreview, activeImportAlert],
+  )
   const sortableHeaders: { field: TransacaoSortField; label: string }[] = [
     { field: 'payment_date', label: 'Pagamento' },
     { field: 'descricao', label: 'Descrição' },
@@ -1847,6 +1920,11 @@ function FinanceiroInner() {
                           <td className={styles.tdMuted}>{fmtDate(t.payment_date)}</td>
                           <td>
                             <div className={styles.cellEllipsis} title={t.descricao}>{t.descricao}</div>
+                            {t.source_type === 'api' && (
+                              <div className={styles.sourceTag} title={t.source_message || t.source_tag || 'Lançamento criado via API'}>
+                                {t.source_tag || 'API'}
+                              </div>
+                            )}
                             {t.product && <div className={styles.tdSub}>{t.product.nome}</div>}
                           </td>
                           <td>
