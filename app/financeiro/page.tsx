@@ -1375,25 +1375,24 @@ function FinanceiroInner() {
       return
     }
 
-    if (importMode === 'multi' && !rows.some(row => normalizeContactKey(row.account_name))) {
-      showMsg('err', 'Esse CSV não trouxe a coluna de conta preenchida. Use a importação por conta neste caso.')
-      setImportingAccountId(null)
-      return
-    }
+    // Se modo multi mas CSV não tem coluna de conta, trata como single (sem account_id forçado)
+    const effectiveImportMode = (importMode === 'multi' && !rows.some(row => normalizeContactKey(row.account_name ?? '')))
+      ? 'single'
+      : importMode
 
-    const accountName = importMode === 'multi'
+    const accountName = effectiveImportMode === 'multi'
       ? 'Importação multi-conta'
       : (accounts.find(account => account.id === accountId)?.nome || 'Conta selecionada')
     setImportPreviewLoading(true)
     try {
       const analysis = await callFn('financeiro-transacoes', {
         action: 'analisar_importacao_csv',
-        account_id: importMode === 'single' ? accountId : undefined,
+        account_id: effectiveImportMode === 'single' ? accountId : undefined,
         rows,
       })
       if (analysis?.error) { showMsg('err', analysis.error); return }
       setImportPreview({
-        accountId: importMode === 'single' ? accountId : null,
+        accountId: effectiveImportMode === 'single' ? accountId : null,
         accountName,
         fileName: file.name,
         rows,
